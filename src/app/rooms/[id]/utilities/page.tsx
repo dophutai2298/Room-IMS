@@ -38,14 +38,14 @@ export default async function UtilitiesPage({
           <Button asChild variant="ghost" size="sm" className="-ml-3">
             <Link href={`/rooms/${room.id}`}>← Quay lại chi tiết phòng</Link>
           </Button>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight">
+          <h1 className="mt-3 text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
             Chốt điện nước tháng 8/2026
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
             {room.name} · {room.keyTenant ?? "Chưa có Key Tenant"}
           </p>
         </div>
-        <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm">
+        <div className="clay-surface-sm rounded-2xl border border-white/50 bg-card/70 px-5 py-4 text-sm dark:border-white/10">
           <p className="font-medium">Kỳ ghi chỉ số</p>
           <p className="mt-1 text-muted-foreground">{utilityReadings.period}</p>
         </div>
@@ -86,7 +86,7 @@ export default async function UtilitiesPage({
               <Skeleton className="h-10 w-full" />
             </div>
             <Separator />
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+            <div className="rounded-2xl border border-amber-200/70 bg-amber-50/70 p-4 text-sm text-amber-800 shadow-[inset_0_1px_0_rgb(255_255_255_/_0.5)] dark:border-amber-900 dark:bg-amber-950/70 dark:text-amber-200">
               Nếu chỉ số mới thấp hơn chỉ số cũ, form sẽ hiển thị lỗi inline ở
               ticket 04.
             </div>
@@ -142,9 +142,9 @@ function MetricFormCard({
           </div>
         </div>
 
-        <div className="rounded-lg bg-muted/40 p-4">
+        <div className="rounded-2xl border border-white/40 bg-muted/40 p-4 clay-inset dark:border-white/8">
           <p className="text-sm text-muted-foreground">Lượng tiêu thụ</p>
-          <p className="mt-1 font-mono text-2xl font-semibold">0 {unit}</p>
+          <p className="mt-1 font-mono text-2xl font-semibold tabular-nums">0 {unit}</p>
         </div>
       </CardContent>
     </Card>

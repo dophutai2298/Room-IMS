@@ -36,10 +36,10 @@ export default function InvoicesPage() {
     <>
       <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="text-sm font-medium text-muted-foreground">
+          <p className="text-sm font-semibold text-primary">
             Thu tiền phòng
           </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+          <h1 className="mt-2 text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
             Hóa đơn & Thu tiền
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
@@ -62,7 +62,7 @@ export default function InvoicesPage() {
         </div>
       </header>
 
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader>
           <CardTitle>Danh sách hóa đơn</CardTitle>
           <CardDescription>
@@ -70,7 +70,7 @@ export default function InvoicesPage() {
             thái thật.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-2">
           <Table>
             <TableHeader>
               <TableRow>
@@ -80,6 +80,7 @@ export default function InvoicesPage() {
                 <TableHead>Tiền thuê</TableHead>
                 <TableHead>Dịch vụ</TableHead>
                 <TableHead>Tổng tiền</TableHead>
+                <TableHead>Đã thu</TableHead>
                 <TableHead>Trạng thái</TableHead>
                 <TableHead className="text-right">Thao tác</TableHead>
               </TableRow>
@@ -87,17 +88,20 @@ export default function InvoicesPage() {
             <TableBody>
               {invoices.map((invoice) => (
                 <TableRow key={invoice.id}>
-                  <TableCell className="font-mono text-xs">{invoice.id}</TableCell>
+                  <TableCell className="font-mono text-xs tabular-nums">{invoice.id}</TableCell>
                   <TableCell>{invoice.period}</TableCell>
                   <TableCell className="font-medium">{invoice.room}</TableCell>
-                  <TableCell className="font-mono">
+                  <TableCell className="font-mono tabular-nums">
                     {formatCurrency(invoice.rent)}
                   </TableCell>
-                  <TableCell className="font-mono">
+                  <TableCell className="font-mono tabular-nums">
                     {formatCurrency(invoice.utilities)}
                   </TableCell>
-                  <TableCell className="font-mono font-semibold">
+                  <TableCell className="font-mono font-semibold tabular-nums">
                     {formatCurrency(invoice.total)}
+                  </TableCell>
+                  <TableCell className="font-mono tabular-nums text-emerald-700 dark:text-emerald-300">
+                    {formatCurrency(invoice.amountPaid)}
                   </TableCell>
                   <TableCell>
                     <InvoiceBadge status={invoice.status} />

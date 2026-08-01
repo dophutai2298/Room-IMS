@@ -3,35 +3,32 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { name: "Tổng quan", href: "/" },
-  { name: "Phòng trọ", href: "/rooms" },
-  { name: "Hóa đơn & Thu tiền", href: "/invoices" },
+  { name: "Tổng quan", href: "/", icon: "overview" },
+  { name: "Phòng trọ", href: "/rooms", icon: "rooms" },
+  { name: "Hóa đơn", href: "/invoices", icon: "invoice" },
 ];
 
 export const Sidebar = () => {
   const pathname = usePathname();
 
   return (
-    <aside className="border-b border-border bg-card/80 backdrop-blur lg:sticky lg:top-0 lg:h-dvh lg:border-b-0 lg:border-r">
-      <div className="flex h-full flex-col gap-5 px-4 py-4 lg:px-5 lg:py-6">
-        <Link href="/" className="flex items-center gap-3 rounded-lg">
-          <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
+    <header className="sticky top-0 z-40 px-3 pt-3 sm:px-5 sm:pt-4">
+      <div className="clay-surface mx-auto flex max-w-[1480px] items-center gap-3 rounded-[1.4rem] border border-white/60 bg-card/75 px-3 py-2.5 backdrop-blur-2xl dark:border-white/10 sm:px-4">
+        <Link href="/" className="flex shrink-0 items-center gap-2.5 rounded-xl pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <span className="flex size-9 items-center justify-center rounded-xl border border-white/30 bg-primary text-xs font-bold tracking-tight text-primary-foreground shadow-[inset_0_1px_0_rgb(255_255_255_/_0.28)]">
             RR
           </span>
-          <span className="min-w-0">
-            <span className="block text-sm font-semibold leading-5">
-              Rental Room
-            </span>
-            <span className="block text-xs text-muted-foreground">
-              Quản lý vận hành
-            </span>
+          <span className="hidden min-w-0 sm:block">
+            <span className="block text-sm font-semibold leading-5">Rental Room</span>
+            <span className="block text-[0.68rem] text-muted-foreground">Vận hành nhà trọ</span>
           </span>
         </Link>
 
-        <nav aria-label="Điều hướng chính" className="flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible">
+        <nav aria-label="Điều hướng chính" className="mx-auto flex min-w-0 items-center gap-1 overflow-x-auto rounded-xl bg-muted/45 p-1 clay-inset">
           {navItems.map((item) => {
             const isActive =
               pathname === item.href ||
@@ -43,24 +40,34 @@ export const Sidebar = () => {
                 href={item.href}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
-                  "whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
-                  isActive && "bg-accent text-accent-foreground",
+                  "flex h-9 items-center gap-2 whitespace-nowrap rounded-lg px-2.5 text-xs font-medium text-muted-foreground outline-none transition-[background-color,color,box-shadow,transform] duration-200 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring sm:px-3 sm:text-sm",
+                  isActive && "bg-card text-foreground shadow-sm",
                 )}
               >
+                <NavIcon name={item.icon} />
                 {item.name}
               </Link>
             );
           })}
         </nav>
 
-        <div className="mt-auto hidden rounded-xl border border-border bg-muted/40 p-4 text-sm lg:block">
-          <p className="font-medium">Demo UI</p>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Dữ liệu hiện tại là mock để kiểm tra giao diện trước khi nối
-            InsForge.
-          </p>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <ThemeSwitcher />
+          <div className="hidden size-9 items-center justify-center rounded-xl bg-accent text-xs font-semibold text-accent-foreground shadow-sm sm:flex" aria-label="Tài khoản chủ nhà">
+            CN
+          </div>
         </div>
       </div>
-    </aside>
+    </header>
   );
 };
+
+function NavIcon({ name }: { name: string }) {
+  if (name === "rooms") {
+    return <span aria-hidden="true" className="text-base leading-none">▦</span>;
+  }
+  if (name === "invoice") {
+    return <span aria-hidden="true" className="text-base leading-none">▤</span>;
+  }
+  return <span aria-hidden="true" className="text-base leading-none">⌂</span>;
+}

@@ -41,7 +41,7 @@ export default async function RoomDetail({
             <Link href="/rooms">← Quay lại danh sách phòng</Link>
           </Button>
           <div className="mt-3 flex flex-wrap items-center gap-3">
-            <h1 className="text-3xl font-semibold tracking-tight">
+            <h1 className="text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
               Chi tiết {room.name}
             </h1>
             <RoomBadge status={room.status} />
@@ -73,7 +73,7 @@ export default async function RoomDetail({
               roomTenants.map((tenant) => (
                 <div
                   key={tenant.id}
-                  className="rounded-lg border border-border bg-background p-4"
+                  className="rounded-2xl border border-white/45 bg-background/35 p-4 clay-inset dark:border-white/8"
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>

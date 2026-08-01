@@ -99,6 +99,7 @@ export const invoices = [
     utilities: 603500,
     otherFees: 0,
     total: 3803500,
+    amountPaid: 0,
     status: "unpaid" as InvoiceStatus,
   },
   {
@@ -109,6 +110,7 @@ export const invoices = [
     utilities: 150000,
     otherFees: 0,
     total: 2950000,
+    amountPaid: 2950000,
     status: "paid" as InvoiceStatus,
   },
   {
@@ -119,8 +121,18 @@ export const invoices = [
     utilities: 420000,
     otherFees: 0,
     total: 3920000,
+    amountPaid: 1500000,
     status: "partial" as InvoiceStatus,
   },
+];
+
+export const revenueTrend = [
+  { period: "Thg 3", billed: 13850000, collected: 12600000 },
+  { period: "Thg 4", billed: 14280000, collected: 13950000 },
+  { period: "Thg 5", billed: 15120000, collected: 14420000 },
+  { period: "Thg 6", billed: 14860000, collected: 14100000 },
+  { period: "Thg 7", billed: 15980000, collected: 15150000 },
+  { period: "Thg 8", billed: 16740000, collected: 15187000 },
 ];
 
 export const formatCurrency = (value: number) =>

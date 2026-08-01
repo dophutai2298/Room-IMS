@@ -1,0 +1,73 @@
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.roomGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.roomCard {
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  cursor: pointer;
+}
+
+.roomCard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.roomStatus {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.statusAvailable {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: var(--status-success);
+}
+
+.statusOccupied {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: var(--brand-primary);
+}
+
+.statusMaintenance {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: var(--status-error);
+}
+
+.roomInfo {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.infoRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+}
+
+.infoLabel {
+  color: var(--text-tertiary);
+}
+
+.infoValue {
+  color: var(--text-primary);
+  font-weight: 500;
+}

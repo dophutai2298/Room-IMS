@@ -15,10 +15,10 @@ export default function RoomsPage() {
     <>
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-muted-foreground">
+          <p className="text-sm font-semibold text-primary">
             Quản lý phòng
           </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+          <h1 className="mt-2 text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
             Danh sách phòng trọ
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
@@ -32,7 +32,7 @@ export default function RoomsPage() {
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {rooms.map((room) => (
           <Link key={room.id} href={`/rooms/${room.id}`} className="group">
-            <Card className="h-full transition-colors group-hover:border-primary/50 group-hover:bg-accent/30">
+            <Card className="h-full group-hover:-translate-y-1 group-hover:border-primary/30 group-hover:bg-card">
               <CardContent className="space-y-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
@@ -44,7 +44,7 @@ export default function RoomsPage() {
                   <RoomBadge status={room.status} />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 rounded-lg bg-muted/40 p-3">
+                <div className="grid grid-cols-2 gap-3 rounded-2xl border border-white/40 bg-background/35 p-4 clay-inset dark:border-white/8">
                   <InfoBlock label="Giá thuê" value={formatCurrency(room.rent)} />
                   <InfoBlock label="Số người ở" value={`${room.tenants} người`} />
                 </div>
@@ -66,7 +66,7 @@ function InfoBlock({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 font-mono text-sm font-semibold">{value}</p>
+      <p className="mt-1 font-mono text-sm font-semibold tabular-nums">{value}</p>
     </div>
   );
 }
