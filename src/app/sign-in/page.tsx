@@ -18,7 +18,7 @@ export default async function SignInPage() {
           <p className="text-sm font-semibold text-primary">InsForge Auth</p>
           <CardTitle className="text-3xl">Đăng nhập vận hành</CardTitle>
           <CardDescription>
-            Dùng tài khoản InsForge đã được map vào vai trò Landlord hoặc Staff.
+            Đăng nhập bằng tài khoản Admin hoặc Staff đã được cấp.
           </CardDescription>
         </CardHeader>
         <CardContent>
