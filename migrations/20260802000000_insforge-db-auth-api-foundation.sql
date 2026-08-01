@@ -84,18 +84,12 @@ CREATE TABLE IF NOT EXISTS public.invoices (
     total_amount NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (total_amount >= 0),
     amount_paid NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (amount_paid >= 0),
     status TEXT NOT NULL DEFAULT 'Unpaid'
-        CHECK (status IN ('Unpaid', 'Partially Paid', 'Paid')),
+        CHECK (status IN ('Unpaid', 'Partial', 'Paid')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(room_id, month, year),
     CONSTRAINT invoices_amount_paid_not_more_than_total
-        CHECK (amount_paid <= total_amount),
-    CONSTRAINT invoices_status_matches_amount_paid
-        CHECK (
-            (status = 'Unpaid' AND amount_paid = 0)
-            OR (status = 'Paid' AND amount_paid = total_amount)
-            OR (status = 'Partially Paid' AND amount_paid > 0 AND amount_paid < total_amount)
-        )
+        CHECK (amount_paid <= total_amount)
 );
 
 CREATE TABLE IF NOT EXISTS public.app_users (
@@ -130,40 +124,6 @@ BEGIN
         ALTER TABLE public.invoices
             ADD CONSTRAINT invoices_amount_paid_not_more_than_total
             CHECK (amount_paid <= total_amount);
-    END IF;
-
-    UPDATE public.invoices
-    SET status = CASE
-        WHEN amount_paid = 0 THEN 'Unpaid'
-        WHEN amount_paid = total_amount THEN 'Paid'
-        ELSE 'Partially Paid'
-    END;
-
-    IF EXISTS (
-        SELECT 1
-        FROM pg_constraint
-        WHERE conname = 'invoices_status_check'
-    ) THEN
-        ALTER TABLE public.invoices
-            DROP CONSTRAINT invoices_status_check;
-    END IF;
-
-    ALTER TABLE public.invoices
-        ADD CONSTRAINT invoices_status_check
-        CHECK (status IN ('Unpaid', 'Partially Paid', 'Paid'));
-
-    IF NOT EXISTS (
-        SELECT 1
-        FROM pg_constraint
-        WHERE conname = 'invoices_status_matches_amount_paid'
-    ) THEN
-        ALTER TABLE public.invoices
-            ADD CONSTRAINT invoices_status_matches_amount_paid
-            CHECK (
-                (status = 'Unpaid' AND amount_paid = 0)
-                OR (status = 'Paid' AND amount_paid = total_amount)
-                OR (status = 'Partially Paid' AND amount_paid > 0 AND amount_paid < total_amount)
-            );
     END IF;
 END $$;
 
@@ -372,7 +332,7 @@ VALUES (
     56000,
     3803500,
     1500000,
-    'Partially Paid'
+    'Partial'
 )
 ON CONFLICT (room_id, month, year) DO UPDATE
 SET electricity_fee = EXCLUDED.electricity_fee,
