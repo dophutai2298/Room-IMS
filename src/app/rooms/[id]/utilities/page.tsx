@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { UtilityMetricsForm } from "./utility-metrics-form";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,141 +14,209 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
+import { readUtilityMetricsScreen } from "@/lib/insforge/rental-repository";
 import {
-  formatCurrency,
-  rooms,
-  utilityReadings,
-} from "@/lib/demo-data";
+  normalizeBillingPeriod,
+  type BillingPeriod,
+  type UtilityMetricsView,
+} from "@/lib/utilities/presenter";
 
 export default async function UtilitiesPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const { id } = await params;
-  const room = rooms.find((item) => item.id === id);
+  const query = await searchParams;
+  const billingPeriod = normalizeBillingPeriod({
+    month: query.month,
+    year: query.year,
+  });
+  const result = await readUtilityMetricsScreen({
+    roomId: id,
+    billingPeriod,
+  });
 
-  if (!room) {
+  if (result.error?.statusCode === 404) {
     notFound();
   }
+
+  if (result.error) {
+    return (
+      <ErrorCard
+        title="Không tải được chỉ số điện nước"
+        message={result.error.message}
+      />
+    );
+  }
+
+  const view = result.data;
 
   return (
     <>
       <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <Button asChild variant="ghost" size="sm" className="-ml-3">
-            <Link href={`/rooms/${room.id}`}>← Quay lại chi tiết phòng</Link>
+            <Link href={`/rooms/${view.room.id}`}>← Quay lại chi tiết phòng</Link>
           </Button>
           <h1 className="mt-3 text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
-            Chốt điện nước tháng 8/2026
+            Chốt điện nước kỳ {view.periodLabel}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {room.name} · {room.keyTenant ?? "Chưa có Key Tenant"}
+            {view.room.name} · {view.keyTenantName ?? "Chưa có Key Tenant"}
           </p>
         </div>
-        <div className="clay-surface-sm rounded-2xl border border-white/50 bg-card/70 px-5 py-4 text-sm dark:border-white/10">
-          <p className="font-medium">Kỳ ghi chỉ số</p>
-          <p className="mt-1 text-muted-foreground">{utilityReadings.period}</p>
-        </div>
+        <PeriodSelector roomId={view.room.id} billingPeriod={billingPeriod} />
       </header>
 
       <section className="grid gap-4 xl:grid-cols-[1fr_22rem]">
-        <div className="grid gap-4 lg:grid-cols-2">
-          <MetricFormCard
-            title="Chỉ số điện"
-            unit={utilityReadings.electricity.unit}
-            previous={utilityReadings.electricity.previous}
-            price={utilityReadings.electricity.price}
-            inputId="electricity-current"
-            placeholder="Nhập chỉ số điện mới"
-          />
-          <MetricFormCard
-            title="Chỉ số nước"
-            unit={utilityReadings.water.unit}
-            previous={utilityReadings.water.previous}
-            price={utilityReadings.water.price}
-            inputId="water-current"
-            placeholder="Nhập chỉ số nước mới"
-          />
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Trạng thái UI</CardTitle>
-            <CardDescription>
-              Các pattern dùng lại cho ticket real-data sau.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Loading skeleton</p>
-              <Skeleton className="h-4 w-4/5" />
-              <Skeleton className="h-4 w-2/3" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-            <Separator />
-            <div className="rounded-2xl border border-amber-200/70 bg-amber-50/70 p-4 text-sm text-amber-800 shadow-[inset_0_1px_0_rgb(255_255_255_/_0.5)] dark:border-amber-900 dark:bg-amber-950/70 dark:text-amber-200">
-              Nếu chỉ số mới thấp hơn chỉ số cũ, form sẽ hiển thị lỗi inline ở
-              ticket 04.
-            </div>
-          </CardContent>
-        </Card>
+        <UtilityMetricsForm
+          key={`${view.room.id}-${view.periodLabel}-${view.persistedMetricId ?? "new"}`}
+          view={view}
+        />
+        <SummaryCard view={view} />
       </section>
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <Button asChild variant="secondary">
-          <Link href={`/rooms/${room.id}`}>Hủy bỏ</Link>
+          <Link href={`/rooms/${view.room.id}`}>Hủy bỏ</Link>
         </Button>
-        <Button>Lưu và tính hóa đơn</Button>
       </div>
     </>
   );
 }
 
-function MetricFormCard({
-  title,
-  unit,
-  previous,
-  price,
-  inputId,
-  placeholder,
+function PeriodSelector({
+  roomId,
+  billingPeriod,
 }: {
-  title: string;
-  unit: string;
-  previous: number;
-  price: number;
-  inputId: string;
-  placeholder: string;
+  roomId: string;
+  billingPeriod: BillingPeriod;
 }) {
+  return (
+    <Card className="w-full lg:w-[24rem]">
+      <CardHeader>
+        <CardTitle>Kỳ ghi chỉ số</CardTitle>
+        <CardDescription>Chọn tháng/năm để xem hoặc cập nhật record.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form
+          action={`/rooms/${roomId}/utilities`}
+          className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]"
+        >
+          <div className="grid gap-2">
+            <Label htmlFor="period-month">Tháng</Label>
+            <Input
+              id="period-month"
+              name="month"
+              type="number"
+              min={1}
+              max={12}
+              defaultValue={billingPeriod.month}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="period-year">Năm</Label>
+            <Input
+              id="period-year"
+              name="year"
+              type="number"
+              min={2000}
+              max={2100}
+              defaultValue={billingPeriod.year}
+            />
+          </div>
+          <div className="flex items-end">
+            <Button type="submit" variant="secondary" className="w-full">
+              Xem
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SummaryCard({ view }: { view: UtilityMetricsView }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>
-          Đơn giá mẫu: {formatCurrency(price)} / {unit}
-        </CardDescription>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <CardTitle>Tóm tắt kỳ {view.periodLabel}</CardTitle>
+            <CardDescription>
+              Dữ liệu đọc trực tiếp từ bảng utility_metrics trên InsForge.
+            </CardDescription>
+          </div>
+          <Badge variant={view.persistedMetricId ? "success" : "warning"}>
+            {view.persistedMetricId ? "Đã lưu" : "Chưa lưu"}
+          </Badge>
+        </div>
       </CardHeader>
       <CardContent className="space-y-5">
-        <div className="grid gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor={`${inputId}-previous`}>Chỉ số cũ</Label>
-            <Input id={`${inputId}-previous`} value={previous} disabled />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor={inputId}>Chỉ số mới</Label>
-            <Input id={inputId} placeholder={placeholder} type="number" />
-            <p className="text-xs text-muted-foreground">
-              Giá trị mới phải lớn hơn hoặc bằng chỉ số cũ.
-            </p>
-          </div>
+        <div className="space-y-2">
+          <DetailRow
+            label="Nguồn chỉ số cũ"
+            value={
+              view.persistedMetricId
+                ? `Record kỳ ${view.periodLabel}`
+                : view.previousPeriodLabel
+                  ? `Kỳ trước gần nhất ${view.previousPeriodLabel}`
+                  : "Chưa có kỳ trước, bắt đầu từ 0"
+            }
+          />
+          <DetailRow
+            label="Điện tiêu thụ"
+            value={formatConsumption(view.electricity.consumption, view.electricity.unit)}
+          />
+          <DetailRow
+            label="Nước tiêu thụ"
+            value={formatConsumption(view.water.consumption, view.water.unit)}
+          />
+          <DetailRow
+            label="Active Contract"
+            value={view.activeContractId ? "Có" : "Chưa có"}
+          />
         </div>
-
-        <div className="rounded-2xl border border-white/40 bg-muted/40 p-4 clay-inset dark:border-white/8">
-          <p className="text-sm text-muted-foreground">Lượng tiêu thụ</p>
-          <p className="mt-1 font-mono text-2xl font-semibold tabular-nums">0 {unit}</p>
+        <Separator />
+        <div className="rounded-2xl border border-amber-200/70 bg-amber-50/70 p-4 text-sm text-amber-800 shadow-[inset_0_1px_0_rgb(255_255_255_/_0.5)] dark:border-amber-900 dark:bg-amber-950/70 dark:text-amber-200">
+          Lưu cùng Room và cùng kỳ sẽ cập nhật record hiện có, không tạo
+          duplicate.
         </div>
       </CardContent>
     </Card>
   );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-4 border-b border-border pb-3 last:border-0 last:pb-0">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="text-right text-sm font-medium">{value}</span>
+    </div>
+  );
+}
+
+function ErrorCard({ title, message }: { title: string; message: string }) {
+  return (
+    <Card className="border-destructive/20">
+      <CardContent className="space-y-2">
+        <Badge variant="destructive">Lỗi InsForge</Badge>
+        <h2 className="text-lg font-semibold">{title}</h2>
+        <p className="text-sm text-muted-foreground">{message}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function formatConsumption(value: number | null, unit: string) {
+  if (value === null) {
+    return "Chưa nhập";
+  }
+
+  return `${new Intl.NumberFormat("vi-VN", {
+    maximumFractionDigits: 2,
+  }).format(value)} ${unit}`;
 }
