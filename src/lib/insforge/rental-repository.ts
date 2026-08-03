@@ -2,7 +2,19 @@ import "server-only";
 
 import { appError, fail, ok, type AppResult, toAppBackendError } from "./errors";
 import { createInsForgeServerClient } from "./server";
-import type { AppUser, MvpSeededData, RoomRecord } from "./types";
+import {
+  buildRoomDetailView,
+  buildRoomListItem,
+  type RoomDetailView,
+  type RoomListItem,
+} from "@/lib/rooms/presenter";
+import type {
+  AppUser,
+  ContractRecord,
+  MvpSeededData,
+  RoomRecord,
+  TenantRecord,
+} from "./types";
 
 type QueryResponse<T> = {
   data: T | null;
@@ -121,6 +133,170 @@ export async function readMvpSeededData(): Promise<AppResult<MvpSeededData>> {
       utilityPricing: utilityPricing.data ?? [],
       invoices: invoices.data ?? [],
     });
+  } catch (error) {
+    return { data: null, error: toAppBackendError(error) };
+  }
+}
+
+export async function readRoomsOverview(): Promise<AppResult<RoomListItem[]>> {
+  try {
+    await requireAppUserRole();
+    const client = await createInsForgeServerClient();
+
+    const [rooms, tenants, activeContracts] = await Promise.all([
+      client.database.from("rooms").select("*").order("name"),
+      client.database.from("tenants").select("*").order("full_name"),
+      client.database
+        .from("contracts")
+        .select("*")
+        .eq("status", "Active")
+        .order("start_date"),
+    ]);
+
+    for (const response of [rooms, tenants, activeContracts]) {
+      if (response.error) {
+        return fail(response.error);
+      }
+    }
+
+    const tenantRows = (tenants.data ?? []) as TenantRecord[];
+    const activeContractRows = (activeContracts.data ?? []) as ContractRecord[];
+
+    return ok(
+      ((rooms.data ?? []) as RoomRecord[]).map((room) =>
+        buildRoomListItem({
+          room,
+          tenants: tenantRows.filter((tenant) => tenant.room_id === room.id),
+          activeContract:
+            activeContractRows.find((contract) => contract.room_id === room.id) ?? null,
+        }),
+      ),
+    );
+  } catch (error) {
+    return { data: null, error: toAppBackendError(error) };
+  }
+}
+
+export async function readRoomDetail(
+  roomId: string,
+): Promise<AppResult<RoomDetailView>> {
+  try {
+    await requireAppUserRole();
+    const client = await createInsForgeServerClient();
+
+    const [rooms, tenants, activeContracts] = await Promise.all([
+      client.database.from("rooms").select("*").eq("id", roomId).limit(1),
+      client.database
+        .from("tenants")
+        .select("*")
+        .eq("room_id", roomId)
+        .order("full_name"),
+      client.database
+        .from("contracts")
+        .select("*")
+        .eq("room_id", roomId)
+        .eq("status", "Active")
+        .order("start_date"),
+    ]);
+
+    for (const response of [rooms, tenants, activeContracts]) {
+      if (response.error) {
+        return fail(response.error);
+      }
+    }
+
+    const room = ((rooms.data ?? []) as RoomRecord[])[0];
+
+    if (!room) {
+      return appError({
+        message: "Room was not found.",
+        code: "ROOM_NOT_FOUND",
+        statusCode: 404,
+      });
+    }
+
+    return ok(
+      buildRoomDetailView({
+        room,
+        tenants: (tenants.data ?? []) as TenantRecord[],
+        activeContract: ((activeContracts.data ?? []) as ContractRecord[])[0] ?? null,
+      }),
+    );
+  } catch (error) {
+    return { data: null, error: toAppBackendError(error) };
+  }
+}
+
+export async function updateActiveContractKeyTenant({
+  roomId,
+  tenantId,
+}: {
+  roomId: string;
+  tenantId: string;
+}): Promise<AppResult<ContractRecord>> {
+  try {
+    await requireAppUserRole();
+    const client = await createInsForgeServerClient();
+
+    const tenantResponse = (await client.database
+      .from("tenants")
+      .select("id, room_id, full_name, phone, is_key_tenant, status")
+      .eq("id", tenantId)
+      .limit(1)) as QueryResponse<TenantRecord[]>;
+
+    if (tenantResponse.error) {
+      return fail(tenantResponse.error, "Could not verify selected tenant");
+    }
+
+    const tenant = tenantResponse.data?.[0];
+
+    if (!tenant || tenant.room_id !== roomId) {
+      return appError({
+        message: "Key Tenant must belong to the same Room as the active Contract.",
+        code: "KEY_TENANT_ROOM_MISMATCH",
+        statusCode: 422,
+      });
+    }
+
+    const contractResponse = (await client.database
+      .from("contracts")
+      .select("*")
+      .eq("room_id", roomId)
+      .eq("status", "Active")
+      .limit(1)) as QueryResponse<ContractRecord[]>;
+
+    if (contractResponse.error) {
+      return fail(contractResponse.error, "Could not load active contract");
+    }
+
+    const activeContract = contractResponse.data?.[0];
+
+    if (!activeContract) {
+      return appError({
+        message: "This Room has no active Contract to update.",
+        code: "ACTIVE_CONTRACT_NOT_FOUND",
+        statusCode: 409,
+      });
+    }
+
+    const updateResponse = (await client.database
+      .from("contracts")
+      .update({ key_tenant_id: tenant.id })
+      .eq("id", activeContract.id)
+      .select()
+      .limit(1)) as QueryResponse<ContractRecord[]>;
+
+    if (updateResponse.error) {
+      return fail(updateResponse.error, "Could not update Key Tenant");
+    }
+
+    const updatedContract = updateResponse.data?.[0];
+
+    if (!updatedContract) {
+      return fail(new Error("Contract update returned no rows"), "Could not update Key Tenant");
+    }
+
+    return ok(updatedContract);
   } catch (error) {
     return { data: null, error: toAppBackendError(error) };
   }

@@ -31,8 +31,8 @@ Migration files:
 
 ## Auth and app roles
 
-Create real InsForge auth users first through InsForge auth. Then map each auth
-user to a Landlord or Staff role in `public.app_users`:
+Create real InsForge auth users through the trusted InsForge admin setup path.
+Then map each user to a Landlord or Staff role in `public.app_users`:
 
 ```sql
 INSERT INTO public.app_users (auth_user_id, email, display_name, role)
@@ -50,6 +50,8 @@ SET email = EXCLUDED.email,
 
 After signing in through `/sign-in`, verify:
 
+- `GET /api/foundation/current-user` returns the signed-in user's Landlord or
+  Staff role.
 - `GET /api/foundation/seeded-data` returns Rooms, Tenants, Contracts,
   Utility Metrics, Utility Pricing, and Invoices through the adapter.
 - `POST /api/foundation/rooms/touch` with `{ "roomId": "<uuid>" }` updates a
