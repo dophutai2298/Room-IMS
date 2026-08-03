@@ -2,33 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 
+import type { UtilityMetricsActionState } from "./action-state";
 import { saveUtilityMetrics } from "@/lib/insforge/rental-repository";
 import { formatBillingPeriod } from "@/lib/utilities/presenter";
-
-export type UtilityMetricsActionState = {
-  status: "idle" | "success" | "error";
-  message: string | null;
-  fieldErrors: {
-    electricityNew?: string;
-    waterNew?: string;
-    month?: string;
-    year?: string;
-  };
-  fields: {
-    electricityNew: string;
-    waterNew: string;
-  };
-};
-
-export const initialUtilityMetricsActionState: UtilityMetricsActionState = {
-  status: "idle",
-  message: null,
-  fieldErrors: {},
-  fields: {
-    electricityNew: "",
-    waterNew: "",
-  },
-};
 
 export async function saveMonthlyUtilityMetrics(
   _previousState: UtilityMetricsActionState,

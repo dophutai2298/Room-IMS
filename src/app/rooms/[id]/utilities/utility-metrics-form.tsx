@@ -4,10 +4,8 @@ import { useMemo, useState } from "react";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
-import {
-  initialUtilityMetricsActionState,
-  saveMonthlyUtilityMetrics,
-} from "./actions";
+import { initialUtilityMetricsActionState } from "./action-state";
+import { saveMonthlyUtilityMetrics } from "./actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,16 +25,16 @@ export function UtilityMetricsForm({ view }: { view: UtilityMetricsView }) {
     initialUtilityMetricsActionState,
   );
   const [electricityNew, setElectricityNew] = useState(
-    state.fields.electricityNew || valueToInput(view.electricity.newReading),
+    state?.fields?.electricityNew || valueToInput(view?.electricity?.newReading),
   );
   const [waterNew, setWaterNew] = useState(
-    state.fields.waterNew || valueToInput(view.water.newReading),
+    state?.fields?.waterNew || valueToInput(view?.water?.newReading),
   );
   const electricityValidation = useReadingValidation(
     electricityNew,
-    view.electricity.oldReading,
+    view?.electricity?.oldReading,
   );
-  const waterValidation = useReadingValidation(waterNew, view.water.oldReading);
+  const waterValidation = useReadingValidation(waterNew, view?.water?.oldReading);
   const hasClientErrors =
     Boolean(electricityValidation.error) || Boolean(waterValidation.error);
   const electricityConsumption = getConsumption(
@@ -63,7 +61,7 @@ export function UtilityMetricsForm({ view }: { view: UtilityMetricsView }) {
           onChange={setElectricityNew}
           consumption={electricityConsumption}
           clientError={electricityValidation.error}
-          serverError={state.fieldErrors.electricityNew}
+          serverError={state?.fieldErrors?.electricityNew}
         />
         <MetricFormCard
           title="Chỉ số nước"
@@ -76,7 +74,7 @@ export function UtilityMetricsForm({ view }: { view: UtilityMetricsView }) {
           onChange={setWaterNew}
           consumption={waterConsumption}
           clientError={waterValidation.error}
-          serverError={state.fieldErrors.waterNew}
+          serverError={state?.fieldErrors?.waterNew}
         />
       </div>
 
