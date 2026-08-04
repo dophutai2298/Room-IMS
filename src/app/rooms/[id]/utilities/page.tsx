@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { InvoiceGenerationForm } from "./invoice-generation-form";
 import { UtilityMetricsForm } from "./utility-metrics-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -76,7 +77,10 @@ export default async function UtilitiesPage({
           key={`${view.room.id}-${view.periodLabel}-${view.persistedMetricId ?? "new"}`}
           view={view}
         />
-        <SummaryCard view={view} />
+        <aside className="space-y-4">
+          <SummaryCard view={view} />
+          <InvoiceGenerationForm view={view} />
+        </aside>
       </section>
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

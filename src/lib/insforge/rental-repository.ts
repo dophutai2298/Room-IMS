@@ -3,6 +3,10 @@ import "server-only";
 import { appError, fail, ok, type AppResult, toAppBackendError } from "./errors";
 import { createInsForgeServerClient } from "./server";
 import {
+  buildInvoiceList,
+  type InvoiceListItem,
+} from "@/lib/invoices/presenter";
+import {
   buildRoomDetailView,
   buildRoomListItem,
   type RoomDetailView,
@@ -17,10 +21,13 @@ import {
 import type {
   AppUser,
   ContractRecord,
+  InvoiceDbStatus,
+  InvoiceRecord,
   MvpSeededData,
   RoomRecord,
   TenantRecord,
   UtilityMetricRecord,
+  UtilityPricingRecord,
 } from "./types";
 
 type QueryResponse<T> = {
@@ -184,6 +191,33 @@ export async function readRoomsOverview(): Promise<AppResult<RoomListItem[]>> {
   }
 }
 
+export async function readInvoicesOverview(): Promise<AppResult<InvoiceListItem[]>> {
+  try {
+    await requireAppUserRole();
+    const client = await createInsForgeServerClient();
+
+    const [rooms, invoices] = await Promise.all([
+      client.database.from("rooms").select("*").order("name"),
+      client.database.from("invoices").select("*").order("year").order("month"),
+    ]);
+
+    for (const response of [rooms, invoices]) {
+      if (response.error) {
+        return fail(response.error);
+      }
+    }
+
+    return ok(
+      buildInvoiceList({
+        rooms: (rooms.data ?? []) as RoomRecord[],
+        invoices: (invoices.data ?? []) as InvoiceRecord[],
+      }),
+    );
+  } catch (error) {
+    return { data: null, error: toAppBackendError(error) };
+  }
+}
+
 export async function readRoomDetail(
   roomId: string,
 ): Promise<AppResult<RoomDetailView>> {
@@ -320,7 +354,7 @@ export async function readUtilityMetricsScreen({
     await requireAppUserRole();
     const client = await createInsForgeServerClient();
 
-    const [rooms, tenants, activeContracts, metrics] = await Promise.all([
+    const [rooms, tenants, activeContracts, metrics, invoices] = await Promise.all([
       client.database.from("rooms").select("*").eq("id", roomId).limit(1),
       client.database
         .from("tenants")
@@ -339,9 +373,15 @@ export async function readUtilityMetricsScreen({
         .eq("room_id", roomId)
         .order("year")
         .order("month"),
+      client.database
+        .from("invoices")
+        .select("*")
+        .eq("room_id", roomId)
+        .order("year")
+        .order("month"),
     ]);
 
-    for (const response of [rooms, tenants, activeContracts, metrics]) {
+    for (const response of [rooms, tenants, activeContracts, metrics, invoices]) {
       if (response.error) {
         return fail(response.error);
       }
@@ -363,9 +403,175 @@ export async function readUtilityMetricsScreen({
         tenants: (tenants.data ?? []) as TenantRecord[],
         activeContract: ((activeContracts.data ?? []) as ContractRecord[])[0] ?? null,
         metrics: (metrics.data ?? []) as UtilityMetricRecord[],
+        invoices: (invoices.data ?? []) as InvoiceRecord[],
         billingPeriod,
       }),
     );
+  } catch (error) {
+    return { data: null, error: toAppBackendError(error) };
+  }
+}
+
+export async function generateInvoiceFromUtilityMetrics({
+  roomId,
+  billingPeriod,
+  otherFee,
+}: {
+  roomId: string;
+  billingPeriod: BillingPeriod;
+  otherFee: number;
+}): Promise<AppResult<InvoiceRecord>> {
+  try {
+    await requireAppUserRole();
+    const client = await createInsForgeServerClient();
+
+    const [rooms, activeContracts, metrics, utilityPricing, existingInvoices] =
+      await Promise.all([
+        client.database.from("rooms").select("*").eq("id", roomId).limit(1),
+        client.database
+          .from("contracts")
+          .select("*")
+          .eq("room_id", roomId)
+          .eq("status", "Active")
+          .order("start_date"),
+        client.database
+          .from("utility_metrics")
+          .select("*")
+          .eq("room_id", roomId)
+          .eq("month", billingPeriod.month)
+          .eq("year", billingPeriod.year)
+          .limit(1),
+        client.database
+          .from("utility_pricing")
+          .select("*")
+          .eq("is_active", true)
+          .order("effective_from"),
+        client.database
+          .from("invoices")
+          .select("*")
+          .eq("room_id", roomId)
+          .eq("month", billingPeriod.month)
+          .eq("year", billingPeriod.year)
+          .limit(1),
+      ]);
+
+    for (const response of [
+      rooms,
+      activeContracts,
+      metrics,
+      utilityPricing,
+      existingInvoices,
+    ]) {
+      if (response.error) {
+        return fail(response.error);
+      }
+    }
+
+    const room = ((rooms.data ?? []) as RoomRecord[])[0];
+
+    if (!room) {
+      return appError({
+        message: "Room was not found.",
+        code: "ROOM_NOT_FOUND",
+        statusCode: 404,
+      });
+    }
+
+    const activeContract = resolveApplicableContract({
+      contracts: (activeContracts.data ?? []) as ContractRecord[],
+      billingPeriod,
+    });
+
+    if (!activeContract) {
+      return appError({
+        message: "This Room has no active Contract for this billing period.",
+        code: "ACTIVE_CONTRACT_NOT_FOUND",
+        statusCode: 409,
+      });
+    }
+
+    const metric = ((metrics.data ?? []) as UtilityMetricRecord[])[0];
+
+    if (!metric) {
+      return appError({
+        message: "Save Utility Metrics before generating an Invoice.",
+        code: "UTILITY_METRICS_NOT_FOUND",
+        statusCode: 409,
+      });
+    }
+
+    const pricing = resolveApplicableUtilityPricing({
+      utilityPricing: (utilityPricing.data ?? []) as UtilityPricingRecord[],
+      billingPeriod,
+    });
+
+    const electricityUnitPrice =
+      toNullableMoney(activeContract.electricity_price_override) ??
+      pricing?.electricity_unit_price;
+    const waterUnitPrice =
+      toNullableMoney(activeContract.water_price_override) ??
+      pricing?.water_unit_price;
+
+    if (electricityUnitPrice === undefined || waterUnitPrice === undefined) {
+      return appError({
+        message: "No Utility Pricing applies to this billing period.",
+        code: "UTILITY_PRICING_NOT_FOUND",
+        statusCode: 409,
+      });
+    }
+
+    const existingInvoice = ((existingInvoices.data ?? []) as InvoiceRecord[])[0] ?? null;
+    const invoiceValues = buildInvoiceValues({
+      room,
+      activeContract,
+      metric,
+      billingPeriod,
+      electricityUnitPrice: toMoney(electricityUnitPrice),
+      waterUnitPrice: toMoney(waterUnitPrice),
+      otherFee,
+      existingInvoice,
+    });
+
+    const response = existingInvoice
+      ? ((await client.database
+          .from("invoices")
+          .update(invoiceValues)
+          .eq("id", existingInvoice.id)
+          .select()
+          .limit(1)) as QueryResponse<InvoiceRecord[]>)
+      : ((await client.database
+          .from("invoices")
+          .insert(invoiceValues)
+          .select()
+          .limit(1)) as QueryResponse<InvoiceRecord[]>);
+
+    if (response.error) {
+      if (!existingInvoice) {
+        const retryResult = await updateInvoiceAfterInsertRace({
+          roomId,
+          billingPeriod,
+          values: invoiceValues,
+        });
+
+        if (retryResult.data) {
+          return retryResult;
+        }
+
+        if (retryResult.error.code !== "INVOICE_INSERT_FAILED") {
+          return retryResult;
+        }
+      }
+
+      return fail(response.error, "Could not generate Invoice");
+    }
+
+    const invoice = response.data?.[0];
+
+    if (!invoice) {
+      return fail(new Error("Invoice generation returned no rows"), "Could not generate Invoice");
+    }
+
+    return ok(invoice);
   } catch (error) {
     return { data: null, error: toAppBackendError(error) };
   }
@@ -555,6 +761,224 @@ async function updateUtilityMetricAfterInsertRace({
 
   return ok(updatedMetric);
 }
+
+async function updateInvoiceAfterInsertRace({
+  roomId,
+  billingPeriod,
+  values,
+}: {
+  roomId: string;
+  billingPeriod: BillingPeriod;
+  values: InvoiceWriteValues;
+}): Promise<AppResult<InvoiceRecord>> {
+  const client = await createInsForgeServerClient();
+  const existingResponse = (await client.database
+    .from("invoices")
+    .select("*")
+    .eq("room_id", roomId)
+    .eq("month", billingPeriod.month)
+    .eq("year", billingPeriod.year)
+    .limit(1)) as QueryResponse<InvoiceRecord[]>;
+
+  if (existingResponse.error) {
+    return fail(existingResponse.error, "Could not verify Invoice conflict");
+  }
+
+  const existingInvoice = existingResponse.data?.[0];
+
+  if (!existingInvoice) {
+    return appError({
+      message: "Invoice insert failed and no existing period record was found.",
+      code: "INVOICE_INSERT_FAILED",
+      statusCode: 409,
+    });
+  }
+
+  const updateValues = adjustInvoicePaymentState(values, existingInvoice);
+  const updateResponse = (await client.database
+    .from("invoices")
+    .update(updateValues)
+    .eq("id", existingInvoice.id)
+    .select()
+    .limit(1)) as QueryResponse<InvoiceRecord[]>;
+
+  if (updateResponse.error) {
+    return fail(updateResponse.error, "Could not update Invoice after conflict");
+  }
+
+  const updatedInvoice = updateResponse.data?.[0];
+
+  if (!updatedInvoice) {
+    return fail(
+      new Error("Invoice conflict update returned no rows"),
+      "Could not update Invoice after conflict",
+    );
+  }
+
+  return ok(updatedInvoice);
+}
+
+function buildInvoiceValues({
+  room,
+  activeContract,
+  metric,
+  billingPeriod,
+  electricityUnitPrice,
+  waterUnitPrice,
+  otherFee,
+  existingInvoice,
+}: {
+  room: RoomRecord;
+  activeContract: ContractRecord;
+  metric: UtilityMetricRecord;
+  billingPeriod: BillingPeriod;
+  electricityUnitPrice: number;
+  waterUnitPrice: number;
+  otherFee: number;
+  existingInvoice: InvoiceRecord | null;
+}): InvoiceWriteValues {
+  const electricityConsumption =
+    toMoney(metric.electricity_new) - toMoney(metric.electricity_old);
+  const waterConsumption = toMoney(metric.water_new) - toMoney(metric.water_old);
+  const roomFee = toMoney(activeContract.rent_amount ?? room.base_price);
+  const electricityFee = roundMoney(electricityConsumption * electricityUnitPrice);
+  const waterFee = roundMoney(waterConsumption * waterUnitPrice);
+  const safeOtherFee = roundMoney(Math.max(otherFee, 0));
+  const totalAmount = roundMoney(roomFee + electricityFee + waterFee + safeOtherFee);
+
+  return adjustInvoicePaymentState(
+    {
+      room_id: room.id,
+      month: billingPeriod.month,
+      year: billingPeriod.year,
+      room_fee: roomFee,
+      electricity_fee: electricityFee,
+      water_fee: waterFee,
+      other_fee: safeOtherFee,
+      total_amount: totalAmount,
+      amount_paid: 0,
+      status: "Unpaid",
+      updated_at: new Date().toISOString(),
+    },
+    existingInvoice,
+  );
+}
+
+function adjustInvoicePaymentState(
+  values: InvoiceWriteValues,
+  existingInvoice: InvoiceRecord | null,
+): InvoiceWriteValues {
+  if (!existingInvoice) {
+    return values;
+  }
+
+  const amountPaid = Math.min(toMoney(existingInvoice.amount_paid), values.total_amount);
+
+  return {
+    ...values,
+    amount_paid: amountPaid,
+    status: deriveInvoiceStatus({
+      amountPaid,
+      totalAmount: values.total_amount,
+    }),
+  };
+}
+
+function deriveInvoiceStatus({
+  amountPaid,
+  totalAmount,
+}: {
+  amountPaid: number;
+  totalAmount: number;
+}): InvoiceDbStatus {
+  if (amountPaid <= 0) {
+    return "Unpaid";
+  }
+
+  if (amountPaid >= totalAmount) {
+    return "Paid";
+  }
+
+  return "Partially Paid";
+}
+
+function resolveApplicableUtilityPricing({
+  utilityPricing,
+  billingPeriod,
+}: {
+  utilityPricing: UtilityPricingRecord[];
+  billingPeriod: BillingPeriod;
+}) {
+  const periodStart = new Date(Date.UTC(billingPeriod.year, billingPeriod.month - 1, 1));
+  const sortedPricing = [...utilityPricing].sort(
+    (left, right) =>
+      new Date(left.effective_from).getTime() -
+      new Date(right.effective_from).getTime(),
+  );
+  const latestHistoricalPricing = sortedPricing
+    .filter((pricing) => new Date(pricing.effective_from) <= periodStart)
+    .sort(
+      (left, right) =>
+        new Date(right.effective_from).getTime() -
+        new Date(left.effective_from).getTime(),
+    )[0];
+
+  return latestHistoricalPricing ?? sortedPricing[0];
+}
+
+function resolveApplicableContract({
+  contracts,
+  billingPeriod,
+}: {
+  contracts: ContractRecord[];
+  billingPeriod: BillingPeriod;
+}) {
+  const periodStart = new Date(Date.UTC(billingPeriod.year, billingPeriod.month - 1, 1));
+  const periodEnd = new Date(Date.UTC(billingPeriod.year, billingPeriod.month, 0));
+
+  return contracts
+    .filter((contract) => {
+      const startsOnOrBeforePeriodEnd = new Date(contract.start_date) <= periodEnd;
+      const endsOnOrAfterPeriodStart =
+        contract.end_date === null || new Date(contract.end_date) >= periodStart;
+
+      return startsOnOrBeforePeriodEnd && endsOnOrAfterPeriodStart;
+    })
+    .sort(
+      (left, right) =>
+        new Date(right.start_date).getTime() - new Date(left.start_date).getTime(),
+    )[0];
+}
+
+function toMoney(value: number | string | null) {
+  return Number(value ?? 0);
+}
+
+function toNullableMoney(value: number | string | null) {
+  if (value === null) {
+    return null;
+  }
+
+  return Number(value);
+}
+
+function roundMoney(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+type InvoiceWriteValues = {
+  room_id: string;
+  month: number;
+  year: number;
+  room_fee: number;
+  electricity_fee: number;
+  water_fee: number;
+  other_fee: number;
+  total_amount: number;
+  amount_paid: number;
+  status: InvoiceDbStatus;
+  updated_at: string;
+};
 
 export async function touchRoom(roomId: string): Promise<AppResult<RoomRecord>> {
   try {

@@ -1,5 +1,6 @@
 import type {
   ContractRecord,
+  InvoiceRecord,
   RoomRecord,
   TenantRecord,
   UtilityMetricRecord,
@@ -28,8 +29,17 @@ export type UtilityMetricsView = {
   keyTenantName: string | null;
   activeContractId: string | null;
   previousPeriodLabel: string | null;
+  invoice: UtilityInvoiceSummary | null;
   electricity: UtilityReadingView;
   water: UtilityReadingView;
+};
+
+export type UtilityInvoiceSummary = {
+  id: string;
+  status: InvoiceRecord["status"];
+  totalAmount: number;
+  amountPaid: number;
+  otherFee: number;
 };
 
 export function getDefaultBillingPeriod(now = new Date()): BillingPeriod {
@@ -68,18 +78,22 @@ export function buildUtilityMetricsView({
   tenants,
   activeContract,
   metrics,
+  invoices,
   billingPeriod,
 }: {
   room: RoomRecord;
   tenants: TenantRecord[];
   activeContract: ContractRecord | null;
   metrics: UtilityMetricRecord[];
+  invoices: InvoiceRecord[];
   billingPeriod: BillingPeriod;
 }): UtilityMetricsView {
   const { currentMetric, previousMetric } = resolveUtilityMetricPeriod({
     metrics,
     billingPeriod,
   });
+  const currentInvoice =
+    invoices.find((invoice) => isSamePeriod(invoice, billingPeriod)) ?? null;
   const keyTenant = activeContract
     ? tenants.find((tenant) => tenant.id === activeContract.key_tenant_id)
     : null;
@@ -110,6 +124,15 @@ export function buildUtilityMetricsView({
           month: toNumber(previousMetric.month),
           year: toNumber(previousMetric.year),
         })
+      : null,
+    invoice: currentInvoice
+      ? {
+          id: currentInvoice.id,
+          status: currentInvoice.status,
+          totalAmount: toNumber(currentInvoice.total_amount),
+          amountPaid: toNumber(currentInvoice.amount_paid),
+          otherFee: toNumber(currentInvoice.other_fee),
+        }
       : null,
     electricity: {
       oldReading: electricityOld,
@@ -189,7 +212,10 @@ function compareMetricPeriodDescending(
   return toNumber(right.month) - toNumber(left.month);
 }
 
-function isSamePeriod(metric: UtilityMetricRecord, billingPeriod: BillingPeriod) {
+function isSamePeriod(
+  metric: { month: number | string; year: number | string },
+  billingPeriod: BillingPeriod,
+) {
   return (
     toNumber(metric.month) === billingPeriod.month &&
     toNumber(metric.year) === billingPeriod.year

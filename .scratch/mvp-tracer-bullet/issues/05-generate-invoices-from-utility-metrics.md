@@ -4,14 +4,23 @@
 
 **Blocked by:** 04 — Record Monthly Utility Metrics.
 
-**Status:** ready-for-agent
+**Status:** human-review
 
-- [ ] An Invoice can be generated after valid Utility Metrics are saved.
-- [ ] Electricity fee equals electricity consumption multiplied by the applicable electricity price.
-- [ ] Water fee equals water consumption multiplied by the applicable water price.
-- [ ] Contract-level Utility Pricing overrides are used when present; otherwise global Utility Pricing is used.
-- [ ] Total amount equals base rent plus electricity fee plus water fee plus other fees.
-- [ ] A newly generated Invoice starts unpaid with `amount_paid = 0`.
-- [ ] Invoice generation is idempotent for the same Room and billing period.
-- [ ] Generated Invoices appear in the Invoice list.
-- [ ] Generation success and failure states are shown with the redesigned UI feedback system.
+- [x] An Invoice can be generated after valid Utility Metrics are saved.
+- [x] Electricity fee equals electricity consumption multiplied by the applicable electricity price.
+- [x] Water fee equals water consumption multiplied by the applicable water price.
+- [x] Contract-level Utility Pricing overrides are used when present; otherwise global Utility Pricing is used.
+- [x] Total amount equals base rent plus electricity fee plus water fee plus other fees.
+- [x] A newly generated Invoice starts unpaid with `amount_paid = 0`.
+- [x] Invoice generation is idempotent for the same Room and billing period.
+- [x] Generated Invoices appear in the Invoice list.
+- [x] Generation success and failure states are shown with the redesigned UI feedback system.
+
+## Implementation notes
+
+- `/rooms/[id]/utilities` now shows an invoice generation form after the Utility Metrics form. The submit button is enabled only when the selected period has persisted Utility Metrics and the Room has an active Contract.
+- Invoice generation reads Room, active Contract, Utility Metrics, global Utility Pricing, and an existing Invoice for the same `(room_id, month, year)` from InsForge. The selected Contract must overlap the billing period using `start_date`/`end_date`.
+- Electricity and water fees are calculated from consumption and unit price. Contract overrides win over global Utility Pricing; global pricing uses the latest active price with `effective_from` on or before the selected billing period, falling back to the earliest active price when no historical pricing exists yet.
+- New invoices are inserted with `amount_paid = 0` and `status = 'Unpaid'`. Existing invoices are updated in place and preserve already-collected payment amounts within the new total.
+- `/invoices` now reads persisted Invoices from InsForge instead of `demo-data`, so generated invoices appear in the list after revalidation/refresh.
+- Generation success/failure feedback is shown inline and through the existing Sonner toaster configured in the app layout.
