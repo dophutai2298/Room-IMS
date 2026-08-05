@@ -26,7 +26,7 @@ import { formatCurrency } from "@/lib/formatters";
 
 export default async function InvoicesPage() {
   const result = await readInvoicesOverview();
-
+console.log("results::: ",result)
   return (
     <>
       <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">

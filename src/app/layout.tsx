@@ -8,10 +8,10 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
-  applicationName: "Rental Room",
+  applicationName: "Rental Room 201 CV",
   title: {
-    default: "Rental Room · Quản lý phòng trọ",
-    template: "%s · Rental Room",
+    default: "Rental Room 201 CV · Quản lý phòng trọ",
+    template: "%s · Rental Room 201 CV",
   },
   description: "Bảng điều hành cho Landlord và Staff quản lý phòng trọ.",
 };

@@ -23,7 +23,7 @@ export const Sidebar = () => {
             RR
           </span>
           <span className="hidden min-w-0 sm:block">
-            <span className="block text-sm font-semibold leading-5">Rental Room</span>
+            <span className="block text-sm font-semibold leading-5">Rental Room 201 CV</span>
             <span className="block text-[0.68rem] text-muted-foreground">Vận hành nhà trọ</span>
           </span>
         </Link>
