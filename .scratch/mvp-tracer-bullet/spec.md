@@ -22,6 +22,22 @@ The slice should favor a complete working path over broad administration feature
 2. Set up InsForge DB, authentication, app user roles, seed data, and the app-facing InsForge adapter/API boundary.
 3. Replace mock/demo data feature by feature: Rooms/Tenants/Contracts, Utility Metrics, Invoice generation, Invoice payment status, then dashboard reminders.
 4. Treat InsForge foundation as a blocker for real-data feature tickets, while the UI foundation remains safe to implement before backend wiring.
+5. Use this tracker as the single source of truth for remaining client-data architecture work. The former `client-data-architecture-migration` tracker has been folded into the matching MVP tickets where a matching ticket exists.
+6. Preserve the completed MVP business scope for tickets 01-05. Any unchecked "Client Data Architecture Follow-up" section inside those files represents migration work still to do, not a rollback of the completed business behavior.
+7. For browser API calls, use `@tanstack/react-query`: `useQuery` for reads, `useMutation` for writes, and invalidate or update affected query keys after successful mutations. `fetchAppApi` should live inside `queryFn` or `mutationFn`, not ad-hoc `useEffect` request code.
+8. For migrated operational reads and writes, use the layered flow: Client Component -> TanStack Query -> app API route -> application service -> repository interface -> InsForge adapter.
+
+## Current Combined Work Order
+
+The current single-tracker order after completed MVP tickets 01-05 and completed client-data tickets 01-03 is:
+
+1. Finish the `Client Data Architecture Follow-up` section inside `04-record-utility-metrics.md`.
+2. Implement `06-track-invoice-payment-status.md`.
+3. Implement `08-manage-utility-pricing-and-other-fee-notes.md`.
+4. Implement `07-dashboard-mvp-reminders.md`.
+5. Implement `09-tenants-client-data-management.md`.
+6. Implement `10-contracts-client-data-management.md`.
+7. Implement `11-auth-staff-management-client-data.md`.
 
 ## User Stories
 

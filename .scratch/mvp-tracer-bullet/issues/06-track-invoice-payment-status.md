@@ -16,3 +16,13 @@
 - [ ] Status changes persist after refresh.
 - [ ] The list visually distinguishes unpaid, partially paid, and paid Invoices.
 - [ ] Status update errors are visible without losing the current list context.
+
+## Client Data Architecture Requirements
+
+- [ ] Invoice payment reads use TanStack Query `useQuery` with stable Invoice query keys.
+- [ ] Recording or changing payment status uses TanStack Query `useMutation`.
+- [ ] Successful payment mutations invalidate or update affected Invoice list, Room operations summary, and Dashboard revenue query keys.
+- [ ] Payment read and write APIs use application services and repository interfaces before reaching the InsForge adapter.
+- [ ] API responses use the standard success/failure envelope.
+- [ ] API timing logs identify auth, validation, service, and InsForge write duration.
+- [ ] A smoke test or behavior test verifies valid payment updates and rejects invalid `amount_paid`/status combinations.
