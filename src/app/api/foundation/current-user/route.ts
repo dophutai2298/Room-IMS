@@ -1,11 +1,17 @@
-import { getCurrentAppUser } from "@/lib/insforge/rental-repository";
+import { apiFailure, apiSuccess } from "@/lib/api/response";
+import { createApiTimer } from "@/lib/api/timing";
+import { resolveOperationalAppUser } from "@/lib/server/operational-auth";
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const result = await getCurrentAppUser();
+  const timer = createApiTimer("foundation.current-user");
+  const auth = await resolveOperationalAppUser({ timer });
+  const meta = { timing: timer.snapshot() };
 
-  if (result.error) {
-    return Response.json({ error: result.error }, { status: result.error.statusCode ?? 500 });
+  if (auth.error) {
+    return apiFailure(auth.error, meta);
   }
 
-  return Response.json({ data: result.data });
+  return apiSuccess(auth.user, meta);
 }

@@ -1,4 +1,12 @@
-import type { ContractRecord, RoomDbStatus, RoomRecord, TenantRecord } from "@/lib/insforge/types";
+import { formatBillingPeriod } from "@/lib/utilities/presenter";
+import type {
+  ContractRecord,
+  InvoiceRecord,
+  RoomDbStatus,
+  RoomRecord,
+  TenantRecord,
+  UtilityMetricRecord,
+} from "@/lib/insforge/types";
 
 export type RoomUiStatus = "occupied" | "available" | "maintenance";
 
@@ -25,6 +33,32 @@ export type RoomDetailView = {
   activeContract: ContractView | null;
   keyTenantName: string | null;
   integrityWarning: string | null;
+};
+
+export type RoomOperationsSummaryView = {
+  utilityMetrics: {
+    metricCount: number;
+    latestPeriodLabel: string | null;
+    latestElectricityReading: number | null;
+    latestWaterReading: number | null;
+    latestElectricityConsumption: number | null;
+    latestWaterConsumption: number | null;
+  };
+  invoices: {
+    invoiceCount: number;
+    unpaidCount: number;
+    totalBalanceDue: number;
+    latestInvoice: RoomInvoiceSummary | null;
+  };
+};
+
+export type RoomInvoiceSummary = {
+  id: string;
+  periodLabel: string;
+  status: InvoiceRecord["status"];
+  totalAmount: number;
+  amountPaid: number;
+  balanceDue: number;
 };
 
 export type TenantView = {
@@ -126,6 +160,61 @@ export function buildRoomDetailView({
   };
 }
 
+export function buildRoomOperationsSummary({
+  metrics,
+  invoices,
+}: {
+  metrics: UtilityMetricRecord[];
+  invoices: InvoiceRecord[];
+}): RoomOperationsSummaryView {
+  const sortedMetrics = [...metrics].sort(comparePeriodDescending);
+  const latestMetric = sortedMetrics[0] ?? null;
+  const sortedInvoices = [...invoices].sort(comparePeriodDescending);
+  const latestInvoice = sortedInvoices[0] ?? null;
+
+  return {
+    utilityMetrics: {
+      metricCount: metrics.length,
+      latestPeriodLabel: latestMetric ? periodLabelOf(latestMetric) : null,
+      latestElectricityReading: latestMetric
+        ? toMoney(latestMetric.electricity_new)
+        : null,
+      latestWaterReading: latestMetric ? toMoney(latestMetric.water_new) : null,
+      latestElectricityConsumption: latestMetric
+        ? toMoney(latestMetric.electricity_new) -
+          toMoney(latestMetric.electricity_old)
+        : null,
+      latestWaterConsumption: latestMetric
+        ? toMoney(latestMetric.water_new) - toMoney(latestMetric.water_old)
+        : null,
+    },
+    invoices: {
+      invoiceCount: invoices.length,
+      unpaidCount: invoices.filter((invoice) => invoice.status !== "Paid").length,
+      totalBalanceDue: invoices.reduce(
+        (total, invoice) =>
+          total +
+          Math.max(toMoney(invoice.total_amount) - toMoney(invoice.amount_paid), 0),
+        0,
+      ),
+      latestInvoice: latestInvoice
+        ? {
+            id: latestInvoice.id,
+            periodLabel: periodLabelOf(latestInvoice),
+            status: latestInvoice.status,
+            totalAmount: toMoney(latestInvoice.total_amount),
+            amountPaid: toMoney(latestInvoice.amount_paid),
+            balanceDue: Math.max(
+              toMoney(latestInvoice.total_amount) -
+                toMoney(latestInvoice.amount_paid),
+              0,
+            ),
+          }
+        : null,
+    },
+  };
+}
+
 export function deriveRoomStatus(
   storedStatus: RoomDbStatus,
   activeContract: ContractRecord | null,
@@ -151,4 +240,25 @@ function getNextAction(status: RoomUiStatus, activeContract: ContractRecord | nu
 
 function toMoney(value: number | string | null): number {
   return Number(value ?? 0);
+}
+
+function periodLabelOf(value: { month: number | string; year: number | string }) {
+  return formatBillingPeriod({
+    month: Number(value.month),
+    year: Number(value.year),
+  });
+}
+
+function comparePeriodDescending(
+  left: { month: number | string; year: number | string },
+  right: { month: number | string; year: number | string },
+) {
+  const leftYear = Number(left.year);
+  const rightYear = Number(right.year);
+
+  if (leftYear !== rightYear) {
+    return rightYear - leftYear;
+  }
+
+  return Number(right.month) - Number(left.month);
 }

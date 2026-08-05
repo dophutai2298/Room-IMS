@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useActionState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 
 import {
@@ -17,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { TenantView } from "@/lib/rooms/presenter";
+import { roomQueryKeys } from "@/lib/rooms/query-keys";
 
 export function KeyTenantForm({
   roomId,
@@ -33,8 +35,17 @@ export function KeyTenantForm({
     markKeyTenant,
     initialKeyTenantActionState,
   );
+  const queryClient = useQueryClient();
   const selectableTenants = tenants.filter((tenant) => tenant.status === "Active");
   const canSave = Boolean(activeContractId) && selectableTenants.length > 0;
+
+  useEffect(() => {
+    if (state.status === "success") {
+      void queryClient.invalidateQueries({
+        queryKey: roomQueryKeys.detail(roomId),
+      });
+    }
+  }, [queryClient, roomId, state.status]);
 
   return (
     <form action={formAction} className="space-y-3">

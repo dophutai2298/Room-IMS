@@ -6,6 +6,10 @@
 
 **Status:** human-review
 
+**MVP business scope:** done.
+
+**Client Data Architecture follow-up:** pending under ticket 08 for Utility Pricing and other-fee notes, and under ticket 04 for Utility Metrics API migration.
+
 - [x] An Invoice can be generated after valid Utility Metrics are saved.
 - [x] Electricity fee equals electricity consumption multiplied by the applicable electricity price.
 - [x] Water fee equals water consumption multiplied by the applicable water price.
@@ -24,3 +28,9 @@
 - New invoices are inserted with `amount_paid = 0` and `status = 'Unpaid'`. Existing invoices are updated in place and preserve already-collected payment amounts within the new total.
 - `/invoices` now reads persisted Invoices from InsForge instead of `demo-data`, so generated invoices appear in the list after revalidation/refresh.
 - Generation success/failure feedback is shown inline and through the existing Sonner toaster configured in the app layout.
+
+## Client Data Architecture Notes
+
+- Invoice list client-data migration is already completed in the former client-data tracker issue 02 and implemented through `/api/invoices`.
+- Room detail client-data migration is already completed in the former client-data tracker issue 03 and implemented through Room detail and operations-summary APIs.
+- Keep Invoice generation behavior unchanged while later tickets migrate Utility Metrics, Utility Pricing, payment status, and dashboard reads/writes to TanStack Query + app API routes.
