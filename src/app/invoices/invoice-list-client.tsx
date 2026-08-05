@@ -1,7 +1,7 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AppApiClientError, fetchAppApi } from "@/lib/api/client";
+import { fetchAppApi } from "@/lib/api/client";
 import { formatCurrency } from "@/lib/formatters";
 import type { InvoiceRecord } from "@/lib/insforge/types";
 import {
@@ -28,91 +28,35 @@ import {
   type InvoiceListItem,
 } from "@/lib/invoices/presenter";
 
-type InvoiceListState =
-  | { status: "loading"; invoices: null; message: null }
-  | { status: "success"; invoices: InvoiceListItem[]; message: null }
-  | { status: "error"; invoices: null; message: string };
+const invoiceListQueryKey = ["invoices", "list"] as const;
 
 export function InvoiceListClient() {
-  const [state, setState] = useState<InvoiceListState>({
-    status: "loading",
-    invoices: null,
-    message: null,
-  });
-
-  const fetchInvoices = useCallback(
-    () =>
+  const invoicesQuery = useQuery({
+    queryKey: invoiceListQueryKey,
+    queryFn: () =>
       fetchAppApi<InvoiceListItem[]>("/api/invoices", {
         cache: "no-store",
       }),
-    [],
-  );
+  });
 
-  const loadInvoices = useCallback(async () => {
-    try {
-      const invoices = await fetchInvoices();
-      setState({ status: "success", invoices, message: null });
-    } catch (error) {
-      setState({
-        status: "error",
-        invoices: null,
-        message:
-          error instanceof AppApiClientError
-            ? error.message
-            : "Không tải được danh sách hóa đơn.",
-      });
-    }
-  }, [fetchInvoices]);
-
-  useEffect(() => {
-    let isCurrent = true;
-
-    async function loadInitialInvoices() {
-      try {
-        const invoices = await fetchInvoices();
-
-        if (isCurrent) {
-          setState({ status: "success", invoices, message: null });
-        }
-      } catch (error) {
-        if (isCurrent) {
-          setState({
-            status: "error",
-            invoices: null,
-            message:
-              error instanceof AppApiClientError
-                ? error.message
-                : "Không tải được danh sách hóa đơn.",
-          });
-        }
-      }
-    }
-
-    void loadInitialInvoices();
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [fetchInvoices]);
-
-  const retryInvoices = useCallback(() => {
-    setState({ status: "loading", invoices: null, message: null });
-    void loadInvoices();
-  }, [loadInvoices]);
-
-  if (state.status === "loading") {
+  if (invoicesQuery.isPending) {
     return <InvoiceTableSkeleton />;
   }
 
-  if (state.status === "error") {
-    return <ErrorCard message={state.message} onRetry={retryInvoices} />;
+  if (invoicesQuery.isError) {
+    return (
+      <ErrorCard
+        message={invoicesQuery.error.message}
+        onRetry={() => void invoicesQuery.refetch()}
+      />
+    );
   }
 
-  if (state.invoices.length === 0) {
-    return <EmptyInvoices onRetry={retryInvoices} />;
+  if (invoicesQuery.data.length === 0) {
+    return <EmptyInvoices onRetry={() => void invoicesQuery.refetch()} />;
   }
 
-  return <InvoiceTable invoices={state.invoices} />;
+  return <InvoiceTable invoices={invoicesQuery.data} />;
 }
 
 function InvoiceTable({ invoices }: { invoices: InvoiceListItem[] }) {

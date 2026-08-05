@@ -10,7 +10,7 @@ This is painful for a management system where operators expect the app shell to 
 
 ## Solution
 
-Migrate operational screens to a client data architecture using vertical slices. Each screen should render a lightweight shell immediately, then load data through an authenticated backend-for-frontend API boundary. The UI must not call InsForge directly. Business rules should move behind application services and repository interfaces, with InsForge kept as an adapter implementation detail.
+Migrate operational screens to a client data architecture using vertical slices. Each screen should render a lightweight shell immediately, then load data through an authenticated backend-for-frontend API boundary. Browser API calls should use `@tanstack/react-query` so loading, error, retry, caching, refetching, and mutation invalidation are handled consistently. The UI must not call InsForge directly. Business rules should move behind application services and repository interfaces, with InsForge kept as an adapter implementation detail.
 
 The migration should be incremental and safe: establish a small foundation first, then migrate one domain slice at a time. The first real slice should be Invoices because there is clear evidence that the current Invoice page is slow. Room detail should follow because it is also a proven hotspot.
 
@@ -43,11 +43,15 @@ The migration should be incremental and safe: establish a small foundation first
 
 - Use a vertical slice migration rather than a big-bang rewrite.
 - Establish a small foundation before migrating screens. The foundation creates shared conventions and helpers but does not migrate major business behavior by itself.
-- Use the following conceptual layering for migrated slices: UI shell and Client Component, feature hook and screen state, backend-for-frontend API boundary, application service or use case, repository interface, InsForge adapter.
+- Use the following conceptual layering for migrated slices: UI shell and Client Component, TanStack Query feature hook and screen state, backend-for-frontend API boundary, application service or use case, repository interface, InsForge adapter.
+- Use `@tanstack/react-query` for all browser API calls in migrated operational screens.
+- Use `useQuery` for API reads and `useMutation` for API writes. `fetchAppApi` should live inside `queryFn` or `mutationFn`, not inside ad-hoc `useEffect` request code.
+- Provide the app-wide `QueryClientProvider` once near the root layout.
+- Define stable query keys per domain slice, and invalidate or update relevant query keys after successful mutations.
 - Keep InsForge access on the server side for business reads and mutations. The browser should not import InsForge data adapters for operational data.
 - Client-side data loading is used to improve perceived performance. It is not assumed to reduce the real InsForge query duration by itself.
 - Each migrated screen should render a useful shell immediately and move slow data behind loading boundaries.
-- Every migrated slice must support loading, empty, error, and retry states where relevant.
+- Every migrated slice must map TanStack Query states to loading, empty, error, retry, refetching, and success states where relevant.
 - Each API boundary should return a consistent success or failure envelope.
 - API errors should use a shared error vocabulary covering unauthorized, forbidden, validation, not found, conflict, and internal errors.
 - Authentication and Landlord or Staff user resolution should be handled through a shared API auth helper.
@@ -65,7 +69,7 @@ The migration should be incremental and safe: establish a small foundation first
 - Tests should verify external behavior at the API and user-visible screen seams rather than implementation details.
 - Each vertical slice should include a smoke test or behavior test for its main API operation.
 - Each migrated screen should be checked for fast shell rendering with visible loading state before data arrives.
-- Each migrated screen should be checked for successful data rendering, empty state, and error state.
+- Each migrated screen should be checked for successful data rendering, empty state, error state, and TanStack Query retry/refetch behavior.
 - API tests should verify authentication enforcement and standardized error envelopes.
 - Service tests should focus on business behavior only when behavior is difficult to verify through the API seam.
 - Repository adapter tests should be limited to InsForge query mapping and error mapping where practical.

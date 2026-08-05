@@ -6,6 +6,12 @@
 
 **Status:** ready-for-agent
 
+## TanStack Query requirement
+
+- [ ] Tenant reads use TanStack Query `useQuery` with stable Tenant and Room query keys.
+- [ ] Tenant writes use TanStack Query `useMutation`.
+- [ ] Successful writes invalidate or update affected Tenant, Room detail, and Contract query keys.
+
 - [ ] Tenant data is loaded through authenticated app APIs rather than direct UI access to InsForge.
 - [ ] Tenant create and update flows use application services and repository interfaces before reaching the InsForge adapter.
 - [ ] Tenant UI supports loading, empty, validation, saving, success, error, and retry states.

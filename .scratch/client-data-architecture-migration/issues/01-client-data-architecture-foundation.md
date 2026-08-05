@@ -4,7 +4,13 @@
 
 **Blocked by:** MVP 02 — Set Up InsForge DB, Authentication, and API Foundation.
 
-**Status:** ready-for-agent
+**Status:** done
+
+## TanStack Query requirement
+
+- [x] The app has an app-level `QueryClientProvider`.
+- [x] The documented browser API convention requires TanStack Query: `useQuery` for reads and `useMutation` for writes.
+- [x] `fetchAppApi` is used inside `queryFn` or `mutationFn`, not through ad-hoc `useEffect` request state.
 
 - [x] The project has a documented convention for client-loaded operational screens.
 - [x] There is a standard API response shape for successful and failed responses.

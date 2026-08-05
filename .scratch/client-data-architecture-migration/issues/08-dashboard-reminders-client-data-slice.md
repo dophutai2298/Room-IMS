@@ -6,6 +6,12 @@
 
 **Status:** ready-for-agent
 
+## TanStack Query requirement
+
+- [ ] Dashboard and Reminder reads use TanStack Query `useQuery` with independent query keys per card or section.
+- [ ] Retry and background refresh use TanStack Query query state and `refetch`.
+- [ ] Slow sections do not block unrelated query-backed sections where practical.
+
 - [ ] Dashboard shell renders quickly before all dashboard data is available.
 - [ ] Dashboard cards load data through authenticated app APIs rather than direct UI access to InsForge.
 - [ ] Reminder data is produced through application services and repository interfaces before reaching the InsForge adapter.

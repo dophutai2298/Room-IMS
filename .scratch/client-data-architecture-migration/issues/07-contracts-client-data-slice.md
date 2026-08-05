@@ -6,6 +6,12 @@
 
 **Status:** ready-for-agent
 
+## TanStack Query requirement
+
+- [ ] Contract reads use TanStack Query `useQuery` with stable Contract and Room query keys.
+- [ ] Contract writes use TanStack Query `useMutation`.
+- [ ] Successful writes invalidate or update affected Contract, Room detail, Tenant, and Invoice-related query keys.
+
 - [ ] Contract data is loaded through authenticated app APIs rather than direct UI access to InsForge.
 - [ ] Contract create and update flows use application services and repository interfaces before reaching the InsForge adapter.
 - [ ] Contract UI supports loading, empty, validation, saving, success, error, and retry states.

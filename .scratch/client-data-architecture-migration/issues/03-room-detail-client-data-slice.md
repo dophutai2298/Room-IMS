@@ -6,6 +6,12 @@
 
 **Status:** ready-for-agent
 
+## TanStack Query requirement
+
+- [ ] Room detail reads use TanStack Query `useQuery` with stable Room query keys.
+- [ ] Independent Room detail sections use independent queries where practical.
+- [ ] Retry uses TanStack Query `refetch`.
+
 - [ ] Opening a Room detail page shows the main shell and loading state quickly.
 - [ ] Room detail data is loaded through authenticated app APIs rather than direct UI access to InsForge.
 - [ ] The Room detail API uses an application service and repository interface before reaching the InsForge adapter.

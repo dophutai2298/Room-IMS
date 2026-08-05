@@ -6,6 +6,12 @@
 
 **Status:** done
 
+## TanStack Query requirement
+
+- [x] Invoice list reads use TanStack Query `useQuery` with a stable query key.
+- [x] `fetchAppApi` is called from the query `queryFn`, not from ad-hoc `useEffect` request state.
+- [x] Retry uses TanStack Query `refetch`.
+
 - [x] Opening the Invoice list shows the page shell and loading state without waiting for all Invoice data.
 - [x] Invoice data is loaded through an authenticated app API rather than direct UI access to InsForge.
 - [x] The Invoice API uses an application service and repository interface before reaching the InsForge adapter.

@@ -6,6 +6,12 @@
 
 **Status:** ready-for-agent
 
+## TanStack Query requirement
+
+- [ ] Utility Pricing reads use TanStack Query `useQuery` with stable pricing query keys.
+- [ ] Utility Pricing writes use TanStack Query `useMutation`.
+- [ ] Successful writes invalidate or update Utility Pricing and dependent Invoice-generation query keys.
+
 - [ ] A Landlord can load active and historical Utility Pricing rows through an authenticated app API.
 - [ ] Creating or superseding Utility Pricing uses an application service and repository interface before reaching the InsForge adapter.
 - [ ] The UI supports loading, empty, validation, saving, success, error, and retry states.

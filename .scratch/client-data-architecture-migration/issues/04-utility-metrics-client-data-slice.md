@@ -6,6 +6,12 @@
 
 **Status:** ready-for-agent
 
+## TanStack Query requirement
+
+- [ ] Utility Metrics reads use TanStack Query `useQuery` with stable Room and billing-period query keys.
+- [ ] Utility Metrics saves use TanStack Query `useMutation`.
+- [ ] Successful saves invalidate or update affected Utility Metrics, Room detail, and Invoice query keys.
+
 - [ ] Utility Metrics screens load existing readings through an authenticated app API.
 - [ ] Saving Utility Metrics uses an application service and repository interface before reaching the InsForge adapter.
 - [ ] The UI supports loading, validation, saving, success, empty, error, and retry states.

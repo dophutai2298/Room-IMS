@@ -6,6 +6,12 @@
 
 **Status:** ready-for-agent
 
+## TanStack Query requirement
+
+- [ ] Auth-facing reads use TanStack Query `useQuery` where applicable.
+- [ ] Auth-facing and Staff-management writes use TanStack Query `useMutation` where applicable.
+- [ ] Successful Staff-management writes invalidate or update affected current-user and Staff query keys.
+
 - [ ] Operational APIs consistently resolve the signed-in user as Landlord or Staff through the shared auth helper.
 - [ ] Auth-facing UI uses the same client fetch and API error conventions where applicable.
 - [ ] Staff management flows, if present, use application services and repository interfaces before reaching the InsForge adapter.
