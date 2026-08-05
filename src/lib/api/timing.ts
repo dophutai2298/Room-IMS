@@ -42,6 +42,14 @@ export function createApiTimer(operation: string): ApiTimer {
   };
 }
 
+export function logApiTiming(snapshot: ApiTimingSnapshot) {
+  console.info(
+    `[api-timing] ${snapshot.operation} total=${snapshot.totalMs}ms spans=${snapshot.spans
+      .map((span) => `${span.name}:${span.durationMs}ms`)
+      .join(",")}`,
+  );
+}
+
 function now() {
   return performance.now();
 }
