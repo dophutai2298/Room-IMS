@@ -11,8 +11,6 @@ export const dashboardQueryKeys = {
           billingPeriod.month,
         ] as const)
       : ([...dashboardQueryKeys.all, "revenue"] as const),
-  roomAvailability: () =>
-    [...dashboardQueryKeys.all, "room-availability"] as const,
   missingUtilityMetrics: (billingPeriod?: BillingPeriod) =>
     billingPeriod
       ? ([

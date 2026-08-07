@@ -2,14 +2,12 @@ import type { ApiResponse } from "@/lib/api/response";
 import type {
   DashboardMissingUtilityMetricsView,
   DashboardRevenueView,
-  DashboardRoomAvailabilityView,
   DashboardUnpaidInvoicesView,
 } from "./presenter";
 
 export function getAuthenticatedDashboardApiSmokeResponses() {
   return {
     revenue: authenticatedRevenueApiSmoke,
-    roomAvailability: authenticatedRoomAvailabilityApiSmoke,
     missingUtilityMetrics: authenticatedMissingUtilityMetricsApiSmoke,
     unpaidInvoices: authenticatedUnpaidInvoicesApiSmoke,
   };
@@ -45,37 +43,6 @@ const authenticatedRevenueApiSmoke = {
     },
   },
 } satisfies ApiResponse<DashboardRevenueView>;
-
-const authenticatedRoomAvailabilityApiSmoke = {
-  ok: true,
-  data: {
-    totalRooms: 3,
-    occupiedRooms: 2,
-    availableRooms: 1,
-    maintenanceRooms: 0,
-    occupancyRate: 67,
-    rooms: [
-      {
-        id: "00000000-0000-0000-0000-000000000101",
-        name: "P101",
-        status: "occupied",
-        keyTenantName: "Nguyen Van A",
-        basePrice: 2_500_000,
-      },
-    ],
-  },
-  meta: {
-    timing: {
-      operation: "dashboard.room-availability",
-      totalMs: 1,
-      spans: [
-        { name: "auth", durationMs: 1 },
-        { name: "service", durationMs: 1 },
-        { name: "repository.insforge.dashboard-room-availability", durationMs: 1 },
-      ],
-    },
-  },
-} satisfies ApiResponse<DashboardRoomAvailabilityView>;
 
 const authenticatedMissingUtilityMetricsApiSmoke = {
   ok: true,

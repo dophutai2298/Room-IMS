@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { dashboardQueryKeys } from "@/lib/dashboard/query-keys";
 import type { TenantView } from "@/lib/rooms/presenter";
 import { roomQueryKeys } from "@/lib/rooms/query-keys";
 
@@ -41,11 +42,16 @@ export function KeyTenantForm({
 
   useEffect(() => {
     if (state.status === "success") {
-      void queryClient.invalidateQueries({
-        queryKey: roomQueryKeys.detail(roomId),
-      });
+      void Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: roomQueryKeys.all,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: dashboardQueryKeys.all,
+        }),
+      ]);
     }
-  }, [queryClient, roomId, state.status]);
+  }, [queryClient, state.status]);
 
   return (
     <form action={formAction} className="space-y-3">

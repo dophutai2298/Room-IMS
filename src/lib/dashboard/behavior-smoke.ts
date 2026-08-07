@@ -6,6 +6,7 @@ import {
   buildDashboardRoomAvailability,
   buildDashboardUnpaidInvoices,
 } from "./presenter";
+import { buildRoomListItem } from "@/lib/rooms/presenter";
 import type {
   ContractRecord,
   InvoiceRecord,
@@ -23,14 +24,10 @@ export function runDashboardPresenterBehaviorSmoke() {
       billingPeriod,
     }),
     availability: buildDashboardRoomAvailability({
-      rooms: smokeRooms,
-      activeContracts: smokeContracts,
-      tenants: smokeTenants,
+      roomItems: smokeRoomItems,
     }),
     missingUtilityMetrics: buildDashboardMissingUtilityMetrics({
-      rooms: smokeRooms,
-      activeContracts: smokeContracts,
-      tenants: smokeTenants,
+      roomItems: smokeRoomItems,
       metrics: smokeMetrics,
       billingPeriod,
     }),
@@ -60,6 +57,15 @@ const smokeRooms: RoomRecord[] = [
     updated_at: "2026-01-01T00:00:00.000Z",
   },
 ];
+
+const smokeRoomItems = smokeRooms.map((room) =>
+  buildRoomListItem({
+    room,
+    tenants: smokeTenants.filter((tenant) => tenant.room_id === room.id),
+    activeContract:
+      smokeContracts.find((contract) => contract.room_id === room.id) ?? null,
+  }),
+);
 
 const smokeTenants: TenantRecord[] = [
   {
