@@ -13,14 +13,6 @@ export async function getDashboardRevenueForOperations({
   return repository.readRevenueSummary(billingPeriod);
 }
 
-export async function getDashboardRoomAvailabilityForOperations({
-  repository,
-}: {
-  repository: DashboardRepository;
-}) {
-  return repository.readRoomAvailability();
-}
-
 export async function getDashboardMissingUtilityMetricsForOperations({
   repository,
   billingPeriod,

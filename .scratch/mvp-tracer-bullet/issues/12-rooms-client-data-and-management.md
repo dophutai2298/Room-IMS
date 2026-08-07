@@ -16,7 +16,7 @@
 - [x] Room writes use application services and repository interfaces before reaching the InsForge adapter.
 - [x] Room create/update success updates or invalidates Room list, Room detail, Dashboard room availability, Dashboard missing Utility Metrics, and any affected operations-summary query keys.
 - [x] Dashboard room availability no longer owns a separate duplicated Room aggregation path when the Room domain service can provide the same computed Room Status data.
-- [x] The existing dashboard room-availability API contract can remain as a dashboard facade, but its implementation should reuse Room service/repository logic where practical.
+- [x] The dashboard reuses `/api/rooms` for Room availability instead of keeping a separate dashboard room-availability API.
 - [x] The Dashboard missing Utility Metrics flow can reuse the Room list/status computation when identifying occupied Rooms missing metrics for the billing period.
 - [x] `/rooms` supports loading, empty, error, retry, saving, validation, and success states using the existing Tailwind/shadcn and Sonner patterns.
 - [x] Room Status remains derived from active Contract state unless the Room is marked Maintenance.
@@ -28,10 +28,10 @@
 
 - This ticket intentionally does not renumber existing tickets 09-11. It fills the missing Room management slice discovered after issue 07.
 - Prefer a list-level Room API over calling per-Room detail or operations-summary APIs from the Room list or Dashboard.
-- The dashboard-specific API may stay as the UI contract, but it should behave as a facade over shared Room domain logic instead of duplicating lower-level InsForge queries for Room availability.
+- The dashboard-specific room-availability API was removed after `/api/rooms` became available; the Dashboard now derives availability from the shared Room list response.
 - Tenant and Contract create/update flows remain in tickets 09 and 10. This ticket should only touch them where needed to preserve Room Status derivation and query invalidation.
 - `/rooms` now uses a client Room management component with TanStack Query read/write behavior.
 - Added authenticated Room list/create/update APIs with API timing.
 - Extended the Room repository/service boundary for list, create, and update behavior.
-- Dashboard room availability and missing Utility Metrics now reuse Room domain list/status computation through the Room repository.
+- Dashboard room availability now reuses `/api/rooms`; missing Utility Metrics reuses Room domain list/status computation through the Room repository.
 - Added Room management API contract smoke data and service behavior smoke coverage.

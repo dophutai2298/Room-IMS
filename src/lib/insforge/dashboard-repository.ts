@@ -4,7 +4,6 @@ import type { ApiTimer } from "@/lib/api/timing";
 import {
   buildDashboardMissingUtilityMetricsFromItems,
   buildDashboardRevenue,
-  buildDashboardRoomAvailabilityFromItems,
   buildDashboardUnpaidInvoices,
 } from "@/lib/dashboard/presenter";
 import type { DashboardRepository } from "@/lib/dashboard/repository";
@@ -34,13 +33,6 @@ export function createInsForgeDashboardRepository({
 
       return timer
         ? timer.measure("repository.insforge.dashboard-revenue", query)
-        : query();
-    },
-    async readRoomAvailability() {
-      const query = () => readRoomAvailabilityFromRoomRepository({ roomRepository });
-
-      return timer
-        ? timer.measure("repository.insforge.dashboard-room-availability", query)
         : query();
     },
     async readMissingUtilityMetrics(billingPeriod) {
@@ -93,20 +85,6 @@ async function readRevenueSummaryFromInsForge({
   } catch (error) {
     return { data: null, error: toAppBackendError(error) };
   }
-}
-
-async function readRoomAvailabilityFromRoomRepository({
-  roomRepository,
-}: {
-  roomRepository: ReturnType<typeof createInsForgeRoomRepository>;
-}) {
-  const rooms = await roomRepository.listRoomItems();
-
-  if (rooms.error) {
-    return rooms;
-  }
-
-  return ok(buildDashboardRoomAvailabilityFromItems(rooms.data));
 }
 
 async function readMissingUtilityMetricsFromInsForge({

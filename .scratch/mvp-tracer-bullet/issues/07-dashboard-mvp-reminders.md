@@ -37,7 +37,7 @@ Folded in from `client-data-architecture-migration/issues/08-dashboard-reminders
 ## Implementation Notes
 
 - Replaced static dashboard mock data with a client Dashboard shell backed by TanStack Query.
-- Added authenticated Dashboard app APIs for revenue, room availability, missing Utility Metrics, and unpaid Invoices.
+- Added authenticated Dashboard app APIs for revenue, missing Utility Metrics, and unpaid Invoices. Room availability now reuses the shared `/api/rooms` list.
 - Added Dashboard service/repository interfaces and an InsForge adapter so UI never reads InsForge directly.
 - Revenue chart now receives persisted billed and collected aggregates for the six most recent billing periods.
 - Mutations that affect Dashboard data invalidate Dashboard query keys after saving Utility Metrics, generating Invoices, or recording Invoice payments.

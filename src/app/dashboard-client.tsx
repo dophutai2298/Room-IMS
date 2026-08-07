@@ -16,18 +16,24 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchAppApi } from "@/lib/api/client";
-import { dashboardQueryKeys } from "@/lib/dashboard/query-keys";
-import type {
-  DashboardMissingUtilityMetricsView,
-  DashboardRevenueView,
-  DashboardRoomAvailabilityView,
-  DashboardRoomStatusItem,
-  DashboardUnpaidInvoice,
-  DashboardUnpaidInvoicesView,
+import {
+  buildDashboardRoomAvailabilityFromItems,
+  type DashboardMissingUtilityMetricsView,
+  type DashboardRevenueView,
+  type DashboardRoomAvailabilityView,
+  type DashboardRoomStatusItem,
+  type DashboardUnpaidInvoice,
+  type DashboardUnpaidInvoicesView,
 } from "@/lib/dashboard/presenter";
+import { dashboardQueryKeys } from "@/lib/dashboard/query-keys";
 import { formatCurrency } from "@/lib/formatters";
 import { invoiceStatusLabel } from "@/lib/invoices/presenter";
-import { roomStatusLabel, type RoomUiStatus } from "@/lib/rooms/presenter";
+import {
+  roomStatusLabel,
+  type RoomListItem,
+  type RoomUiStatus,
+} from "@/lib/rooms/presenter";
+import { roomQueryKeys } from "@/lib/rooms/query-keys";
 import { formatBillingPeriod, type BillingPeriod } from "@/lib/utilities/presenter";
 
 const dashboardQueryOptions = {
@@ -51,12 +57,13 @@ export function DashboardClient({
     ...dashboardQueryOptions,
   });
   const availabilityQuery = useQuery({
-    queryKey: dashboardQueryKeys.roomAvailability(),
+    queryKey: roomQueryKeys.list(),
     queryFn: () =>
-      fetchAppApi<DashboardRoomAvailabilityView>(
-        "/api/dashboard/room-availability",
+      fetchAppApi<RoomListItem[]>(
+        "/api/rooms",
         { cache: "no-store" },
       ),
+    select: buildDashboardRoomAvailabilityFromItems,
     ...dashboardQueryOptions,
   });
   const missingMetricsQuery = useQuery({
