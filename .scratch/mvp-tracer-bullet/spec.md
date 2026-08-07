@@ -26,6 +26,7 @@ The slice should favor a complete working path over broad administration feature
 6. Preserve the completed MVP business scope for tickets 01-05. Any unchecked "Client Data Architecture Follow-up" section inside those files represents migration work still to do, not a rollback of the completed business behavior.
 7. For browser API calls, use `@tanstack/react-query`: `useQuery` for reads, `useMutation` for writes, and invalidate or update affected query keys after successful mutations. `fetchAppApi` should live inside `queryFn` or `mutationFn`, not ad-hoc `useEffect` request code.
 8. For migrated operational reads and writes, use the layered flow: Client Component -> TanStack Query -> app API route -> application service -> repository interface -> InsForge adapter.
+9. Room list management should follow the same client-data architecture as Invoices, Utility Metrics, Tenants, Contracts, and Dashboard. Dashboard room-summary data should reuse the Room domain service/repository where practical rather than duplicating Room aggregation queries.
 
 ## Current Combined Work Order
 
@@ -38,6 +39,7 @@ The current single-tracker order after completed MVP tickets 01-05 and completed
 5. Implement `09-tenants-client-data-management.md`.
 6. Implement `10-contracts-client-data-management.md`.
 7. Implement `11-auth-staff-management-client-data.md`.
+8. Implement `12-rooms-client-data-and-management.md`.
 
 ## User Stories
 

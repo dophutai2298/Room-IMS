@@ -1,5 +1,91 @@
 import type { ApiResponse } from "@/lib/api/response";
-import type { RoomDetailView, RoomOperationsSummaryView } from "./presenter";
+import type {
+  RoomDetailView,
+  RoomListItem,
+  RoomOperationsSummaryView,
+} from "./presenter";
+
+const authenticatedRoomListApiSmoke = {
+  ok: true,
+  data: [
+    {
+      id: "00000000-0000-0000-0000-000000000101",
+      name: "P101",
+      status: "occupied",
+      basePrice: 2500000,
+      roomBasePrice: 2500000,
+      tenantCount: 1,
+      keyTenantName: "Tenant Demo",
+      activeContractId: "00000000-0000-0000-0000-000000000301",
+      nextAction: "Cập nhật Tenant/Contract",
+    },
+  ],
+  meta: {
+    timing: {
+      operation: "rooms.list",
+      totalMs: 1,
+      spans: [
+        { name: "auth", durationMs: 1 },
+        { name: "service", durationMs: 1 },
+        { name: "repository.insforge.rooms-list", durationMs: 1 },
+      ],
+    },
+  },
+} satisfies ApiResponse<RoomListItem[]>;
+
+const authenticatedRoomCreateApiSmoke = {
+  ok: true,
+  data: {
+    id: "00000000-0000-0000-0000-000000000104",
+    name: "P104",
+    status: "available",
+    basePrice: 2800000,
+    roomBasePrice: 2800000,
+    tenantCount: 0,
+    keyTenantName: null,
+    activeContractId: null,
+    nextAction: "Sẵn sàng cho thuê",
+  },
+  meta: {
+    timing: {
+      operation: "rooms.create",
+      totalMs: 1,
+      spans: [
+        { name: "validation", durationMs: 1 },
+        { name: "auth", durationMs: 1 },
+        { name: "service", durationMs: 1 },
+        { name: "repository.insforge.room-create", durationMs: 1 },
+      ],
+    },
+  },
+} satisfies ApiResponse<RoomListItem>;
+
+const authenticatedRoomUpdateApiSmoke = {
+  ok: true,
+  data: {
+    id: "00000000-0000-0000-0000-000000000104",
+    name: "P104",
+    status: "maintenance",
+    basePrice: 2800000,
+    roomBasePrice: 2800000,
+    tenantCount: 0,
+    keyTenantName: null,
+    activeContractId: null,
+    nextAction: "Kiểm tra bảo trì",
+  },
+  meta: {
+    timing: {
+      operation: "rooms.update",
+      totalMs: 1,
+      spans: [
+        { name: "validation", durationMs: 1 },
+        { name: "auth", durationMs: 1 },
+        { name: "service", durationMs: 1 },
+        { name: "repository.insforge.room-update", durationMs: 1 },
+      ],
+    },
+  },
+} satisfies ApiResponse<RoomListItem>;
 
 const authenticatedRoomDetailApiSmoke = {
   ok: true,
@@ -63,6 +149,9 @@ const authenticatedRoomOperationsSummaryApiSmoke = {
 
 export function getAuthenticatedRoomApiSmokeResponses() {
   return {
+    list: authenticatedRoomListApiSmoke,
+    create: authenticatedRoomCreateApiSmoke,
+    update: authenticatedRoomUpdateApiSmoke,
     detail: authenticatedRoomDetailApiSmoke,
     operationsSummary: authenticatedRoomOperationsSummaryApiSmoke,
   };

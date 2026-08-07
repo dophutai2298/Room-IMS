@@ -2,22 +2,17 @@ import "server-only";
 
 import type { ApiTimer } from "@/lib/api/timing";
 import {
-  buildDashboardMissingUtilityMetrics,
+  buildDashboardMissingUtilityMetricsFromItems,
   buildDashboardRevenue,
-  buildDashboardRoomAvailability,
+  buildDashboardRoomAvailabilityFromItems,
   buildDashboardUnpaidInvoices,
 } from "@/lib/dashboard/presenter";
 import type { DashboardRepository } from "@/lib/dashboard/repository";
 import type { BillingPeriod } from "@/lib/utilities/presenter";
-import { fail, ok, type AppResult, toAppBackendError } from "./errors";
+import { fail, ok, toAppBackendError } from "./errors";
+import { createInsForgeRoomRepository } from "./room-repository";
 import { createInsForgeServerClient } from "./server";
-import type {
-  ContractRecord,
-  InvoiceRecord,
-  RoomRecord,
-  TenantRecord,
-  UtilityMetricRecord,
-} from "./types";
+import type { InvoiceRecord, RoomRecord, UtilityMetricRecord } from "./types";
 
 type InsForgeServerClient = Awaited<ReturnType<typeof createInsForgeServerClient>>;
 
@@ -31,6 +26,7 @@ export function createInsForgeDashboardRepository({
     clientPromise ??= createInsForgeServerClient();
     return clientPromise;
   };
+  const roomRepository = createInsForgeRoomRepository({ timer });
 
   return {
     async readRevenueSummary(billingPeriod) {
@@ -41,7 +37,7 @@ export function createInsForgeDashboardRepository({
         : query();
     },
     async readRoomAvailability() {
-      const query = () => readRoomAvailabilityFromInsForge({ getClient });
+      const query = () => readRoomAvailabilityFromRoomRepository({ roomRepository });
 
       return timer
         ? timer.measure("repository.insforge.dashboard-room-availability", query)
@@ -49,7 +45,11 @@ export function createInsForgeDashboardRepository({
     },
     async readMissingUtilityMetrics(billingPeriod) {
       const query = () =>
-        readMissingUtilityMetricsFromInsForge({ getClient, billingPeriod });
+        readMissingUtilityMetricsFromInsForge({
+          getClient,
+          roomRepository,
+          billingPeriod,
+        });
 
       return timer
         ? timer.measure("repository.insforge.dashboard-missing-utility-metrics", query)
@@ -95,36 +95,33 @@ async function readRevenueSummaryFromInsForge({
   }
 }
 
-async function readRoomAvailabilityFromInsForge({
-  getClient,
+async function readRoomAvailabilityFromRoomRepository({
+  roomRepository,
 }: {
-  getClient: () => Promise<InsForgeServerClient>;
+  roomRepository: ReturnType<typeof createInsForgeRoomRepository>;
 }) {
-  try {
-    const client = await getClient();
-    const relatedData = await readRoomRelatedData(client);
+  const rooms = await roomRepository.listRoomItems();
 
-    if (relatedData.error) {
-      return relatedData;
-    }
-
-    return ok(buildDashboardRoomAvailability(relatedData.data));
-  } catch (error) {
-    return { data: null, error: toAppBackendError(error) };
+  if (rooms.error) {
+    return rooms;
   }
+
+  return ok(buildDashboardRoomAvailabilityFromItems(rooms.data));
 }
 
 async function readMissingUtilityMetricsFromInsForge({
   getClient,
+  roomRepository,
   billingPeriod,
 }: {
   getClient: () => Promise<InsForgeServerClient>;
+  roomRepository: ReturnType<typeof createInsForgeRoomRepository>;
   billingPeriod: BillingPeriod;
 }) {
   try {
     const client = await getClient();
-    const [relatedData, metrics] = await Promise.all([
-      readRoomRelatedData(client),
+    const [rooms, metrics] = await Promise.all([
+      roomRepository.listRoomItems(),
       client.database
         .from("utility_metrics")
         .select("id, room_id, month, year, electricity_old, electricity_new, water_old, water_new")
@@ -132,8 +129,8 @@ async function readMissingUtilityMetricsFromInsForge({
         .eq("year", billingPeriod.year),
     ]);
 
-    if (relatedData.error) {
-      return relatedData;
+    if (rooms.error) {
+      return rooms;
     }
 
     if (metrics.error) {
@@ -141,8 +138,8 @@ async function readMissingUtilityMetricsFromInsForge({
     }
 
     return ok(
-      buildDashboardMissingUtilityMetrics({
-        ...relatedData.data,
+      buildDashboardMissingUtilityMetricsFromItems({
+        roomItems: rooms.data,
         metrics: (metrics.data ?? []) as unknown as UtilityMetricRecord[],
         billingPeriod,
       }),
@@ -188,57 +185,6 @@ async function readUnpaidInvoicesFromInsForge({
   } catch (error) {
     return { data: null, error: toAppBackendError(error) };
   }
-}
-
-async function readRoomRelatedData(
-  client: InsForgeServerClient,
-): Promise<
-  AppResult<{
-    rooms: RoomRecord[];
-    activeContracts: ContractRecord[];
-    tenants: TenantRecord[];
-  }>
-> {
-  const [rooms, activeContracts, tenants] = await Promise.all([
-    client.database
-      .from("rooms")
-      .select("id, name, status, base_price, created_at, updated_at")
-      .order("name"),
-    client.database
-      .from("contracts")
-      .select(
-        [
-          "id",
-          "room_id",
-          "key_tenant_id",
-          "deposit_amount",
-          "start_date",
-          "end_date",
-          "status",
-          "rent_amount",
-          "electricity_price_override",
-          "water_price_override",
-        ].join(", "),
-      )
-      .eq("status", "Active")
-      .order("start_date"),
-    client.database
-      .from("tenants")
-      .select("id, room_id, full_name, phone, is_key_tenant, status")
-      .order("full_name"),
-  ]);
-
-  for (const response of [rooms, activeContracts, tenants]) {
-    if (response.error) {
-      return fail(response.error, "Could not read Dashboard room data");
-    }
-  }
-
-  return ok({
-    rooms: (rooms.data ?? []) as unknown as RoomRecord[],
-    activeContracts: (activeContracts.data ?? []) as unknown as ContractRecord[],
-    tenants: (tenants.data ?? []) as unknown as TenantRecord[],
-  });
 }
 
 const invoiceSelect = [

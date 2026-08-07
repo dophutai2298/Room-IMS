@@ -1,12 +1,10 @@
 import { formatBillingPeriod, type BillingPeriod } from "@/lib/utilities/presenter";
 import type {
-  ContractRecord,
   InvoiceRecord,
   RoomRecord,
-  TenantRecord,
   UtilityMetricRecord,
 } from "@/lib/insforge/types";
-import { deriveRoomStatus, type RoomUiStatus } from "@/lib/rooms/presenter";
+import type { RoomListItem, RoomUiStatus } from "@/lib/rooms/presenter";
 
 export type DashboardRevenuePoint = {
   period: string;
@@ -101,17 +99,11 @@ export function buildDashboardRevenue({
 }
 
 export function buildDashboardRoomAvailability({
-  rooms,
-  activeContracts,
-  tenants,
+  roomItems,
 }: {
-  rooms: RoomRecord[];
-  activeContracts: ContractRecord[];
-  tenants: TenantRecord[];
+  roomItems: RoomListItem[];
 }): DashboardRoomAvailabilityView {
-  const items = rooms
-    .map((room) => buildDashboardRoomStatusItem({ room, activeContracts, tenants }))
-    .sort((left, right) => left.name.localeCompare(right.name));
+  const items = roomItems.map(toDashboardRoomStatusItem);
   const occupiedRooms = items.filter((room) => room.status === "occupied").length;
   const availableRooms = items.filter((room) => room.status === "available").length;
   const maintenanceRooms = items.filter((room) => room.status === "maintenance").length;
@@ -128,15 +120,11 @@ export function buildDashboardRoomAvailability({
 }
 
 export function buildDashboardMissingUtilityMetrics({
-  rooms,
-  activeContracts,
-  tenants,
+  roomItems,
   metrics,
   billingPeriod,
 }: {
-  rooms: RoomRecord[];
-  activeContracts: ContractRecord[];
-  tenants: TenantRecord[];
+  roomItems: RoomListItem[];
   metrics: UtilityMetricRecord[];
   billingPeriod: BillingPeriod;
 }): DashboardMissingUtilityMetricsView {
@@ -145,8 +133,8 @@ export function buildDashboardMissingUtilityMetrics({
       .filter((metric) => isSamePeriod(metric, billingPeriod))
       .map((metric) => metric.room_id),
   );
-  const missingRooms = rooms
-    .map((room) => buildDashboardRoomStatusItem({ room, activeContracts, tenants }))
+  const missingRooms = roomItems
+    .map(toDashboardRoomStatusItem)
     .filter((room) => room.status === "occupied" && !metricRoomIds.has(room.id))
     .map(({ id, name, keyTenantName, basePrice }) => ({
       id,
@@ -160,6 +148,28 @@ export function buildDashboardMissingUtilityMetrics({
     periodLabel: formatBillingPeriod(billingPeriod),
     rooms: missingRooms,
   };
+}
+
+export function buildDashboardRoomAvailabilityFromItems(
+  roomItems: RoomListItem[],
+) {
+  return buildDashboardRoomAvailability({ roomItems });
+}
+
+export function buildDashboardMissingUtilityMetricsFromItems({
+  roomItems,
+  metrics,
+  billingPeriod,
+}: {
+  roomItems: RoomListItem[];
+  metrics: UtilityMetricRecord[];
+  billingPeriod: BillingPeriod;
+}) {
+  return buildDashboardMissingUtilityMetrics({
+    roomItems,
+    metrics,
+    billingPeriod,
+  });
 }
 
 export function buildDashboardUnpaidInvoices({
@@ -203,27 +213,13 @@ export function buildDashboardUnpaidInvoices({
   };
 }
 
-function buildDashboardRoomStatusItem({
-  room,
-  activeContracts,
-  tenants,
-}: {
-  room: RoomRecord;
-  activeContracts: ContractRecord[];
-  tenants: TenantRecord[];
-}): DashboardRoomStatusItem {
-  const activeContract =
-    activeContracts.find((contract) => contract.room_id === room.id) ?? null;
-  const keyTenant = activeContract
-    ? tenants.find((tenant) => tenant.id === activeContract.key_tenant_id)
-    : null;
-
+function toDashboardRoomStatusItem(room: RoomListItem): DashboardRoomStatusItem {
   return {
     id: room.id,
     name: room.name,
-    status: deriveRoomStatus(room.status, activeContract),
-    keyTenantName: keyTenant?.full_name ?? null,
-    basePrice: toMoney(activeContract?.rent_amount ?? room.base_price),
+    status: room.status,
+    keyTenantName: room.keyTenantName,
+    basePrice: room.basePrice,
   };
 }
 

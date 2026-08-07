@@ -1,5 +1,7 @@
 export const roomQueryKeys = {
-  detail: (roomId: string) => ["rooms", "detail", roomId] as const,
+  all: ["rooms"] as const,
+  list: () => [...roomQueryKeys.all, "list"] as const,
+  detail: (roomId: string) => [...roomQueryKeys.all, "detail", roomId] as const,
   operationsSummary: (roomId: string) =>
-    ["rooms", "operations-summary", roomId] as const,
+    [...roomQueryKeys.all, "operations-summary", roomId] as const,
 };

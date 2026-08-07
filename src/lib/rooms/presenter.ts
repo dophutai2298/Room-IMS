@@ -15,6 +15,7 @@ export type RoomListItem = {
   name: string;
   status: RoomUiStatus;
   basePrice: number;
+  roomBasePrice: number;
   tenantCount: number;
   keyTenantName: string | null;
   activeContractId: string | null;
@@ -105,6 +106,7 @@ export function buildRoomListItem({
     name: room.name,
     status,
     basePrice: toMoney(activeContract?.rent_amount ?? room.base_price),
+    roomBasePrice: toMoney(room.base_price),
     tenantCount: activeTenants.length,
     keyTenantName: keyTenant?.full_name ?? null,
     activeContractId: activeContract?.id ?? null,
