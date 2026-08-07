@@ -27,12 +27,11 @@ import {
   invoiceStatusLabel,
   type InvoiceListItem,
 } from "@/lib/invoices/presenter";
-
-const invoiceListQueryKey = ["invoices", "list"] as const;
+import { invoiceQueryKeys } from "@/lib/invoices/query-keys";
 
 export function InvoiceListClient() {
   const invoicesQuery = useQuery({
-    queryKey: invoiceListQueryKey,
+    queryKey: invoiceQueryKeys.list(),
     queryFn: () =>
       fetchAppApi<InvoiceListItem[]>("/api/invoices", {
         cache: "no-store",

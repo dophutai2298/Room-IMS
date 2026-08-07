@@ -8,7 +8,7 @@
 
 **MVP business scope:** done.
 
-**Client Data Architecture follow-up:** ready-for-agent. Folded in from `client-data-architecture-migration/issues/04-utility-metrics-client-data-slice.md`.
+**Client Data Architecture follow-up:** human-review. Folded in from `client-data-architecture-migration/issues/04-utility-metrics-client-data-slice.md`.
 
 - [x] The Utility Metrics screen displays old electricity and water readings for the selected Room and billing period.
 - [x] The Utility Metrics screen uses Tailwind/shadcn form controls and inline validation.
@@ -31,15 +31,15 @@
 
 **Blocked by:** 03 — Persist Room, Tenant, and Contract Data; 05 — Generate Invoices From Utility Metrics; Room Detail client-data migration already completed in the former client-data tracker.
 
-- [ ] Utility Metrics reads use TanStack Query `useQuery` with stable Room and billing-period query keys.
-- [ ] Utility Metrics saves use TanStack Query `useMutation`.
-- [ ] Successful saves invalidate or update affected Utility Metrics, Room detail, and Invoice query keys.
-- [ ] Utility Metrics screens load existing readings through an authenticated app API.
-- [ ] Saving Utility Metrics uses an application service and repository interface before reaching the InsForge adapter.
-- [ ] The UI supports loading, validation, saving, success, empty, error, and retry states.
-- [ ] Electricity and water consumption continue to be calculated from new readings minus previous readings.
-- [ ] Negative consumption remains blocked with user-visible validation.
-- [ ] Utility Metrics remain unique per Room and billing period.
-- [ ] The mutation response uses the standard API success or failure shape.
-- [ ] API timing logs identify auth, validation, service, and InsForge write duration.
-- [ ] A smoke test or behavior test verifies saving valid metrics and rejecting invalid lower readings.
+- [x] Utility Metrics reads use TanStack Query `useQuery` with stable Room and billing-period query keys.
+- [x] Utility Metrics saves use TanStack Query `useMutation`.
+- [x] Successful saves invalidate or update affected Utility Metrics, Room detail, and Invoice query keys.
+- [x] Utility Metrics screens load existing readings through an authenticated app API.
+- [x] Saving Utility Metrics uses an application service and repository interface before reaching the InsForge adapter.
+- [x] The UI supports loading, validation, saving, success, empty, error, and retry states.
+- [x] Electricity and water consumption continue to be calculated from new readings minus previous readings.
+- [x] Negative consumption remains blocked with user-visible validation.
+- [x] Utility Metrics remain unique per Room and billing period.
+- [x] The mutation response uses the standard API success or failure shape.
+- [x] API timing logs identify auth, validation, service, and InsForge write duration.
+- [x] A smoke test or behavior test verifies saving valid metrics and rejecting invalid lower readings.
