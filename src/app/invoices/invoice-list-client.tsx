@@ -271,7 +271,7 @@ function RecordPaymentDialog({ invoice }: { invoice: InvoiceListItem }) {
           queryKey: roomQueryKeys.operationsSummary(invoice.roomId),
         }),
         queryClient.invalidateQueries({
-          queryKey: dashboardQueryKeys.revenue(),
+          queryKey: dashboardQueryKeys.all,
         }),
       ]);
       setOpen(false);

@@ -1,0 +1,289 @@
+import { formatBillingPeriod, type BillingPeriod } from "@/lib/utilities/presenter";
+import type {
+  ContractRecord,
+  InvoiceRecord,
+  RoomRecord,
+  TenantRecord,
+  UtilityMetricRecord,
+} from "@/lib/insforge/types";
+import { deriveRoomStatus, type RoomUiStatus } from "@/lib/rooms/presenter";
+
+export type DashboardRevenuePoint = {
+  period: string;
+  billingPeriod: BillingPeriod;
+  billed: number;
+  collected: number;
+};
+
+export type DashboardRevenueView = {
+  billingPeriod: BillingPeriod;
+  periodLabel: string;
+  billedRevenue: number;
+  collectedRevenue: number;
+  outstandingDebt: number;
+  invoiceCount: number;
+  chart: DashboardRevenuePoint[];
+};
+
+export type DashboardRoomAvailabilityView = {
+  totalRooms: number;
+  occupiedRooms: number;
+  availableRooms: number;
+  maintenanceRooms: number;
+  occupancyRate: number;
+  rooms: DashboardRoomStatusItem[];
+};
+
+export type DashboardRoomStatusItem = {
+  id: string;
+  name: string;
+  status: RoomUiStatus;
+  keyTenantName: string | null;
+  basePrice: number;
+};
+
+export type DashboardMissingUtilityMetricsView = {
+  billingPeriod: BillingPeriod;
+  periodLabel: string;
+  rooms: DashboardReminderRoom[];
+};
+
+export type DashboardReminderRoom = {
+  id: string;
+  name: string;
+  keyTenantName: string | null;
+  basePrice: number;
+};
+
+export type DashboardUnpaidInvoicesView = {
+  billingPeriod: BillingPeriod;
+  periodLabel: string;
+  totalBalanceDue: number;
+  invoices: DashboardUnpaidInvoice[];
+};
+
+export type DashboardUnpaidInvoice = {
+  id: string;
+  shortId: string;
+  roomId: string;
+  roomName: string;
+  status: InvoiceRecord["status"];
+  totalAmount: number;
+  amountPaid: number;
+  balanceDue: number;
+};
+
+export function buildDashboardRevenue({
+  invoices,
+  billingPeriod,
+}: {
+  invoices: InvoiceRecord[];
+  billingPeriod: BillingPeriod;
+}): DashboardRevenueView {
+  const currentInvoices = invoices.filter((invoice) =>
+    isSamePeriod(invoice, billingPeriod),
+  );
+
+  return {
+    billingPeriod,
+    periodLabel: formatBillingPeriod(billingPeriod),
+    billedRevenue: sumMoney(currentInvoices, "total_amount"),
+    collectedRevenue: sumMoney(currentInvoices, "amount_paid"),
+    outstandingDebt: currentInvoices.reduce(
+      (total, invoice) =>
+        total +
+        Math.max(toMoney(invoice.total_amount) - toMoney(invoice.amount_paid), 0),
+      0,
+    ),
+    invoiceCount: currentInvoices.length,
+    chart: buildRevenueTrend({ invoices, billingPeriod }),
+  };
+}
+
+export function buildDashboardRoomAvailability({
+  rooms,
+  activeContracts,
+  tenants,
+}: {
+  rooms: RoomRecord[];
+  activeContracts: ContractRecord[];
+  tenants: TenantRecord[];
+}): DashboardRoomAvailabilityView {
+  const items = rooms
+    .map((room) => buildDashboardRoomStatusItem({ room, activeContracts, tenants }))
+    .sort((left, right) => left.name.localeCompare(right.name));
+  const occupiedRooms = items.filter((room) => room.status === "occupied").length;
+  const availableRooms = items.filter((room) => room.status === "available").length;
+  const maintenanceRooms = items.filter((room) => room.status === "maintenance").length;
+
+  return {
+    totalRooms: items.length,
+    occupiedRooms,
+    availableRooms,
+    maintenanceRooms,
+    occupancyRate:
+      items.length === 0 ? 0 : Math.round((occupiedRooms / items.length) * 100),
+    rooms: items,
+  };
+}
+
+export function buildDashboardMissingUtilityMetrics({
+  rooms,
+  activeContracts,
+  tenants,
+  metrics,
+  billingPeriod,
+}: {
+  rooms: RoomRecord[];
+  activeContracts: ContractRecord[];
+  tenants: TenantRecord[];
+  metrics: UtilityMetricRecord[];
+  billingPeriod: BillingPeriod;
+}): DashboardMissingUtilityMetricsView {
+  const metricRoomIds = new Set(
+    metrics
+      .filter((metric) => isSamePeriod(metric, billingPeriod))
+      .map((metric) => metric.room_id),
+  );
+  const missingRooms = rooms
+    .map((room) => buildDashboardRoomStatusItem({ room, activeContracts, tenants }))
+    .filter((room) => room.status === "occupied" && !metricRoomIds.has(room.id))
+    .map(({ id, name, keyTenantName, basePrice }) => ({
+      id,
+      name,
+      keyTenantName,
+      basePrice,
+    }));
+
+  return {
+    billingPeriod,
+    periodLabel: formatBillingPeriod(billingPeriod),
+    rooms: missingRooms,
+  };
+}
+
+export function buildDashboardUnpaidInvoices({
+  invoices,
+  rooms,
+  billingPeriod,
+}: {
+  invoices: InvoiceRecord[];
+  rooms: RoomRecord[];
+  billingPeriod: BillingPeriod;
+}): DashboardUnpaidInvoicesView {
+  const roomNameById = new Map(rooms.map((room) => [room.id, room.name]));
+  const unpaidInvoices = invoices
+    .filter((invoice) => isSamePeriod(invoice, billingPeriod))
+    .filter((invoice) => invoice.status !== "Paid")
+    .map((invoice) => {
+      const totalAmount = toMoney(invoice.total_amount);
+      const amountPaid = toMoney(invoice.amount_paid);
+
+      return {
+        id: invoice.id,
+        shortId: `INV-${String(invoice.year).slice(-2)}${String(invoice.month).padStart(2, "0")}-${invoice.id.slice(0, 8).toUpperCase()}`,
+        roomId: invoice.room_id,
+        roomName: roomNameById.get(invoice.room_id) ?? "Unknown room",
+        status: invoice.status,
+        totalAmount,
+        amountPaid,
+        balanceDue: Math.max(totalAmount - amountPaid, 0),
+      };
+    })
+    .sort((left, right) => right.balanceDue - left.balanceDue);
+
+  return {
+    billingPeriod,
+    periodLabel: formatBillingPeriod(billingPeriod),
+    totalBalanceDue: unpaidInvoices.reduce(
+      (total, invoice) => total + invoice.balanceDue,
+      0,
+    ),
+    invoices: unpaidInvoices,
+  };
+}
+
+function buildDashboardRoomStatusItem({
+  room,
+  activeContracts,
+  tenants,
+}: {
+  room: RoomRecord;
+  activeContracts: ContractRecord[];
+  tenants: TenantRecord[];
+}): DashboardRoomStatusItem {
+  const activeContract =
+    activeContracts.find((contract) => contract.room_id === room.id) ?? null;
+  const keyTenant = activeContract
+    ? tenants.find((tenant) => tenant.id === activeContract.key_tenant_id)
+    : null;
+
+  return {
+    id: room.id,
+    name: room.name,
+    status: deriveRoomStatus(room.status, activeContract),
+    keyTenantName: keyTenant?.full_name ?? null,
+    basePrice: toMoney(activeContract?.rent_amount ?? room.base_price),
+  };
+}
+
+function buildRevenueTrend({
+  invoices,
+  billingPeriod,
+}: {
+  invoices: InvoiceRecord[];
+  billingPeriod: BillingPeriod;
+}) {
+  return getRecentBillingPeriods({ billingPeriod, count: 6 }).map((period) => {
+    const periodInvoices = invoices.filter((invoice) =>
+      isSamePeriod(invoice, period),
+    );
+
+    return {
+      period: formatBillingPeriod(period),
+      billingPeriod: period,
+      billed: sumMoney(periodInvoices, "total_amount"),
+      collected: sumMoney(periodInvoices, "amount_paid"),
+    };
+  });
+}
+
+function getRecentBillingPeriods({
+  billingPeriod,
+  count,
+}: {
+  billingPeriod: BillingPeriod;
+  count: number;
+}) {
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(
+      Date.UTC(billingPeriod.year, billingPeriod.month - 1 - (count - index - 1), 1),
+    );
+
+    return {
+      month: date.getUTCMonth() + 1,
+      year: date.getUTCFullYear(),
+    };
+  });
+}
+
+function isSamePeriod(
+  record: { month: number | string; year: number | string },
+  billingPeriod: BillingPeriod,
+) {
+  return (
+    Number(record.month) === billingPeriod.month &&
+    Number(record.year) === billingPeriod.year
+  );
+}
+
+function sumMoney<T extends "total_amount" | "amount_paid">(
+  invoices: InvoiceRecord[],
+  field: T,
+) {
+  return invoices.reduce((total, invoice) => total + toMoney(invoice[field]), 0);
+}
+
+function toMoney(value: number | string | null) {
+  return Number(value ?? 0);
+}

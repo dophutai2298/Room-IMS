@@ -10,7 +10,8 @@ import {
   YAxis,
 } from "recharts";
 
-import { formatCurrency, revenueTrend } from "@/lib/demo-data";
+import type { DashboardRevenuePoint } from "@/lib/dashboard/presenter";
+import { formatCurrency } from "@/lib/formatters";
 
 const compactCurrency = new Intl.NumberFormat("vi-VN", {
   notation: "compact",
@@ -62,7 +63,7 @@ function RevenueTooltip({
   );
 }
 
-export function RevenueChart() {
+export function RevenueChart({ data }: { data: DashboardRevenuePoint[] }) {
   return (
     <div
       className="h-72 w-full sm:h-80"
@@ -72,7 +73,7 @@ export function RevenueChart() {
       <ResponsiveContainer width="100%" height="100%" debounce={120}>
         <AreaChart
           accessibilityLayer
-          data={revenueTrend}
+          data={data}
           margin={{ top: 16, right: 8, bottom: 0, left: -12 }}
         >
           <defs>

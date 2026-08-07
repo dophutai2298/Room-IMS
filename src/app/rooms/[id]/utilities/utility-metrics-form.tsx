@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AppApiClientError, fetchAppApi } from "@/lib/api/client";
+import { dashboardQueryKeys } from "@/lib/dashboard/query-keys";
 import type { UtilityMetricRecord } from "@/lib/insforge/types";
 import { invoiceQueryKeys } from "@/lib/invoices/query-keys";
 import { roomQueryKeys } from "@/lib/rooms/query-keys";
@@ -71,6 +72,9 @@ export function UtilityMetricsForm({ view }: { view: UtilityMetricsView }) {
         }),
         queryClient.invalidateQueries({
           queryKey: invoiceQueryKeys.list(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: dashboardQueryKeys.all,
         }),
       ]);
     },

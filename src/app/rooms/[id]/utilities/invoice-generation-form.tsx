@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { generateMonthlyInvoice } from "./actions";
@@ -18,10 +19,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCurrency } from "@/lib/formatters";
+import { dashboardQueryKeys } from "@/lib/dashboard/query-keys";
 import type { UtilityMetricsView } from "@/lib/utilities/presenter";
 import { invoiceStatusLabel } from "@/lib/invoices/presenter";
+import { invoiceQueryKeys } from "@/lib/invoices/query-keys";
+import { roomQueryKeys } from "@/lib/rooms/query-keys";
+import { utilityMetricsQueryKeys } from "@/lib/utilities/query-keys";
 
 export function InvoiceGenerationForm({ view }: { view: UtilityMetricsView }) {
+  const queryClient = useQueryClient();
   const [state, formAction] = useActionState(
     generateMonthlyInvoice,
     initialInvoiceGenerationActionState,
@@ -37,13 +43,27 @@ export function InvoiceGenerationForm({ view }: { view: UtilityMetricsView }) {
 
     if (state.status === "success") {
       toast.success(state.message);
+      void Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: utilityMetricsQueryKeys.room(view.room.id),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: invoiceQueryKeys.list(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: roomQueryKeys.operationsSummary(view.room.id),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: dashboardQueryKeys.all,
+        }),
+      ]);
       return;
     }
 
     if (state.status === "error") {
       toast.error(state.message);
     }
-  }, [state.message, state.status]);
+  }, [queryClient, state.message, state.status, view.room.id]);
 
   return (
     <Card>
