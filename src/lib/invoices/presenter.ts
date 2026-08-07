@@ -1,6 +1,8 @@
 import { formatBillingPeriod, type BillingPeriod } from "@/lib/utilities/presenter";
 import type { InvoiceRecord, RoomRecord } from "@/lib/insforge/types";
 
+export type InvoicePaymentStatus = InvoiceRecord["status"];
+
 export type InvoiceListItem = {
   id: string;
   shortId: string;
@@ -16,10 +18,10 @@ export type InvoiceListItem = {
   totalAmount: number;
   amountPaid: number;
   balanceDue: number;
-  status: InvoiceRecord["status"];
+  status: InvoicePaymentStatus;
 };
 
-export const invoiceStatusLabel: Record<InvoiceRecord["status"], string> = {
+export const invoiceStatusLabel: Record<InvoicePaymentStatus, string> = {
   Unpaid: "Chưa thanh toán",
   "Partially Paid": "Thanh toán một phần",
   Paid: "Đã thanh toán",
