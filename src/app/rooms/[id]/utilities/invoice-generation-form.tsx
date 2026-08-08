@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { formatCurrency } from "@/lib/formatters";
 import { dashboardQueryKeys } from "@/lib/dashboard/query-keys";
 import type { UtilityMetricsView } from "@/lib/utilities/presenter";
@@ -35,6 +36,8 @@ export function InvoiceGenerationForm({ view }: { view: UtilityMetricsView }) {
   const canGenerate = Boolean(view.persistedMetricId && view.activeContractId);
   const defaultOtherFee =
     state.fields.otherFee || String(view.invoice?.otherFee ?? 0);
+  const defaultOtherFeeNote =
+    state.fields.otherFeeNote ?? view.invoice?.otherFeeNote ?? "";
 
   useEffect(() => {
     if (!state.message) {
@@ -111,6 +114,29 @@ export function InvoiceGenerationForm({ view }: { view: UtilityMetricsView }) {
             </p>
           </div>
 
+          <div className="grid gap-2">
+            <Label htmlFor="invoice-other-fee-note">Ghi chú phí khác</Label>
+            <Textarea
+              id="invoice-other-fee-note"
+              name="otherFeeNote"
+              defaultValue={defaultOtherFeeNote}
+              placeholder="Ví dụ: phụ thu vệ sinh, sửa khóa, gửi xe..."
+              aria-invalid={Boolean(state.fieldErrors.otherFeeNote)}
+              disabled={!canGenerate}
+              rows={3}
+            />
+            <p
+              className={
+                state.fieldErrors.otherFeeNote
+                  ? "text-xs text-destructive"
+                  : "text-xs text-muted-foreground"
+              }
+            >
+              {state.fieldErrors.otherFeeNote ??
+                "Bắt buộc khi phí khác lớn hơn 0 để hóa đơn có thể audit lại."}
+            </p>
+          </div>
+
           {view.invoice && (
             <div className="rounded-2xl border border-white/40 bg-background/35 p-4 clay-inset dark:border-white/8">
               <DetailRow label="Trạng thái" value={invoiceStatusLabel[view?.invoice?.status]} />
@@ -122,12 +148,18 @@ export function InvoiceGenerationForm({ view }: { view: UtilityMetricsView }) {
                 label="Đã thu"
                 value={formatCurrency(view.invoice.amountPaid)}
               />
+              {view.invoice.otherFee > 0 && (
+                <DetailRow
+                  label="Ghi chú phí khác"
+                  value={view.invoice.otherFeeNote ?? "Chưa có ghi chú"}
+                />
+              )}
             </div>
           )}
 
           {!canGenerate && (
             <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
-              Can luu Utility Metrics va co active Contract truoc khi tao hoa don.
+              Cần lưu chỉ số Điện - Nước và đã có Hợp đồng trước khi tạo hoá đơn.
             </p>
           )}
 

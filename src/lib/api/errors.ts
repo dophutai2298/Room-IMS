@@ -28,6 +28,15 @@ export function unauthorizedApiError(
   };
 }
 
+export function forbiddenApiError(message = "Permission denied"): ApiError {
+  return {
+    kind: "forbidden",
+    code: "FORBIDDEN",
+    message,
+    status: 403,
+  };
+}
+
 export function validationApiError({
   message,
   code = "VALIDATION_ERROR",

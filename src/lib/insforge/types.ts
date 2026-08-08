@@ -71,6 +71,7 @@ export type InvoiceRecord = {
   electricity_fee: number;
   water_fee: number;
   other_fee: number;
+  other_fee_note: string | null;
   total_amount: number;
   amount_paid: number;
   status: InvoiceDbStatus;

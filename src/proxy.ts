@@ -1,7 +1,7 @@
 import { updateSession } from "@insforge/sdk/ssr/middleware";
 import { NextResponse, type NextRequest } from "next/server";
 
-const protectedRoutePrefixes = ["/", "/rooms", "/invoices"];
+const protectedRoutePrefixes = ["/", "/rooms", "/invoices", "/utility-pricing"];
 
 export async function proxy(request: NextRequest) {
   const response = NextResponse.next({ request });
@@ -27,5 +27,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/rooms/:path*", "/invoices/:path*"],
+  matcher: ["/", "/rooms/:path*", "/invoices/:path*", "/utility-pricing/:path*"],
 };

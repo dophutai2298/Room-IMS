@@ -14,6 +14,7 @@ export type InvoiceListItem = {
   electricityFee: number;
   waterFee: number;
   otherFee: number;
+  otherFeeNote: string | null;
   utilityFee: number;
   totalAmount: number;
   amountPaid: number;
@@ -59,6 +60,7 @@ export function buildInvoiceList({
         electricityFee,
         waterFee,
         otherFee: toMoney(invoice.other_fee),
+        otherFeeNote: normalizeOptionalText(invoice.other_fee_note),
         utilityFee: electricityFee + waterFee,
         totalAmount,
         amountPaid,
@@ -87,4 +89,10 @@ function toMoney(value: number | string | null) {
 
 function toNumber(value: number | string) {
   return Number(value);
+}
+
+function normalizeOptionalText(value: string | null | undefined) {
+  const cleaned = value?.trim();
+
+  return cleaned ? cleaned : null;
 }

@@ -27,7 +27,6 @@ export async function GET(request: Request) {
     );
     const meta = { timing: timer.snapshot() };
     logApiTiming(meta.timing);
-
     return apiResult(result, meta);
   } catch (error) {
     const meta = { timing: timer.snapshot() };

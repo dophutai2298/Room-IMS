@@ -100,6 +100,7 @@ function createInvoiceListItem({
     electricityFee: 350_000,
     waterFee: 170_000,
     otherFee: 0,
+    otherFeeNote: null,
     utilityFee: 520_000,
     totalAmount: smokeInvoice.totalAmount,
     amountPaid,

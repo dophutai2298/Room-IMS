@@ -4,11 +4,13 @@ export type InvoiceGenerationActionState = {
   invoiceId: string | null;
   fieldErrors: {
     otherFee?: string;
+    otherFeeNote?: string;
     month?: string;
     year?: string;
   };
   fields: {
     otherFee: string;
+    otherFeeNote: string;
   };
 };
 
@@ -19,5 +21,6 @@ export const initialInvoiceGenerationActionState: InvoiceGenerationActionState =
   fieldErrors: {},
   fields: {
     otherFee: "",
+    otherFeeNote: "",
   },
 };

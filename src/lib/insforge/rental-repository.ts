@@ -416,10 +416,12 @@ export async function generateInvoiceFromUtilityMetrics({
   roomId,
   billingPeriod,
   otherFee,
+  otherFeeNote,
 }: {
   roomId: string;
   billingPeriod: BillingPeriod;
   otherFee: number;
+  otherFeeNote?: string | null;
 }): Promise<AppResult<InvoiceRecord>> {
   try {
     await requireAppUserRole();
@@ -444,7 +446,6 @@ export async function generateInvoiceFromUtilityMetrics({
         client.database
           .from("utility_pricing")
           .select("*")
-          .eq("is_active", true)
           .order("effective_from"),
         client.database
           .from("invoices")
@@ -529,6 +530,7 @@ export async function generateInvoiceFromUtilityMetrics({
       electricityUnitPrice: toMoney(electricityUnitPrice),
       waterUnitPrice: toMoney(waterUnitPrice),
       otherFee,
+      otherFeeNote,
       existingInvoice,
     });
 
@@ -826,6 +828,7 @@ function buildInvoiceValues({
   electricityUnitPrice,
   waterUnitPrice,
   otherFee,
+  otherFeeNote,
   existingInvoice,
 }: {
   room: RoomRecord;
@@ -835,6 +838,7 @@ function buildInvoiceValues({
   electricityUnitPrice: number;
   waterUnitPrice: number;
   otherFee: number;
+  otherFeeNote?: string | null;
   existingInvoice: InvoiceRecord | null;
 }): InvoiceWriteValues {
   const electricityConsumption =
@@ -855,6 +859,8 @@ function buildInvoiceValues({
       electricity_fee: electricityFee,
       water_fee: waterFee,
       other_fee: safeOtherFee,
+      other_fee_note:
+        safeOtherFee > 0 ? normalizeOptionalText(otherFeeNote) : null,
       total_amount: totalAmount,
       amount_paid: 0,
       status: "Unpaid",
@@ -966,6 +972,12 @@ function roundMoney(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+function normalizeOptionalText(value: string | null | undefined) {
+  const cleaned = value?.trim();
+
+  return cleaned ? cleaned : null;
+}
+
 type InvoiceWriteValues = {
   room_id: string;
   month: number;
@@ -974,6 +986,7 @@ type InvoiceWriteValues = {
   electricity_fee: number;
   water_fee: number;
   other_fee: number;
+  other_fee_note: string | null;
   total_amount: number;
   amount_paid: number;
   status: InvoiceDbStatus;

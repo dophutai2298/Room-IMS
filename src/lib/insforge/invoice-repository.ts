@@ -196,6 +196,7 @@ const invoiceListSelect = [
   "electricity_fee",
   "water_fee",
   "other_fee",
+  "other_fee_note",
   "total_amount",
   "amount_paid",
   "status",

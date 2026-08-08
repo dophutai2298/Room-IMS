@@ -171,8 +171,15 @@ function InvoiceTable({ invoices }: { invoices: InvoiceListItem[] }) {
                 <TableCell className="font-mono tabular-nums">
                   {formatCurrency(invoice.waterFee)}
                 </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {formatCurrency(invoice.otherFee)}
+                <TableCell>
+                  <div className="font-mono tabular-nums">
+                    {formatCurrency(invoice.otherFee)}
+                  </div>
+                  {invoice.otherFee > 0 && (
+                    <p className="mt-1 max-w-[14rem] text-xs leading-5 text-muted-foreground">
+                      {invoice.otherFeeNote ?? "Chưa có ghi chú"}
+                    </p>
+                  )}
                 </TableCell>
                 <TableCell className="font-mono font-semibold tabular-nums">
                   {formatCurrency(invoice.totalAmount)}

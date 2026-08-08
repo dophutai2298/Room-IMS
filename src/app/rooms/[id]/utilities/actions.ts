@@ -14,8 +14,10 @@ export async function generateMonthlyInvoice(
   const monthRaw = String(formData.get("month") ?? "").trim();
   const yearRaw = String(formData.get("year") ?? "").trim();
   const otherFeeRaw = String(formData.get("otherFee") ?? "").trim();
+  const otherFeeNoteRaw = String(formData.get("otherFeeNote") ?? "").trim();
   const fields = {
     otherFee: otherFeeRaw,
+    otherFeeNote: otherFeeNoteRaw,
   };
 
   const month = parseInteger(monthRaw);
@@ -45,6 +47,10 @@ export async function generateMonthlyInvoice(
     fieldErrors.otherFee = "Nhập phí không hợp lệ, hoặc để 0.";
   }
 
+  if (otherFee !== null && otherFee > 0 && !otherFeeNoteRaw) {
+    fieldErrors.otherFeeNote = "Nhập ghi chú để biết phí khác là phí gì.";
+  }
+
   if (Object.keys(fieldErrors).length > 0) {
     return {
       status: "error",
@@ -62,6 +68,7 @@ export async function generateMonthlyInvoice(
       year: year as number,
     },
     otherFee: otherFee as number,
+    otherFeeNote: otherFeeNoteRaw || null,
   });
 
   if (result.error) {
@@ -90,6 +97,7 @@ export async function generateMonthlyInvoice(
     fieldErrors: {},
     fields: {
       otherFee: String(result.data.other_fee),
+      otherFeeNote: result.data.other_fee_note ?? "",
     },
   };
 }
