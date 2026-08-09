@@ -49,6 +49,14 @@ export function toAppBackendError(
     };
   }
 
+  if (isPostgrestLikeError(error)) {
+    return {
+      message: error.message || fallback,
+      code: String(error.code ?? "POSTGREST_ERROR"),
+      statusCode: readStatusCode(error),
+    };
+  }
+
   if (error instanceof Error) {
     return {
       message: error.message || fallback,
@@ -70,4 +78,28 @@ function isInsForgeError(error: unknown): error is InsForgeError {
     "statusCode" in error &&
     "error" in error
   );
+}
+
+function isPostgrestLikeError(
+  error: unknown,
+): error is { code?: unknown; message: string; status?: unknown; statusCode?: unknown } {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof (error as { message?: unknown }).message === "string" &&
+    ("code" in error || "details" in error || "hint" in error)
+  );
+}
+
+function readStatusCode(error: { status?: unknown; statusCode?: unknown }) {
+  if (typeof error.statusCode === "number") {
+    return error.statusCode;
+  }
+
+  if (typeof error.status === "number") {
+    return error.status;
+  }
+
+  return undefined;
 }

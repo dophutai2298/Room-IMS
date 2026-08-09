@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { name: "Tổng quan", href: "/", icon: "overview" },
   { name: "Phòng trọ", href: "/rooms", icon: "rooms" },
+  { name: "Tenant", href: "/tenants", icon: "tenants" },
   { name: "Hóa đơn", href: "/invoices", icon: "invoice" },
   { name: "Bảng giá", href: "/utility-pricing", icon: "pricing" },
 ];
@@ -89,6 +90,14 @@ function NavIcon({ name }: { name: string }) {
     return (
       <span aria-hidden="true" className="text-base leading-none">
         ▤
+      </span>
+    );
+  }
+
+  if (name === "tenants") {
+    return (
+      <span aria-hidden="true" className="text-base leading-none">
+        ◎
       </span>
     );
   }

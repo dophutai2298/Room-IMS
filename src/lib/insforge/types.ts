@@ -26,8 +26,24 @@ export type TenantRecord = {
   room_id: string | null;
   full_name: string;
   phone: string | null;
+  date_of_birth?: string | null;
+  permanent_address?: string | null;
+  cccd_number?: string | null;
   is_key_tenant: boolean;
+  cccd_front_url?: string | null;
+  cccd_back_url?: string | null;
   status: TenantDbStatus;
+};
+
+export type TenantCccdImageRecord = {
+  id: string;
+  tenant_id: string;
+  storage_key: string;
+  public_url: string;
+  file_name: string | null;
+  mime_type: string | null;
+  file_size: number | null;
+  created_at: string;
 };
 
 export type ContractRecord = {

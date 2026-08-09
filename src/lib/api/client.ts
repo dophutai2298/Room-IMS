@@ -23,11 +23,12 @@ export async function fetchAppApi<T>(
   input: RequestInfo | URL,
   init?: RequestInit,
 ): Promise<T> {
+  const isFormDataBody = init?.body instanceof FormData;
   const response = await fetch(input, {
     ...init,
     headers: {
       Accept: "application/json",
-      ...(init?.body ? { "Content-Type": "application/json" } : {}),
+      ...(init?.body && !isFormDataBody ? { "Content-Type": "application/json" } : {}),
       ...init?.headers,
     },
   });

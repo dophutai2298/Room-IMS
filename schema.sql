@@ -21,11 +21,26 @@ CREATE TABLE IF NOT EXISTS public.tenants (
     room_id UUID REFERENCES public.rooms(id) ON DELETE SET NULL,
     full_name TEXT NOT NULL,
     phone TEXT,
+    date_of_birth TEXT,
+    permanent_address TEXT,
+    cccd_number TEXT,
     is_key_tenant BOOLEAN NOT NULL DEFAULT FALSE,
     cccd_front_url TEXT,
     cccd_back_url TEXT,
     status TEXT NOT NULL DEFAULT 'Active'
         CHECK (status IN ('Active', 'Moved Out')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.tenant_cccd_images (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+    storage_key TEXT NOT NULL,
+    public_url TEXT NOT NULL,
+    file_name TEXT,
+    mime_type TEXT,
+    file_size BIGINT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -124,6 +139,11 @@ ALTER TABLE public.invoices
 ALTER TABLE public.invoices
     ADD COLUMN IF NOT EXISTS other_fee_note TEXT;
 
+ALTER TABLE public.tenants
+    ADD COLUMN IF NOT EXISTS date_of_birth TEXT,
+    ADD COLUMN IF NOT EXISTS permanent_address TEXT,
+    ADD COLUMN IF NOT EXISTS cccd_number TEXT;
+
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -173,6 +193,7 @@ END $$;
 
 ALTER TABLE public.rooms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tenants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tenant_cccd_images ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.contracts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.utility_metrics ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.utility_pricing ENABLE ROW LEVEL SECURITY;
@@ -186,6 +207,7 @@ DROP POLICY IF EXISTS "Cho phép tất cả trên utility_metrics" ON public.uti
 DROP POLICY IF EXISTS "Cho phép tất cả trên invoices" ON public.invoices;
 DROP POLICY IF EXISTS "authenticated_manage_rooms" ON public.rooms;
 DROP POLICY IF EXISTS "authenticated_manage_tenants" ON public.tenants;
+DROP POLICY IF EXISTS "authenticated_manage_tenant_cccd_images" ON public.tenant_cccd_images;
 DROP POLICY IF EXISTS "authenticated_manage_contracts" ON public.contracts;
 DROP POLICY IF EXISTS "authenticated_manage_utility_metrics" ON public.utility_metrics;
 DROP POLICY IF EXISTS "authenticated_manage_utility_pricing" ON public.utility_pricing;
@@ -201,6 +223,23 @@ CREATE POLICY "authenticated_manage_tenants"
 ON public.tenants FOR ALL TO authenticated
 USING (true)
 WITH CHECK (true);
+
+CREATE POLICY "authenticated_manage_tenant_cccd_images"
+ON public.tenant_cccd_images FOR ALL TO authenticated
+USING (
+    EXISTS (
+        SELECT 1
+        FROM public.app_users
+        WHERE app_users.auth_user_id = auth.uid()
+    )
+)
+WITH CHECK (
+    EXISTS (
+        SELECT 1
+        FROM public.app_users
+        WHERE app_users.auth_user_id = auth.uid()
+    )
+);
 
 CREATE POLICY "authenticated_manage_contracts"
 ON public.contracts FOR ALL TO authenticated
@@ -237,13 +276,26 @@ SET name = EXCLUDED.name,
     base_price = EXCLUDED.base_price,
     updated_at = NOW();
 
-INSERT INTO public.tenants (id, room_id, full_name, phone, is_key_tenant, status)
+INSERT INTO public.tenants (
+    id,
+    room_id,
+    full_name,
+    phone,
+    date_of_birth,
+    permanent_address,
+    cccd_number,
+    is_key_tenant,
+    status
+)
 VALUES
     (
         '10000000-0000-0000-0000-000000000001',
         '00000000-0000-0000-0000-000000000101',
         'Nguyen Minh Khoa',
         '0908421739',
+        '1998-02-22',
+        'TP Ho Chi Minh',
+        '079000000001',
         TRUE,
         'Active'
     ),
@@ -252,6 +304,9 @@ VALUES
         '00000000-0000-0000-0000-000000000101',
         'Tran Ngoc Mai',
         '0916284503',
+        '1999-05-14',
+        'Dong Nai',
+        '079000000002',
         FALSE,
         'Active'
     )
@@ -259,6 +314,9 @@ ON CONFLICT (id) DO UPDATE
 SET room_id = EXCLUDED.room_id,
     full_name = EXCLUDED.full_name,
     phone = EXCLUDED.phone,
+    date_of_birth = EXCLUDED.date_of_birth,
+    permanent_address = EXCLUDED.permanent_address,
+    cccd_number = EXCLUDED.cccd_number,
     is_key_tenant = EXCLUDED.is_key_tenant,
     status = EXCLUDED.status,
     updated_at = NOW();
@@ -394,6 +452,9 @@ SET electricity_fee = EXCLUDED.electricity_fee,
 CREATE UNIQUE INDEX IF NOT EXISTS contracts_one_active_per_room
 ON public.contracts (room_id)
 WHERE status = 'Active';
+
+CREATE INDEX IF NOT EXISTS tenant_cccd_images_tenant_id_created_at_idx
+ON public.tenant_cccd_images (tenant_id, created_at DESC);
 
 CREATE OR REPLACE FUNCTION public.enforce_contract_key_tenant_same_room()
 RETURNS TRIGGER
