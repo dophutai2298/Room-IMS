@@ -17,9 +17,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { contractQueryKeys } from "@/lib/contracts/query-keys";
 import { dashboardQueryKeys } from "@/lib/dashboard/query-keys";
 import type { TenantView } from "@/lib/rooms/presenter";
 import { roomQueryKeys } from "@/lib/rooms/query-keys";
+import { tenantQueryKeys } from "@/lib/tenants/query-keys";
 
 export function KeyTenantForm({
   roomId,
@@ -47,11 +49,17 @@ export function KeyTenantForm({
           queryKey: roomQueryKeys.all,
         }),
         queryClient.invalidateQueries({
+          queryKey: tenantQueryKeys.room(roomId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: contractQueryKeys.room(roomId),
+        }),
+        queryClient.invalidateQueries({
           queryKey: dashboardQueryKeys.all,
         }),
       ]);
     }
-  }, [queryClient, state.status]);
+  }, [queryClient, roomId, state.status]);
 
   return (
     <form action={formAction} className="space-y-3">

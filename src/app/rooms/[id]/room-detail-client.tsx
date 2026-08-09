@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 
 import { KeyTenantForm } from "./key-tenant-form";
+import { TenantManagementCard } from "./tenant-management-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,7 +24,6 @@ import {
   type RoomDetailView,
   type RoomOperationsSummaryView,
   type RoomUiStatus,
-  type TenantView,
 } from "@/lib/rooms/presenter";
 import { roomQueryKeys } from "@/lib/rooms/query-keys";
 
@@ -80,7 +80,7 @@ export function RoomDetailClient({ roomId }: { roomId: string }) {
       )}
 
       <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <TenantsCard detail={detail} />
+        <TenantManagementCard roomId={detail.room.id} roomName={detail.room.name} />
         <ContractCard detail={detail} />
       </section>
 
@@ -121,66 +121,8 @@ function RoomHeader({ detail }: { detail: RoomDetailView }) {
             Chốt điện nước
           </Link>
         </Button>
-        <Button disabled title="Ticket sau sẽ thêm form tạo Tenant">
-          Thêm Tenant
-        </Button>
       </div>
     </header>
-  );
-}
-
-function TenantsCard({ detail }: { detail: RoomDetailView }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Danh sách Tenant</CardTitle>
-        <CardDescription>
-          Persisted Tenants đang gắn với {detail.room.name}.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {detail.tenants.length > 0 ? (
-          detail.tenants.map((tenant) => (
-            <TenantCard key={tenant.id} tenant={tenant} />
-          ))
-        ) : (
-          <div className="rounded-lg border border-dashed border-border bg-muted/30 p-6">
-            <p className="font-medium">Chưa có Tenant</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Phòng này chưa có Tenant persisted trong InsForge.
-            </p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function TenantCard({ tenant }: { tenant: TenantView }) {
-  return (
-    <div className="rounded-2xl border border-white/45 bg-background/35 p-4 clay-inset dark:border-white/8">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="font-medium">{tenant.name}</p>
-            {tenant.isKeyTenant && <Badge variant="default">Key Tenant</Badge>}
-            {tenant.status === "Moved Out" && (
-              <Badge variant="outline">Đã chuyển đi</Badge>
-            )}
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {tenant.phone ?? "Chưa có số điện thoại"}
-          </p>
-        </div>
-        <Button variant="outline" size="sm" disabled>
-          Xem CCCD
-        </Button>
-      </div>
-      <Separator className="my-4" />
-      <p className="text-sm text-muted-foreground">
-        Vai trò Key Tenant được xác định bằng active Contract của phòng.
-      </p>
-    </div>
   );
 }
 
