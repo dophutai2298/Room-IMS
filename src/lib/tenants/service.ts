@@ -3,6 +3,8 @@ import "server-only";
 import { appError, type AppResult } from "@/lib/insforge/errors";
 import type { TenantCccdImage, TenantListItem } from "./presenter";
 import type {
+  DeleteTenantCccdImageInput,
+  DeleteTenantCccdImageResult,
   DeleteTenantResult,
   ListTenantsInput,
   TenantRepository,
@@ -156,6 +158,32 @@ export async function uploadTenantCccdImagesForOperations({
   }
 
   return repository.uploadTenantCccdImages({ tenantId, images });
+}
+
+export async function deleteTenantCccdImageForOperations({
+  repository,
+  tenantId,
+  imageId,
+}: DeleteTenantCccdImageInput & {
+  repository: TenantRepository;
+}): Promise<AppResult<DeleteTenantCccdImageResult>> {
+  if (!tenantId.trim()) {
+    return appError({
+      message: "Tenant id is required.",
+      code: "TENANT_ID_REQUIRED",
+      statusCode: 422,
+    });
+  }
+
+  if (!imageId.trim()) {
+    return appError({
+      message: "Tenant CCCD image id is required.",
+      code: "TENANT_CCCD_IMAGE_ID_REQUIRED",
+      statusCode: 422,
+    });
+  }
+
+  return repository.deleteTenantCccdImage({ tenantId, imageId });
 }
 
 function validateTenantWrite(input: WriteTenantInput): AppResult<WriteTenantInput> {

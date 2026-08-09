@@ -32,6 +32,16 @@ export type UploadTenantCccdImagesInput = {
   images: File[];
 };
 
+export type DeleteTenantCccdImageInput = {
+  tenantId: string;
+  imageId: string;
+};
+
+export type DeleteTenantCccdImageResult = {
+  tenantId: string;
+  imageId: string;
+};
+
 export type TenantRepository = {
   listTenants(input?: ListTenantsInput): Promise<AppResult<TenantListItem[]>>;
   listRoomTenants(roomId: string): Promise<AppResult<TenantListItem[]>>;
@@ -42,4 +52,7 @@ export type TenantRepository = {
   uploadTenantCccdImages(
     input: UploadTenantCccdImagesInput,
   ): Promise<AppResult<TenantCccdImage[]>>;
+  deleteTenantCccdImage(
+    input: DeleteTenantCccdImageInput,
+  ): Promise<AppResult<DeleteTenantCccdImageResult>>;
 };

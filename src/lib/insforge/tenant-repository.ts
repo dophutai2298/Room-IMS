@@ -7,6 +7,8 @@ import {
   type TenantListItem,
 } from "@/lib/tenants/presenter";
 import type {
+  DeleteTenantCccdImageInput,
+  DeleteTenantCccdImageResult,
   DeleteTenantResult,
   ListTenantsInput,
   TenantRepository,
@@ -94,6 +96,13 @@ export function createInsForgeTenantRepository({
 
       return timer
         ? timer.measure("repository.insforge.tenant-cccd-upload", query)
+        : query();
+    },
+    async deleteTenantCccdImage(input) {
+      const query = () => deleteTenantCccdImageFromInsForge({ ...input, getClient });
+
+      return timer
+        ? timer.measure("repository.insforge.tenant-cccd-delete", query)
         : query();
     },
   };
@@ -425,6 +434,64 @@ async function uploadTenantCccdImagesToInsForge({
   }
 }
 
+async function deleteTenantCccdImageFromInsForge({
+  tenantId,
+  imageId,
+  getClient,
+}: DeleteTenantCccdImageInput & {
+  getClient: () => Promise<InsForgeServerClient>;
+}): Promise<AppResult<DeleteTenantCccdImageResult>> {
+  try {
+    const client = await getClient();
+    const tenantResult = await readTenantById({ client, tenantId });
+
+    if (tenantResult.error) {
+      return tenantResult;
+    }
+
+    const imageResult = await readTenantCccdImageById({ client, tenantId, imageId });
+
+    if (imageResult.error) {
+      return imageResult;
+    }
+
+    const bucket = client.storage.from(tenantCccdBucketName);
+    const removeResponse = (await bucket.remove([
+      imageResult.data.storage_key,
+    ])) as StorageResponse<unknown>;
+
+    if (removeResponse.error) {
+      return fail(removeResponse.error, "Could not delete Tenant CCCD image from storage");
+    }
+
+    const deleteResponse = (await client.database
+      .from("tenant_cccd_images")
+      .delete()
+      .eq("id", imageId)
+      .eq("tenant_id", tenantId)
+      .select("id, tenant_id")) as QueryResponse<
+      Array<Pick<TenantCccdImageRecord, "id" | "tenant_id">>
+    >;
+
+    if (deleteResponse.error) {
+      return fail(deleteResponse.error, "Could not delete Tenant CCCD image metadata");
+    }
+
+    const deleted = deleteResponse.data?.[0];
+
+    if (!deleted) {
+      return tenantCccdImageNotFound();
+    }
+
+    return ok({
+      tenantId: deleted.tenant_id,
+      imageId: deleted.id,
+    });
+  } catch (error) {
+    return { data: null, error: toAppBackendError(error) };
+  }
+}
+
 async function buildSingleTenantItem({
   client,
   tenant,
@@ -672,6 +739,34 @@ async function readTenantCccdImages({
   return ok((response.data ?? []) as unknown as TenantCccdImageRecord[]);
 }
 
+async function readTenantCccdImageById({
+  client,
+  tenantId,
+  imageId,
+}: {
+  client: InsForgeServerClient;
+  tenantId: string;
+  imageId: string;
+}): Promise<AppResult<TenantCccdImageRecord>> {
+  const response = (await client.database
+    .from("tenant_cccd_images")
+    .select(cccdImageSelect)
+    .eq("id", imageId)
+    .eq("tenant_id", tenantId)) as QueryResponse<TenantCccdImageRecord[]>;
+
+  if (response.error) {
+    return fail(response.error, "Could not read Tenant CCCD image");
+  }
+
+  const image = response.data?.[0];
+
+  if (!image) {
+    return tenantCccdImageNotFound();
+  }
+
+  return ok(image);
+}
+
 async function removeTenantStorageObjects({
   client,
   images,
@@ -692,6 +787,14 @@ function tenantNotFound() {
   return appError({
     message: "Tenant was not found.",
     code: "TENANT_NOT_FOUND",
+    statusCode: 404,
+  });
+}
+
+function tenantCccdImageNotFound() {
+  return appError({
+    message: "Tenant CCCD image was not found.",
+    code: "TENANT_CCCD_IMAGE_NOT_FOUND",
     statusCode: 404,
   });
 }

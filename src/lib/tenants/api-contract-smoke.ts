@@ -1,6 +1,6 @@
 import type { ApiResponse } from "@/lib/api/response";
 import type { TenantCccdImage, TenantListItem } from "./presenter";
-import type { DeleteTenantResult } from "./repository";
+import type { DeleteTenantCccdImageResult, DeleteTenantResult } from "./repository";
 
 const tenantDemo = {
   id: "00000000-0000-0000-0000-000000000201",
@@ -158,6 +158,25 @@ const authenticatedTenantCccdUploadApiSmoke = {
   },
 } satisfies ApiResponse<TenantCccdImage[]>;
 
+const authenticatedTenantCccdDeleteApiSmoke = {
+  ok: true,
+  data: {
+    tenantId: tenantDemo.id,
+    imageId: tenantDemo.cccdImages[0].id,
+  },
+  meta: {
+    timing: {
+      operation: "tenants.cccd-images.delete",
+      totalMs: 1,
+      spans: [
+        { name: "auth", durationMs: 1 },
+        { name: "service", durationMs: 1 },
+        { name: "repository.insforge.tenant-cccd-delete", durationMs: 1 },
+      ],
+    },
+  },
+} satisfies ApiResponse<DeleteTenantCccdImageResult>;
+
 export function getAuthenticatedTenantApiSmokeResponses() {
   return {
     list: authenticatedTenantListApiSmoke,
@@ -167,5 +186,6 @@ export function getAuthenticatedTenantApiSmokeResponses() {
     update: authenticatedTenantUpdateApiSmoke,
     delete: authenticatedTenantDeleteApiSmoke,
     cccdUpload: authenticatedTenantCccdUploadApiSmoke,
+    cccdDelete: authenticatedTenantCccdDeleteApiSmoke,
   };
 }

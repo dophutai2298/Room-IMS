@@ -8,9 +8,7 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   Dialog,
@@ -74,14 +72,14 @@ export function TenantsDirectoryClient() {
     <>
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-semibold text-primary">Quản lý Tenant</p>
+          <p className="text-sm font-semibold text-primary">Quản lý Người thuê</p>
           <h1 className="mt-2 text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
-            Danh bạ Tenant
+            Danh bạ Người thuê
           </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+          {/* <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
             Quản lý toàn bộ Tenant, hồ sơ CCCD, phòng đang ở và trạng thái từ
             một bảng tập trung.
-          </p>
+          </p> */}
         </div>
         <TenantEditorDialog
           mode="create"
@@ -93,17 +91,11 @@ export function TenantsDirectoryClient() {
       <Card>
         <CardHeader>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <CardTitle>Tenant toàn hệ thống</CardTitle>
-              <CardDescription>
-                Search chạy qua `/api/tenants?search=...`, không query trực tiếp
-                từ UI tới InsForge.
-              </CardDescription>
-            </div>
+
             <div className="w-full max-w-md">
               <Input
                 value={search}
-                placeholder="Search by name..."
+                placeholder="Tìm kiếm bằng tên..."
                 onChange={(event) => setSearch(event.target.value)}
               />
             </div>
@@ -142,7 +134,7 @@ function TenantsTable({
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Tenant</TableHead>
+          <TableHead>Họ tên</TableHead>
           <TableHead>Phòng</TableHead>
           <TableHead>CCCD</TableHead>
           <TableHead>Trạng thái</TableHead>
@@ -157,7 +149,7 @@ function TenantsTable({
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{tenant.name}</span>
-                  {tenant.isKeyTenant && <Badge>Key Tenant</Badge>}
+                  {tenant.isKeyTenant && <Badge>Người thuê chính</Badge>}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {tenant.phone ?? "Chưa có SĐT"}
@@ -203,6 +195,7 @@ function TenantDetailDialog({
   tenant: TenantListItem;
   roomOptions: TenantRoomOption[];
 }) {
+  console.log("tenant:::",tenant)
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -214,7 +207,7 @@ function TenantDetailDialog({
         <DialogHeader>
           <DialogTitle>{tenant.name}</DialogTitle>
           <DialogDescription>
-            Hồ sơ Tenant, CCCD, ảnh định danh và phòng đang gắn.
+            Hồ sơ Người thuê, CCCD, ảnh định danh và phòng đang thuê.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -231,7 +224,7 @@ function TenantDetailDialog({
             className="sm:col-span-2"
           />
           <div className="space-y-2 sm:col-span-2">
-            <p className="text-sm font-medium">Ảnh CCCD</p>
+            <p className="text-sm font-medium">Ảnh Hồ sơ</p>
             <TenantImageGallery images={tenant.cccdImages} />
           </div>
           <div className="flex flex-wrap justify-end gap-2 sm:col-span-2">

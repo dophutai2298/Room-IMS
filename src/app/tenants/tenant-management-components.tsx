@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -36,6 +35,7 @@ import {
   type TenantListItem,
 } from "@/lib/tenants/presenter";
 import type {
+  DeleteTenantCccdImageResult,
   DeleteTenantResult,
   TenantWriteStatus,
 } from "@/lib/tenants/repository";
@@ -56,6 +56,21 @@ type TenantDraft = {
   cccdNumber: string;
   status: TenantWriteStatus;
 };
+
+type TenantImagePreview = {
+  id: string;
+  tenantId: string;
+  url: string;
+  storageKey: null;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  uploadedAt: null;
+  source: "preview";
+  file: File;
+};
+
+type TenantGalleryImage = TenantCccdImage | TenantImagePreview;
 
 const defaultTenantDraft: TenantDraft = {
   roomId: "",
@@ -87,23 +102,54 @@ export function TenantEditorDialog({
   const [draft, setDraft] = useState<TenantDraft>(() =>
     getInitialDraft({ tenant, fixedRoomId }),
   );
-  const [files, setFiles] = useState<File[]>([]);
+  const [selectedFilePreviews, setSelectedFilePreviews] = useState<
+    TenantImagePreview[]
+  >([]);
+  const [deletedImageIds, setDeletedImageIds] = useState<string[]>([]);
   const [serverMessage, setServerMessage] = useState<string | null>(null);
+  const selectedFiles = useMemo(
+    () => selectedFilePreviews.map((preview) => preview.file),
+    [selectedFilePreviews],
+  );
   const validationMessage = useMemo(
-    () => validateTenantDraft({ draft, files, fixedRoomId }),
-    [draft, files, fixedRoomId],
+    () => validateTenantDraft({ draft, files: selectedFiles, fixedRoomId }),
+    [draft, fixedRoomId, selectedFiles],
+  );
+  const existingImages = useMemo(
+    () =>
+      (tenant?.cccdImages ?? []).filter((image) => !deletedImageIds.includes(image.id)),
+    [deletedImageIds, tenant?.cccdImages],
+  );
+  const galleryImages = useMemo<TenantGalleryImage[]>(
+    () => [...existingImages, ...selectedFilePreviews],
+    [existingImages, selectedFilePreviews],
+  );
+  const imagesPendingDelete = useMemo(
+    () =>
+      (tenant?.cccdImages ?? []).filter(
+        (image) => image.source === "storage" && deletedImageIds.includes(image.id),
+      ),
+    [deletedImageIds, tenant?.cccdImages],
   );
   const isEdit = mode === "edit";
 
   const mutation = useMutation<
     TenantListItem,
     AppApiClientError,
-    { draft: TenantDraft; files: File[] }
+    {
+      draft: TenantDraft;
+      files: File[];
+      imagesToDelete: TenantCccdImage[];
+    }
   >({
     mutationFn: async (payload) => {
       const roomId = fixedRoomId ?? payload.draft.roomId;
       const savedTenant = await fetchAppApi<TenantListItem>(
-        isEdit ? `/api/tenants/${tenant?.id}` : fixedRoomId ? `/api/rooms/${roomId}/tenants` : "/api/tenants",
+        isEdit
+          ? `/api/tenants/${tenant?.id}`
+          : fixedRoomId
+            ? `/api/rooms/${roomId}/tenants`
+            : "/api/tenants",
         {
           method: isEdit ? "PATCH" : "POST",
           body: JSON.stringify({
@@ -113,31 +159,48 @@ export function TenantEditorDialog({
             dateOfBirth: payload.draft.dateOfBirth || null,
             permanentAddress: payload.draft.permanentAddress || null,
             cccdNumber: payload.draft.cccdNumber,
-            status: payload.draft.status,
+            status: isEdit ? payload.draft.status : "Active",
           }),
         },
       );
 
-      if (payload.files.length === 0) {
-        return savedTenant;
+      let uploadedImages: TenantCccdImage[] = [];
+
+      if (payload.files.length > 0) {
+        const formData = new FormData();
+        for (const file of payload.files) {
+          formData.append("images", file);
+        }
+
+        uploadedImages = await fetchAppApi<TenantCccdImage[]>(
+          `/api/tenants/${savedTenant.id}/cccd-images`,
+          {
+            method: "POST",
+            body: formData,
+          },
+        );
       }
 
-      const formData = new FormData();
-      for (const file of payload.files) {
-        formData.append("images", file);
+      for (const image of payload.imagesToDelete) {
+        await fetchAppApi<DeleteTenantCccdImageResult>(
+          `/api/tenants/${image.tenantId}/cccd-images/${image.id}`,
+          {
+            method: "DELETE",
+          },
+        );
       }
-
-      const uploadedImages = await fetchAppApi<TenantCccdImage[]>(
-        `/api/tenants/${savedTenant.id}/cccd-images`,
-        {
-          method: "POST",
-          body: formData,
-        },
-      );
 
       return {
         ...savedTenant,
-        cccdImages: [...savedTenant.cccdImages, ...uploadedImages],
+        cccdImages: [
+          ...savedTenant.cccdImages.filter(
+            (image) =>
+              !payload.imagesToDelete.some(
+                (deletedImage) => deletedImage.id === image.id,
+              ),
+          ),
+          ...uploadedImages,
+        ],
       };
     },
     onSuccess: async (savedTenant) => {
@@ -156,7 +219,8 @@ export function TenantEditorDialog({
         roomIds: affectedRoomIds,
       });
 
-      toast.success(isEdit ? "Đã cập nhật Tenant." : "Đã thêm Tenant mới.");
+      toast.success(isEdit ? "Đã cập nhật Người thuê." : "Đã thêm Người thuê.");
+      resetImageDraft();
       setOpen(false);
     },
     onError: (error) => {
@@ -164,14 +228,67 @@ export function TenantEditorDialog({
     },
   });
 
+  function resetImageDraft() {
+    setSelectedFilePreviews((current) => {
+      revokePreviewUrls(current);
+      return [];
+    });
+    setDeletedImageIds([]);
+  }
+
   function handleOpenChange(nextOpen: boolean) {
     setOpen(nextOpen);
 
     if (nextOpen) {
       setDraft(getInitialDraft({ tenant, fixedRoomId }));
-      setFiles([]);
+      resetImageDraft();
       setServerMessage(null);
       mutation.reset();
+      return;
+    }
+
+    resetImageDraft();
+  }
+
+  function handleFilesSelected(files: File[]) {
+    setSelectedFilePreviews((current) => {
+      revokePreviewUrls(current);
+
+      return files.map((file) => ({
+        id: `preview-${crypto.randomUUID()}`,
+        tenantId: tenant?.id ?? "new",
+        url: URL.createObjectURL(file),
+        storageKey: null,
+        fileName: file.name,
+        mimeType: file.type,
+        fileSize: file.size,
+        uploadedAt: null,
+        source: "preview",
+        file,
+      }));
+    });
+    setServerMessage(null);
+  }
+
+  function stageImageRemoval(image: TenantGalleryImage) {
+    if (image.source === "preview") {
+      setSelectedFilePreviews((current) => {
+        const removed = current.find((preview) => preview.id === image.id);
+        if (removed) {
+          URL.revokeObjectURL(removed.url);
+        }
+
+        return current.filter((preview) => preview.id !== image.id);
+      });
+      setServerMessage(null);
+      return;
+    }
+
+    if (image.source === "storage") {
+      setDeletedImageIds((current) =>
+        current.includes(image.id) ? current : [...current, image.id],
+      );
+      setServerMessage(null);
     }
   }
 
@@ -182,26 +299,25 @@ export function TenantEditorDialog({
     }
 
     setServerMessage(null);
-    mutation.mutate({ draft, files });
+    mutation.mutate({
+      draft,
+      files: selectedFiles,
+      imagesToDelete: imagesPendingDelete,
+    });
   }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button
-          size={triggerSize}
-          variant={isEdit ? "outline" : "default"}
-        >
-          {triggerLabel ?? (isEdit ? "Cập nhật" : "Thêm Tenant")}
+        <Button size={triggerSize} variant={isEdit ? "outline" : "default"}>
+          {triggerLabel ?? (isEdit ? "Cập nhật" : "Thêm")}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Cập nhật Tenant" : "Thêm Tenant"}</DialogTitle>
-          <DialogDescription>
-            Lưu hồ sơ Tenant, CCCD và ảnh định danh qua API nội bộ trước khi ghi
-            xuống InsForge.
-          </DialogDescription>
+          <DialogTitle>
+            {isEdit ? "Cập nhật Người thuê" : "Thêm Người thuê"}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -219,7 +335,7 @@ export function TenantEditorDialog({
                 }}
               >
                 <SelectTrigger id={`tenant-room-${mode}-${tenant?.id ?? "new"}`}>
-                  <SelectValue placeholder="Chọn phòng cho Tenant" />
+                  <SelectValue placeholder="Chọn phòng cho Người thuê" />
                 </SelectTrigger>
                 <SelectContent>
                   {rooms.map((room) => (
@@ -302,34 +418,9 @@ export function TenantEditorDialog({
             />
           </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor={`tenant-status-${mode}-${tenant?.id ?? "new"}`}>
-              Trạng thái
-            </Label>
-            <Select
-              value={draft.status}
-              disabled={mutation.isPending}
-              onValueChange={(value) => {
-                setDraft((current) => ({
-                  ...current,
-                  status: value as TenantWriteStatus,
-                }));
-                setServerMessage(null);
-              }}
-            >
-              <SelectTrigger id={`tenant-status-${mode}-${tenant?.id ?? "new"}`}>
-                <SelectValue placeholder="Chọn trạng thái" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Active">Đang ở</SelectItem>
-                <SelectItem value="Moved Out">Đã chuyển đi</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid gap-2">
+          <div className="grid gap-2 sm:col-span-2">
             <Label htmlFor={`tenant-cccd-images-${mode}-${tenant?.id ?? "new"}`}>
-              Ảnh CCCD
+              Ảnh Hồ sơ
             </Label>
             <Input
               id={`tenant-cccd-images-${mode}-${tenant?.id ?? "new"}`}
@@ -338,14 +429,47 @@ export function TenantEditorDialog({
               multiple
               disabled={mutation.isPending}
               onChange={(event) => {
-                setFiles(Array.from(event.target.files ?? []));
-                setServerMessage(null);
+                handleFilesSelected(Array.from(event.target.files ?? []));
+                event.currentTarget.value = "";
               }}
             />
             <p className="text-xs text-muted-foreground">
-              Có thể chọn nhiều ảnh, tối đa 6 ảnh/lần và 5MB/ảnh.
+              Có thể chọn nhiều ảnh, tối đa 4 ảnh/lần và 5MB/ảnh. Ảnh mới và ảnh
+              xoá chỉ được đồng bộ khi bấm Lưu thay đổi.
             </p>
+            <TenantImageGallery
+              images={galleryImages}
+              allowDelete={isEdit}
+              onDeleteImage={stageImageRemoval}
+            />
           </div>
+
+          {isEdit && (
+            <div className="grid gap-2">
+              <Label htmlFor={`tenant-status-${mode}-${tenant?.id ?? "new"}`}>
+                Trạng thái
+              </Label>
+              <Select
+                value={draft.status}
+                disabled={mutation.isPending}
+                onValueChange={(value) => {
+                  setDraft((current) => ({
+                    ...current,
+                    status: value as TenantWriteStatus,
+                  }));
+                  setServerMessage(null);
+                }}
+              >
+                <SelectTrigger id={`tenant-status-${mode}-${tenant?.id ?? "new"}`}>
+                  <SelectValue placeholder="Chọn trạng thái" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Active">Đang ở</SelectItem>
+                  <SelectItem value="Moved Out">Đã chuyển đi</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {(validationMessage || serverMessage) && (
             <p className="rounded-2xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive sm:col-span-2">
@@ -358,7 +482,7 @@ export function TenantEditorDialog({
           <Button
             type="button"
             variant="outline"
-            onClick={() => setOpen(false)}
+            onClick={() => handleOpenChange(false)}
             disabled={mutation.isPending}
           >
             Hủy
@@ -369,12 +493,12 @@ export function TenantEditorDialog({
             disabled={mutation.isPending || Boolean(validationMessage)}
           >
             {mutation.isPending
-              ? files.length > 0
-                ? "Đang lưu & upload..."
+              ? selectedFiles.length > 0 || imagesPendingDelete.length > 0
+                ? "Đang lưu ảnh..."
                 : "Đang lưu..."
               : isEdit
                 ? "Lưu thay đổi"
-                : "Thêm Tenant"}
+                : "Thêm Người thuê"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -401,7 +525,7 @@ export function TenantDeleteButton({
         tenantId: result.tenantId,
         roomIds: [result.roomId, tenant.roomId].filter(isNonEmptyString),
       });
-      toast.success("Đã xoá Tenant.");
+      toast.success("Đã xoá thành công.");
     },
     onError: (error) => {
       toast.error(error.message);
@@ -410,12 +534,14 @@ export function TenantDeleteButton({
 
   function handleDelete() {
     if (tenant.isKeyTenant) {
-      toast.error("Tenant đang là Key Tenant của active Contract nên chưa thể xoá.");
+      toast.error(
+        `${tenant.name} đang là người thuê chính của phòng ${tenant.roomName} nên chưa thể xoá.`,
+      );
       return;
     }
 
     const confirmed = window.confirm(
-      `Xoá Tenant "${tenant.name}"? Hành động này không thể hoàn tác.`,
+      `Xoá "${tenant.name}"? Hành động này không thể hoàn tác.`,
     );
 
     if (confirmed) {
@@ -432,7 +558,7 @@ export function TenantDeleteButton({
       onClick={handleDelete}
       title={
         tenant.isKeyTenant
-          ? "Không thể xoá Tenant đang là Key Tenant của active Contract."
+          ? "Không thể xoá Người thuê đang là Key Tenant của active Contract."
           : undefined
       }
     >
@@ -452,36 +578,64 @@ export function TenantStatusBadge({ status }: { status: TenantWriteStatus }) {
 export function TenantImageGallery({
   images,
   compact = false,
+  allowDelete = false,
+  onDeleteImage,
 }: {
-  images: TenantCccdImage[];
+  images: TenantGalleryImage[];
   compact?: boolean;
+  allowDelete?: boolean;
+  onDeleteImage?: (image: TenantGalleryImage) => void;
 }) {
   if (images.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">Chưa có ảnh CCCD.</p>
+      <p className="text-sm text-muted-foreground">Chưa có ảnh hồ sơ.</p>
     );
   }
 
   return (
     <div className={cn("grid gap-3", compact ? "grid-cols-2" : "sm:grid-cols-3")}>
-      {images.map((image, index) => (
-        <a
-          key={image.id}
-          href={image.url}
-          target="_blank"
-          rel="noreferrer"
-          className="group overflow-hidden rounded-2xl border border-white/45 bg-background/40 clay-inset dark:border-white/8"
-        >
-          <span
-            className="block aspect-[4/3] bg-cover bg-center transition-transform group-hover:scale-[1.03]"
-            style={{ backgroundImage: `url("${image.url}")` }}
-            aria-label={`Ảnh CCCD ${index + 1}`}
-          />
-          <span className="block truncate px-3 py-2 text-xs text-muted-foreground">
-            {image.fileName ?? `Ảnh CCCD ${index + 1}`}
-          </span>
-        </a>
-      ))}
+      {images.map((image, index) => {
+        const canDelete = allowDelete && image.source !== "legacy" && onDeleteImage;
+
+        return (
+          <div
+            key={image.id}
+            className={cn(
+              "group relative overflow-hidden rounded-2xl border border-white/45 bg-background/40 clay-inset dark:border-white/8",
+              image.source === "preview" && "ring-2 ring-primary/35",
+            )}
+          >
+            <a
+              href={image.url}
+              target="_blank"
+              rel="noreferrer"
+              className="block"
+            >
+              <span
+                className="block aspect-[4/3] bg-cover bg-center transition-transform group-hover:scale-[1.03]"
+                style={{ backgroundImage: `url("${image.url}")` }}
+                aria-label={`Ảnh hồ sơ ${index + 1}`}
+              />
+              <span className="block truncate px-3 py-2 text-xs text-muted-foreground">
+                {image.fileName ?? `Ảnh hồ sơ ${index + 1}`}
+                {image.source === "preview" ? " • Chưa lưu" : ""}
+              </span>
+            </a>
+            {canDelete && (
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                className="absolute right-2 top-2 h-8 w-8 rounded-full p-0 shadow-lg"
+                aria-label={`Xoá ảnh hồ sơ ${index + 1}`}
+                onClick={() => onDeleteImage(image)}
+              >
+                ×
+              </Button>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -555,15 +709,15 @@ function validateTenantDraft({
   fixedRoomId?: string;
 }) {
   if (!(fixedRoomId ?? draft.roomId).trim()) {
-    return "Chọn phòng cho Tenant.";
+    return "Chọn phòng cho Người thuê.";
   }
 
   if (!draft.name.trim()) {
-    return "Nhập họ tên Tenant.";
+    return "Nhập họ tên Người thuê.";
   }
 
   if (!draft.phone.trim()) {
-    return "Nhập số điện thoại Tenant.";
+    return "Nhập số điện thoại Người thuê.";
   }
 
   if (!draft.cccdNumber.trim()) {
@@ -571,11 +725,11 @@ function validateTenantDraft({
   }
 
   if (draft.status !== "Active" && draft.status !== "Moved Out") {
-    return "Chọn trạng thái Tenant hợp lệ.";
+    return "Chọn trạng thái Người thuê hợp lệ.";
   }
 
-  if (files.length > 6) {
-    return "Chỉ upload tối đa 6 ảnh CCCD mỗi lần.";
+  if (files.length > 4) {
+    return "Chỉ upload tối đa 4 ảnh hồ sơ mỗi lần.";
   }
 
   for (const file of files) {
@@ -613,6 +767,12 @@ async function invalidateTenantDependents({
       queryClient.invalidateQueries({ queryKey: contractQueryKeys.room(roomId) }),
     ]),
   ]);
+}
+
+function revokePreviewUrls(previews: TenantImagePreview[]) {
+  for (const preview of previews) {
+    URL.revokeObjectURL(preview.url);
+  }
 }
 
 function isNonEmptyString(value: string | null | undefined): value is string {

@@ -3,6 +3,7 @@ import "server-only";
 import type { AppResult } from "@/lib/insforge/errors";
 import type { TenantCccdImage, TenantListItem } from "./presenter";
 import type {
+  DeleteTenantCccdImageResult,
   DeleteTenantResult,
   TenantRepository,
   UpdateTenantInput,
@@ -10,6 +11,7 @@ import type {
 } from "./repository";
 import {
   createTenantForOperations,
+  deleteTenantCccdImageForOperations,
   deleteTenantForOperations,
   getTenantForOperations,
   listRoomTenantsForOperations,
@@ -59,6 +61,11 @@ export async function runTenantServiceBehaviorSmoke() {
       repository,
       tenantId: keyTenant.id,
       images: [smokeImage],
+    }),
+    deleteCccdImage: await deleteTenantCccdImageForOperations({
+      repository,
+      tenantId: keyTenant.id,
+      imageId: smokeCccdImage.id,
     }),
     deleteSafeTenant: await deleteTenantForOperations({
       repository,
@@ -145,6 +152,12 @@ function createSmokeRepository(): TenantRepository {
     },
     async uploadTenantCccdImages() {
       return ok([smokeCccdImage]);
+    },
+    async deleteTenantCccdImage(input) {
+      return ok({
+        tenantId: input.tenantId,
+        imageId: input.imageId,
+      } satisfies DeleteTenantCccdImageResult);
     },
   };
 }
