@@ -1,8 +1,6 @@
 import { validationApiError, type ApiError } from "@/lib/api/errors";
-import { apiException, apiFailure, apiResult } from "@/lib/api/response";
-import { createApiTimer, logApiTiming } from "@/lib/api/timing";
 import { createInsForgeUtilityMetricsRepository } from "@/lib/insforge/utility-metrics-repository";
-import { resolveOperationalAppUser } from "@/lib/server/operational-auth";
+import { withOperationalAuth } from "@/lib/server/operational-route";
 import {
   getUtilityMetricsForOperations,
   saveUtilityMetricsForOperations,
@@ -10,84 +8,43 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const timer = createApiTimer("utility-metrics.read");
-
-  try {
+export const GET = withOperationalAuth(
+  { operation: "utility-metrics.read" },
+  async ({ timer }, request: Request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
     const validation = await timer.measure("validation", async () =>
       validateReadRequest({ roomId: id, request }),
     );
 
     if (validation.error) {
-      const meta = { timing: timer.snapshot() };
-      logApiTiming(meta.timing);
-
-      return apiFailure(validation.error, meta);
-    }
-
-    const auth = await resolveOperationalAppUser({ timer });
-
-    if (auth.error) {
-      const meta = { timing: timer.snapshot() };
-      logApiTiming(meta.timing);
-
-      return apiFailure(auth.error, meta);
+      return validation.error;
     }
 
     const repository = createInsForgeUtilityMetricsRepository({ timer });
-    const result = await timer.measure("service", () =>
+    return timer.measure("service", () =>
       getUtilityMetricsForOperations({
         repository,
         roomId: id,
         billingPeriod: validation.data.billingPeriod,
       }),
     );
-    const meta = { timing: timer.snapshot() };
-    logApiTiming(meta.timing);
+  },
+);
 
-    return apiResult(result, meta);
-  } catch (error) {
-    const meta = { timing: timer.snapshot() };
-    logApiTiming(meta.timing);
-
-    return apiException(error, meta);
-  }
-}
-
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const timer = createApiTimer("utility-metrics.save");
-
-  try {
+export const PATCH = withOperationalAuth(
+  { operation: "utility-metrics.save" },
+  async ({ timer }, request: Request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
     const validation = await timer.measure("validation", async () =>
       validateSaveRequest({ roomId: id, request }),
     );
 
     if (validation.error) {
-      const meta = { timing: timer.snapshot() };
-      logApiTiming(meta.timing);
-
-      return apiFailure(validation.error, meta);
-    }
-
-    const auth = await resolveOperationalAppUser({ timer });
-
-    if (auth.error) {
-      const meta = { timing: timer.snapshot() };
-      logApiTiming(meta.timing);
-
-      return apiFailure(auth.error, meta);
+      return validation.error;
     }
 
     const repository = createInsForgeUtilityMetricsRepository({ timer });
-    const result = await timer.measure("service", () =>
+    return timer.measure("service", () =>
       saveUtilityMetricsForOperations({
         repository,
         roomId: id,
@@ -96,17 +53,8 @@ export async function PATCH(
         waterNew: validation.data.waterNew,
       }),
     );
-    const meta = { timing: timer.snapshot() };
-    logApiTiming(meta.timing);
-
-    return apiResult(result, meta);
-  } catch (error) {
-    const meta = { timing: timer.snapshot() };
-    logApiTiming(meta.timing);
-
-    return apiException(error, meta);
-  }
-}
+  },
+);
 
 type ValidationResult<T> =
   | { data: T; error: null }

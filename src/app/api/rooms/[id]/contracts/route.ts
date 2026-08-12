@@ -1,57 +1,37 @@
 import { validationApiError } from "@/lib/api/errors";
-import { apiException, apiFailure, apiResult } from "@/lib/api/response";
-import { createApiTimer, logApiTiming } from "@/lib/api/timing";
 import { validateContractCreateRequest } from "@/lib/contracts/api";
 import {
   createContractForOperations,
   listRoomContractsForOperations,
 } from "@/lib/contracts/service";
 import { createInsForgeContractRepository } from "@/lib/insforge/contract-repository";
-import { resolveOperationalAppUser } from "@/lib/server/operational-auth";
+import { withOperationalAuth } from "@/lib/server/operational-route";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const timer = createApiTimer("contracts.list");
-
-  try {
+export const GET = withOperationalAuth(
+  { operation: "contracts.list" },
+  async ({ timer }, _request: Request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
 
     if (!id) {
-      return respondWithMissingRoomId(timer);
-    }
-
-    const auth = await resolveOperationalAppUser({ timer });
-
-    if (auth.error) {
-      return respond(timer, () => apiFailure(auth.error, timingMeta(timer)));
+      return missingRoomIdError();
     }
 
     const repository = createInsForgeContractRepository({ timer });
-    const result = await timer.measure("service", () =>
+    return timer.measure("service", () =>
       listRoomContractsForOperations({ repository, roomId: id }),
     );
+  },
+);
 
-    return respond(timer, () => apiResult(result, timingMeta(timer)));
-  } catch (error) {
-    return respond(timer, () => apiException(error, timingMeta(timer)));
-  }
-}
-
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const timer = createApiTimer("contracts.create");
-
-  try {
+export const POST = withOperationalAuth(
+  { operation: "contracts.create" },
+  async ({ timer }, request: Request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
 
     if (!id) {
-      return respondWithMissingRoomId(timer);
+      return missingRoomIdError();
     }
 
     const validation = await timer.measure("validation", () =>
@@ -59,53 +39,23 @@ export async function POST(
     );
 
     if (validation.error) {
-      return respond(timer, () =>
-        apiFailure(validation.error, timingMeta(timer)),
-      );
-    }
-
-    const auth = await resolveOperationalAppUser({ timer });
-
-    if (auth.error) {
-      return respond(timer, () => apiFailure(auth.error, timingMeta(timer)));
+      return validation.error;
     }
 
     const repository = createInsForgeContractRepository({ timer });
-    const result = await timer.measure("service", () =>
+    return timer.measure("service", () =>
       createContractForOperations({
         repository,
         roomId: id,
         ...validation.data,
       }),
     );
+  },
+);
 
-    return respond(timer, () => apiResult(result, timingMeta(timer)));
-  } catch (error) {
-    return respond(timer, () => apiException(error, timingMeta(timer)));
-  }
-}
-
-function respondWithMissingRoomId(timer: ReturnType<typeof createApiTimer>) {
-  return respond(timer, () =>
-    apiFailure(
-      validationApiError({
-        message: "Room id is required.",
-        details: { fieldErrors: { roomId: "Room id is required." } },
-      }),
-      timingMeta(timer),
-    ),
-  );
-}
-
-function timingMeta(timer: ReturnType<typeof createApiTimer>) {
-  return { timing: timer.snapshot() };
-}
-
-function respond(
-  timer: ReturnType<typeof createApiTimer>,
-  createResponse: () => Response,
-) {
-  const response = createResponse();
-  logApiTiming(timer.snapshot());
-  return response;
+function missingRoomIdError() {
+  return validationApiError({
+    message: "Room id is required.",
+    details: { fieldErrors: { roomId: "Room id is required." } },
+  });
 }

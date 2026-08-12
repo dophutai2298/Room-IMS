@@ -12,7 +12,8 @@ Create `.env.local` from `.env.example`.
 - `NEXT_PUBLIC_INSFORGE_ANON_KEY`: public anonymous key for browser/server SSR
   clients.
 - `INSFORGE_API_KEY`: server-only project admin key, used only for trusted
-  setup/automation.
+  setup/automation and Landlord-authorized Staff account provisioning. Routine
+  Staff profile reads continue to use the signed-in user's session and RLS.
 - `NEXT_PUBLIC_APP_URL`: local app URL for auth redirects.
 
 ## Database migration

@@ -1,11 +1,13 @@
 import {
   apiErrorFromAppBackendError,
+  forbiddenApiError,
   unauthorizedApiError,
   type ApiError,
 } from "@/lib/api/errors";
 import type { ApiTimer } from "@/lib/api/timing";
 import type { AppResult } from "@/lib/insforge/errors";
 import type { AppUser } from "@/lib/insforge/types";
+import type { AppRole } from "@/lib/insforge/types";
 
 export type OperationalAuthResult =
   | { user: AppUser; error: null }
@@ -40,4 +42,15 @@ export async function resolveOperationalAppUserResult({
     user: result.data,
     error: null,
   };
+}
+
+export function requireOperationalRole(
+  user: AppUser,
+  allowedRoles: readonly AppRole[],
+): ApiError | null {
+  if (allowedRoles.includes(user.role)) {
+    return null;
+  }
+
+  return forbiddenApiError();
 }

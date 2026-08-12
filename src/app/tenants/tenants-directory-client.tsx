@@ -195,7 +195,6 @@ function TenantDetailDialog({
   tenant: TenantListItem;
   roomOptions: TenantRoomOption[];
 }) {
-  console.log("tenant:::",tenant)
   return (
     <Dialog>
       <DialogTrigger asChild>

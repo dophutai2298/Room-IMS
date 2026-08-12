@@ -1,33 +1,21 @@
 import { validationApiError } from "@/lib/api/errors";
-import { apiException, apiFailure, apiResult } from "@/lib/api/response";
-import { createApiTimer, logApiTiming } from "@/lib/api/timing";
 import { createInsForgeTenantRepository } from "@/lib/insforge/tenant-repository";
-import { resolveOperationalAppUser } from "@/lib/server/operational-auth";
+import { withOperationalAuth } from "@/lib/server/operational-route";
 import { validateTenantCccdUploadRequest } from "@/lib/tenants/api";
 import { uploadTenantCccdImagesForOperations } from "@/lib/tenants/service";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const timer = createApiTimer("tenants.cccd-images.upload");
-
-  try {
+export const POST = withOperationalAuth(
+  { operation: "tenants.cccd-images.upload" },
+  async ({ timer }, request: Request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
 
     if (!id) {
-      const meta = { timing: timer.snapshot() };
-      logApiTiming(meta.timing);
-
-      return apiFailure(
-        validationApiError({
-          message: "Tenant id is required.",
-          details: { fieldErrors: { tenantId: "Tenant id is required." } },
-        }),
-        meta,
-      );
+      return validationApiError({
+        message: "Tenant id is required.",
+        details: { fieldErrors: { tenantId: "Tenant id is required." } },
+      });
     }
 
     const validation = await timer.measure("validation", () =>
@@ -35,37 +23,16 @@ export async function POST(
     );
 
     if (validation.error) {
-      const meta = { timing: timer.snapshot() };
-      logApiTiming(meta.timing);
-
-      return apiFailure(validation.error, meta);
-    }
-
-    const auth = await resolveOperationalAppUser({ timer });
-
-    if (auth.error) {
-      const meta = { timing: timer.snapshot() };
-      logApiTiming(meta.timing);
-
-      return apiFailure(auth.error, meta);
+      return validation.error;
     }
 
     const repository = createInsForgeTenantRepository({ timer });
-    const result = await timer.measure("service", () =>
+    return timer.measure("service", () =>
       uploadTenantCccdImagesForOperations({
         repository,
         tenantId: id,
         images: validation.data.images,
       }),
     );
-    const meta = { timing: timer.snapshot() };
-    logApiTiming(meta.timing);
-
-    return apiResult(result, meta);
-  } catch (error) {
-    const meta = { timing: timer.snapshot() };
-    logApiTiming(meta.timing);
-
-    return apiException(error, meta);
-  }
-}
+  },
+);
