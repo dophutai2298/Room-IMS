@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "perf:api-baseline": "tsx scripts/api-performance-baseline.ts",
     "test": "node --conditions=react-server --import tsx --test src/lib/auth/auth.behavior.test.ts src/lib/contracts/contract.behavior.test.ts src/lib/staff/staff.behavior.test.ts"
   },
   "dependencies": {

@@ -26,7 +26,7 @@ export function createInsForgeAuthRepository({
 } = {}): AuthRepository {
   return {
     async getCurrentAppUser() {
-      const query = readCurrentAppUserFromInsForge;
+      const query = () => readCurrentAppUserFromInsForge({ timer });
 
       return timer
         ? timer.measure("repository.insforge.current-user", query)
@@ -35,12 +35,16 @@ export function createInsForgeAuthRepository({
   };
 }
 
-async function readCurrentAppUserFromInsForge(): Promise<
-  AppResult<AppUser | null>
-> {
+async function readCurrentAppUserFromInsForge({
+  timer,
+}: {
+  timer?: ApiTimer;
+} = {}): Promise<AppResult<AppUser | null>> {
   try {
-    const client = await createInsForgeServerClient();
-    const currentUser = await client.auth.getCurrentUser();
+    const client = await createInsForgeServerClient({ timer });
+    const currentUser = timer
+      ? await timer.measure("auth.session", () => client.auth.getCurrentUser())
+      : await client.auth.getCurrentUser();
 
     if (currentUser.error) {
       return fail(currentUser.error, "Could not resolve current InsForge user");
@@ -53,11 +57,15 @@ async function readCurrentAppUserFromInsForge(): Promise<
     }
 
     const profile = (user.profile ?? {}) as Record<string, unknown>;
-    const roleResult = (await client.database
-      .from("app_users")
-      .select("id, auth_user_id, email, display_name, role")
-      .eq("auth_user_id", user.id)
-      .limit(1)) as QueryResponse<AppUserRow[]>;
+    const readRole = async () =>
+      (await client.database
+        .from("app_users")
+        .select("id, auth_user_id, email, display_name, role")
+        .eq("auth_user_id", user.id)
+        .limit(1)) as QueryResponse<AppUserRow[]>;
+    const roleResult = timer
+      ? await timer.measure("auth.app-user.lookup", readRole)
+      : await readRole();
 
     if (roleResult.error) {
       return fail(roleResult.error, "Could not resolve app user role");

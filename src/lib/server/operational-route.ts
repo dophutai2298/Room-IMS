@@ -5,6 +5,7 @@ import { apiException, apiFailure, apiResult } from "@/lib/api/response";
 import {
   createApiTimer,
   logApiTiming,
+  runWithApiTimer,
   type ApiTimer,
   type ApiTimingSnapshot,
 } from "@/lib/api/timing";
@@ -46,33 +47,37 @@ export function withOperationalAuth<TArgs extends unknown[], TData>(
   return async (...args: TArgs): Promise<Response> => {
     const timer = createApiTimer(operation);
 
-    try {
-      const auth = await resolveAuth({ timer });
+    return runWithApiTimer(timer, async () => {
+      try {
+        const auth = await resolveAuth({ timer });
 
-      if (auth.error) {
-        return finishFailure(auth.error, timer, logTiming);
-      }
-
-      if (allowedRoles) {
-        const roleError = requireOperationalRole(auth.user, allowedRoles);
-
-        if (roleError) {
-          return finishFailure(
-            forbiddenMessage ? { ...roleError, message: forbiddenMessage } : roleError,
-            timer,
-            logTiming,
-          );
+        if (auth.error) {
+          return finishFailure(auth.error, timer, logTiming);
         }
-      }
 
-      return finishResult(
-        await handler({ timer, user: auth.user }, ...args),
-        timer,
-        logTiming,
-      );
-    } catch (error) {
-      return finishException(error, timer, logTiming);
-    }
+        if (allowedRoles) {
+          const roleError = requireOperationalRole(auth.user, allowedRoles);
+
+          if (roleError) {
+            return finishFailure(
+              forbiddenMessage
+                ? { ...roleError, message: forbiddenMessage }
+                : roleError,
+              timer,
+              logTiming,
+            );
+          }
+        }
+
+        return finishResult(
+          await handler({ timer, user: auth.user }, ...args),
+          timer,
+          logTiming,
+        );
+      } catch (error) {
+        return finishException(error, timer, logTiming);
+      }
+    });
   };
 }
 
