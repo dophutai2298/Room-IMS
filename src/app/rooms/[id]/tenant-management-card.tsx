@@ -43,9 +43,9 @@ export function TenantManagementCard({
       <CardHeader>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <CardTitle>Danh sách Tenant</CardTitle>
+            <CardTitle>Danh sách Người thuê</CardTitle>
             <CardDescription>
-              Tenant đang gắn với {roomName}, gồm hồ sơ, CCCD và ảnh định danh.
+              Số lượng người ở của phòng {roomName} là <b>{tenantsQuery?.data?.length}</b>
             </CardDescription>
           </div>
           <TenantEditorDialog mode="create" fixedRoomId={roomId} />
@@ -84,7 +84,7 @@ function TenantCard({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-medium">{tenant.name}</p>
-            {tenant.isKeyTenant && <Badge variant="default">Key Tenant</Badge>}
+            {tenant.isKeyTenant && <Badge variant="default">Người đại diện</Badge>}
             <TenantStatusBadge status={tenant.status} />
           </div>
           <div className="mt-2 grid gap-1 text-sm text-muted-foreground sm:grid-cols-2">
@@ -106,9 +106,9 @@ function TenantCard({
       </div>
       <Separator className="my-4" />
       <TenantImageGallery images={tenant.cccdImages} compact />
-      <p className="mt-4 text-sm text-muted-foreground">
-        Vai trò Key Tenant được xác định bằng active Contract của phòng.
-      </p>
+      {tenant.isKeyTenant && ( <p className="mt-4 text-sm text-muted-foreground">
+        Vai trò Người đại diện được xác định bằng kích hoạt Hợp đồng của phòng.
+      </p>)}
     </div>
   );
 }

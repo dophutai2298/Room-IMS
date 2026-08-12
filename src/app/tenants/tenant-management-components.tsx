@@ -41,6 +41,7 @@ import type {
 } from "@/lib/tenants/repository";
 import { tenantQueryKeys } from "@/lib/tenants/query-keys";
 import { cn } from "@/lib/utils";
+import { DateField } from "../rooms/[id]/contract-management-card"; // TODO move file to common component
 
 export type TenantRoomOption = {
   id: string;
@@ -374,12 +375,12 @@ export function TenantEditorDialog({
             }}
           />
 
-          <TenantTextField
+          <DateField
             id={`tenant-dob-${mode}-${tenant?.id ?? "new"}`}
             label="Ngày tháng năm sinh"
             value={draft.dateOfBirth}
-            placeholder="22/02/1998"
-            disabled={mutation.isPending}
+            // placeholder="22/02/1998"
+            // disabled={mutation.isPending}
             onChange={(value) => {
               setDraft((current) => ({ ...current, dateOfBirth: value }));
               setServerMessage(null);
@@ -439,7 +440,7 @@ export function TenantEditorDialog({
             </p>
             <TenantImageGallery
               images={galleryImages}
-              allowDelete={isEdit}
+              allowDelete={true}
               onDeleteImage={stageImageRemoval}
             />
           </div>
@@ -558,7 +559,7 @@ export function TenantDeleteButton({
       onClick={handleDelete}
       title={
         tenant.isKeyTenant
-          ? "Không thể xoá Người thuê đang là Key Tenant của active Contract."
+          ? "Không thể xoá Người thuê đại diện của Hợp đồng đang hiệu lực."
           : undefined
       }
     >
@@ -593,10 +594,11 @@ export function TenantImageGallery({
   }
 
   return (
-    <div className={cn("grid gap-3", compact ? "grid-cols-2" : "sm:grid-cols-3")}>
+   <div className={cn("grid gap-3 grid-cols-2", compact ? "grid-cols-2" : "md:grid-cols-3")}>
       {images.map((image, index) => {
         const canDelete = allowDelete && image.source !== "legacy" && onDeleteImage;
-
+        console.log("allowDelete::",allowDelete)
+          console.log("image.source::",image.source)
         return (
           <div
             key={image.id}

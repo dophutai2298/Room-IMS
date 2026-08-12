@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 
-import { KeyTenantForm } from "./key-tenant-form";
+import { ContractManagementCard } from "./contract-management-card";
 import { TenantManagementCard } from "./tenant-management-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -81,7 +81,11 @@ export function RoomDetailClient({ roomId }: { roomId: string }) {
 
       <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
         <TenantManagementCard roomId={detail.room.id} roomName={detail.room.name} />
-        <ContractCard detail={detail} />
+        <ContractManagementCard
+          roomId={detail.room.id}
+          roomName={detail.room.name}
+          roomBasePrice={detail.room.basePrice}
+        />
       </section>
 
       <OperationsSummarySection
@@ -110,10 +114,6 @@ function RoomHeader({ detail }: { detail: RoomDetailView }) {
           </h1>
           <RoomBadge status={detail.room.status} />
         </div>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Tenant, active Contract, chỉ số điện nước và hóa đơn được tải qua API
-          nội bộ đã xác thực.
-        </p>
       </div>
       <div className="flex flex-col gap-2 sm:flex-row">
         <Button asChild variant="secondary">
@@ -123,73 +123,6 @@ function RoomHeader({ detail }: { detail: RoomDetailView }) {
         </Button>
       </div>
     </header>
-  );
-}
-
-function ContractCard({ detail }: { detail: RoomDetailView }) {
-  const contract = detail.activeContract;
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Thông tin Contract</CardTitle>
-        <CardDescription>
-          Active Contract quyết định trạng thái thuê của phòng.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        {contract ? (
-          <>
-            <div className="space-y-4">
-              <DetailRow label="Trạng thái" value="Hiệu lực" />
-              <DetailRow
-                label="Giá thuê"
-                value={`${formatCurrency(contract.rentAmount)} / tháng`}
-              />
-              <DetailRow
-                label="Tiền cọc"
-                value={formatCurrency(contract.depositAmount)}
-              />
-              <DetailRow
-                label="Key Tenant"
-                value={detail.keyTenantName ?? "Chưa có"}
-              />
-              <DetailRow
-                label="Ngày bắt đầu"
-                value={formatDate(contract.startDate)}
-              />
-              <DetailRow
-                label="Ngày kết thúc"
-                value={contract.endDate ? formatDate(contract.endDate) : "Không có"}
-              />
-            </div>
-            <Separator />
-            <KeyTenantForm
-              roomId={detail.room.id}
-              tenants={detail.tenants}
-              activeContractId={contract.id}
-              currentKeyTenantId={contract.keyTenantId}
-            />
-          </>
-        ) : (
-          <>
-            <div className="rounded-lg border border-dashed border-border bg-muted/30 p-6">
-              <p className="font-medium">Chưa có active Contract</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Nếu phòng không ở trạng thái bảo trì, trạng thái sẽ được tính là
-                Trống cho tới khi có Contract hiệu lực.
-              </p>
-            </div>
-            <KeyTenantForm
-              roomId={detail.room.id}
-              tenants={detail.tenants}
-              activeContractId={null}
-              currentKeyTenantId={null}
-            />
-          </>
-        )}
-      </CardContent>
-    </Card>
   );
 }
 
@@ -241,7 +174,7 @@ function UtilitySummaryCard({
       <CardHeader>
         <CardTitle>Tổng quan điện nước</CardTitle>
         <CardDescription>
-          Kỳ chốt chỉ số gần nhất và mức tiêu thụ đã persisted.
+          Kỳ chốt chỉ số gần nhất và mức tiêu thụ đã ghi nhận.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -300,7 +233,7 @@ function InvoiceSummaryCard({
       <CardHeader>
         <CardTitle>Tổng quan hóa đơn</CardTitle>
         <CardDescription>
-          Tình trạng hóa đơn của phòng theo dữ liệu persisted.
+          Tình trạng hóa đơn của phòng theo dữ liệu đã ghi nhận.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -420,8 +353,4 @@ function RoomBadge({ status }: { status: RoomUiStatus }) {
         : "secondary";
 
   return <Badge variant={variant}>{roomStatusLabel[status]}</Badge>;
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("vi-VN").format(new Date(value));
 }
