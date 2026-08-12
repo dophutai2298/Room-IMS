@@ -1,8 +1,6 @@
 import { validationApiError } from "@/lib/api/errors";
-import { apiException, apiFailure, apiResult } from "@/lib/api/response";
-import { createApiTimer, logApiTiming } from "@/lib/api/timing";
 import { createInsForgeTenantRepository } from "@/lib/insforge/tenant-repository";
-import { resolveOperationalAppUser } from "@/lib/server/operational-auth";
+import { withOperationalAuth } from "@/lib/server/operational-route";
 import { validateTenantWriteRequest } from "@/lib/tenants/api";
 import {
   deleteTenantForOperations,
@@ -12,73 +10,29 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const timer = createApiTimer("tenants.detail");
-
-  try {
+export const GET = withOperationalAuth(
+  { operation: "tenants.detail" },
+  async ({ timer }, _request: Request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
 
     if (!id) {
-      const meta = { timing: timer.snapshot() };
-      logApiTiming(meta.timing);
-
-      return apiFailure(
-        validationApiError({
-          message: "Tenant id is required.",
-          details: { fieldErrors: { tenantId: "Tenant id is required." } },
-        }),
-        meta,
-      );
-    }
-
-    const auth = await resolveOperationalAppUser({ timer });
-
-    if (auth.error) {
-      const meta = { timing: timer.snapshot() };
-      logApiTiming(meta.timing);
-
-      return apiFailure(auth.error, meta);
+      return tenantIdRequiredError();
     }
 
     const repository = createInsForgeTenantRepository({ timer });
-    const result = await timer.measure("service", () =>
+    return timer.measure("service", () =>
       getTenantForOperations({ repository, tenantId: id }),
     );
-    const meta = { timing: timer.snapshot() };
-    logApiTiming(meta.timing);
+  },
+);
 
-    return apiResult(result, meta);
-  } catch (error) {
-    const meta = { timing: timer.snapshot() };
-    logApiTiming(meta.timing);
-
-    return apiException(error, meta);
-  }
-}
-
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const timer = createApiTimer("tenants.update");
-
-  try {
+export const PATCH = withOperationalAuth(
+  { operation: "tenants.update" },
+  async ({ timer }, request: Request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
 
     if (!id) {
-      const meta = { timing: timer.snapshot() };
-      logApiTiming(meta.timing);
-
-      return apiFailure(
-        validationApiError({
-          message: "Tenant id is required.",
-          details: { fieldErrors: { tenantId: "Tenant id is required." } },
-        }),
-        meta,
-      );
+      return tenantIdRequiredError();
     }
 
     const validation = await timer.measure("validation", () =>
@@ -86,84 +40,39 @@ export async function PATCH(
     );
 
     if (validation.error) {
-      const meta = { timing: timer.snapshot() };
-      logApiTiming(meta.timing);
-
-      return apiFailure(validation.error, meta);
-    }
-
-    const auth = await resolveOperationalAppUser({ timer });
-
-    if (auth.error) {
-      const meta = { timing: timer.snapshot() };
-      logApiTiming(meta.timing);
-
-      return apiFailure(auth.error, meta);
+      return validation.error;
     }
 
     const repository = createInsForgeTenantRepository({ timer });
-    const result = await timer.measure("service", () =>
+    return timer.measure("service", () =>
       updateTenantForOperations({
         repository,
         tenantId: id,
         ...validation.data,
       }),
     );
-    const meta = { timing: timer.snapshot() };
-    logApiTiming(meta.timing);
+  },
+);
 
-    return apiResult(result, meta);
-  } catch (error) {
-    const meta = { timing: timer.snapshot() };
-    logApiTiming(meta.timing);
-
-    return apiException(error, meta);
-  }
-}
-
-export async function DELETE(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const timer = createApiTimer("tenants.delete");
-
-  try {
+export const DELETE = withOperationalAuth(
+  { operation: "tenants.delete" },
+  async ({ timer }, _request: Request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
 
     if (!id) {
-      const meta = { timing: timer.snapshot() };
-      logApiTiming(meta.timing);
-
-      return apiFailure(
-        validationApiError({
-          message: "Tenant id is required.",
-          details: { fieldErrors: { tenantId: "Tenant id is required." } },
-        }),
-        meta,
-      );
-    }
-
-    const auth = await resolveOperationalAppUser({ timer });
-
-    if (auth.error) {
-      const meta = { timing: timer.snapshot() };
-      logApiTiming(meta.timing);
-
-      return apiFailure(auth.error, meta);
+      return tenantIdRequiredError();
     }
 
     const repository = createInsForgeTenantRepository({ timer });
-    const result = await timer.measure("service", () =>
+    return timer.measure("service", () =>
       deleteTenantForOperations({ repository, tenantId: id }),
     );
-    const meta = { timing: timer.snapshot() };
-    logApiTiming(meta.timing);
+  },
+);
 
-    return apiResult(result, meta);
-  } catch (error) {
-    const meta = { timing: timer.snapshot() };
-    logApiTiming(meta.timing);
-
-    return apiException(error, meta);
-  }
+function tenantIdRequiredError() {
+  return validationApiError({
+    message: "Tenant id is required.",
+    details: { fieldErrors: { tenantId: "Tenant id is required." } },
+  });
 }

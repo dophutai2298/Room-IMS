@@ -1,9 +1,13 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { AccountMenu } from "@/components/layout/account-menu";
 import { ThemeSwitcher } from "@/components/theme-switcher";
+import { fetchCurrentAppUser } from "@/lib/auth/client";
+import { authQueryKeys } from "@/lib/auth/query-keys";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -16,10 +20,24 @@ const navItems = [
 
 export const Sidebar = () => {
   const pathname = usePathname();
+  const currentUserQuery = useQuery({
+    queryKey: authQueryKeys.currentUser(),
+    queryFn: fetchCurrentAppUser,
+    enabled: pathname !== "/sign-in",
+  });
+  const visibleNavItems =
+    currentUserQuery.data?.role === "landlord"
+      ? [
+          ...navItems,
+          { name: "Staff", href: "/staff", icon: "staff" },
+        ]
+      : navItems;
 
   return (
     <header className="sticky top-0 z-40 px-3 pt-3 sm:px-5 sm:pt-4">
-      <div className="clay-surface mx-auto flex max-w-[1480px] items-center gap-3 rounded-[1.4rem] border border-white/60 bg-card/75 px-3 py-2.5 backdrop-blur-2xl dark:border-white/10 sm:px-4">
+      {
+        currentUserQuery.data && (
+    <div className="clay-surface mx-auto flex max-w-[1480px] items-center gap-3 rounded-[1.4rem] border border-white/60 bg-card/75 px-3 py-2.5 backdrop-blur-2xl dark:border-white/10 sm:px-4">
         <Link
           href="/"
           className="flex shrink-0 items-center gap-2.5 rounded-xl pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -41,7 +59,7 @@ export const Sidebar = () => {
           aria-label="Điều hướng chính"
           className="mx-auto flex min-w-0 items-center gap-1 overflow-x-auto rounded-xl bg-muted/45 p-1 clay-inset"
         >
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const isActive =
               pathname === item.href ||
               (item.href !== "/" && pathname?.startsWith(item.href));
@@ -65,14 +83,17 @@ export const Sidebar = () => {
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
           <ThemeSwitcher />
-          <div
-            className="hidden size-9 items-center justify-center rounded-xl bg-accent text-xs font-semibold text-accent-foreground shadow-sm sm:flex"
-            aria-label="Tài khoản chủ nhà"
-          >
-            CN
-          </div>
+          {pathname !== "/sign-in" && (
+            <AccountMenu
+              user={currentUserQuery.data}
+              isLoading={currentUserQuery.isPending}
+            />
+          )}
         </div>
       </div>
+        )
+      }
+  
     </header>
   );
 };
@@ -107,6 +128,16 @@ function NavIcon({ name }: { name: string }) {
           <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
         </svg>
 
+      </span>
+    );
+  }
+
+  if (name === "staff") {
+    return (
+      <span aria-hidden="true" className="text-base leading-none">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+        </svg>
       </span>
     );
   }

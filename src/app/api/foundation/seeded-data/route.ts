@@ -1,17 +1,15 @@
-import { apiException, apiResult } from "@/lib/api/response";
-import { createApiTimer } from "@/lib/api/timing";
-import { readMvpSeededData } from "@/lib/insforge/rental-repository";
+import { readMvpSeededDataForOperations } from "@/lib/foundation/service";
+import { createInsForgeFoundationRepository } from "@/lib/insforge/foundation-repository";
+import { withOperationalAuth } from "@/lib/server/operational-route";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const timer = createApiTimer("foundation.seeded-data");
-
-  try {
-    const result = await timer.measure("service", () => readMvpSeededData());
-
-    return apiResult(result, { timing: timer.snapshot() });
-  } catch (error) {
-    return apiException(error, { timing: timer.snapshot() });
-  }
-}
+export const GET = withOperationalAuth(
+  { operation: "foundation.seeded-data" },
+  async ({ timer }) => {
+    const repository = createInsForgeFoundationRepository({ timer });
+    return timer.measure("service", () =>
+      readMvpSeededDataForOperations({ repository }),
+    );
+  },
+);

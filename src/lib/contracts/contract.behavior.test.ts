@@ -1,17 +1,11 @@
 import assert from "node:assert/strict";
+import test from "node:test";
 
 import type { AppUser } from "@/lib/insforge/types";
 import { resolveOperationalAppUserResult } from "@/lib/server/operational-auth-core";
 import { runContractServiceBehaviorSmoke } from "./service.behavior-smoke";
 
-void runContractBehaviorTest();
-
-async function runContractBehaviorTest() {
-  await verifyLandlordAndStaffAuthentication();
-  await verifyContractReadAndUpdateBehavior();
-}
-
-async function verifyLandlordAndStaffAuthentication() {
+test("contract operations authenticate both Landlord and Staff", async () => {
   for (const role of ["landlord", "staff"] as const) {
     const user: AppUser = {
       id: `${role}-app-user`,
@@ -27,9 +21,9 @@ async function verifyLandlordAndStaffAuthentication() {
     assert.equal(auth.error, null);
     assert.equal(auth.user.role, role);
   }
-}
+});
 
-async function verifyContractReadAndUpdateBehavior() {
+test("contract service reads, writes, preserves overrides, and validates inputs", async () => {
   const results = await runContractServiceBehaviorSmoke();
 
   assert.equal(results.listContracts.error, null);
@@ -52,4 +46,4 @@ async function verifyContractReadAndUpdateBehavior() {
     "CONTRACT_DATE_RANGE_INVALID",
   );
   assert.equal(results.rejectNegativeRent.error?.code, "CONTRACT_MONEY_INVALID");
-}
+});

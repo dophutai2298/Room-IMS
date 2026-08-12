@@ -1,30 +1,28 @@
 import { validationApiError } from "@/lib/api/errors";
-import { apiException, apiFailure, apiResult } from "@/lib/api/response";
-import { createApiTimer } from "@/lib/api/timing";
-import { touchRoom } from "@/lib/insforge/rental-repository";
+import { touchRoomForOperations } from "@/lib/foundation/service";
+import { createInsForgeFoundationRepository } from "@/lib/insforge/foundation-repository";
+import { withOperationalAuth } from "@/lib/server/operational-route";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(request: Request) {
-  const timer = createApiTimer("foundation.rooms.touch");
-  const body = (await request.json().catch(() => null)) as { roomId?: string } | null;
-  const roomId = body?.roomId;
+export const POST = withOperationalAuth(
+  { operation: "foundation.rooms.touch" },
+  async ({ timer }, request: Request) => {
+    const body = (await request.json().catch(() => null)) as {
+      roomId?: string;
+    } | null;
+    const roomId = body?.roomId;
 
-  if (!roomId) {
-    return apiFailure(
-      validationApiError({
+    if (!roomId) {
+      return validationApiError({
         message: "roomId is required",
         details: { fieldErrors: { roomId: "roomId is required" } },
-      }),
-      { timing: timer.snapshot() },
+      });
+    }
+
+    const repository = createInsForgeFoundationRepository({ timer });
+    return timer.measure("service", () =>
+      touchRoomForOperations({ repository, roomId }),
     );
-  }
-
-  try {
-    const result = await timer.measure("service", () => touchRoom(roomId));
-
-    return apiResult(result, { timing: timer.snapshot() });
-  } catch (error) {
-    return apiException(error, { timing: timer.snapshot() });
-  }
-}
+  },
+);

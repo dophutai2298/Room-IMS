@@ -1,24 +1,65 @@
 "use client";
 
-import { useActionState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useEffect, useState, type FormEvent } from "react";
 
-import { signInWithPassword, type SignInState } from "@/app/auth/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { fetchAppApi } from "@/lib/api/client";
+import { fetchOptionalCurrentAppUser } from "@/lib/auth/client";
+import { authQueryKeys } from "@/lib/auth/query-keys";
 
-const initialState: SignInState = {
-  message: null,
-};
+export function SignInForm({ nextPath = "/" }: { nextPath?: string }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const currentUserQuery = useQuery({
+    queryKey: authQueryKeys.currentUser(),
+    queryFn: fetchOptionalCurrentAppUser,
+    retry: false,
+  });
+  const signInMutation = useMutation({
+    mutationFn: (credentials: { email: string; password: string }) =>
+      fetchAppApi<{ signedIn: true }>("/api/auth/sign-in", {
+        method: "POST",
+        body: JSON.stringify(credentials),
+      }),
+    onSuccess: () => {
+      window.location.assign(nextPath);
+    },
+  });
 
-export function SignInForm() {
-  const [signInState, signInAction, isSigningIn] = useActionState(
-    signInWithPassword,
-    initialState,
-  );
+  useEffect(() => {
+    if (currentUserQuery.data) {
+      window.location.assign(nextPath);
+    }
+  }, [currentUserQuery.data, nextPath]);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    signInMutation.mutate({ email, password });
+  }
 
   return (
-    <form action={signInAction} className="space-y-5">
+    <form onSubmit={handleSubmit} className="space-y-5">
+      {currentUserQuery.isPending && (
+        <p className="text-sm text-muted-foreground" role="status">
+          Đang kiểm tra phiên đăng nhập...
+        </p>
+      )}
+      {currentUserQuery.isError && (
+        <div className="rounded-2xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm">
+          <p className="text-destructive">Không thể kiểm tra phiên hiện tại.</p>
+          <Button
+            type="button"
+            variant="link"
+            className="mt-1 h-auto p-0"
+            onClick={() => void currentUserQuery.refetch()}
+          >
+            Thử lại
+          </Button>
+        </div>
+      )}
       <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
         <Input
@@ -27,6 +68,8 @@ export function SignInForm() {
           type="email"
           autoComplete="email"
           placeholder="landlord@example.com"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
           required
         />
       </div>
@@ -38,14 +81,23 @@ export function SignInForm() {
           type="password"
           autoComplete="current-password"
           placeholder="••••••••"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
           required
         />
       </div>
-      {signInState.message && (
-        <FeedbackMessage>{signInState.message}</FeedbackMessage>
+      {signInMutation.isError && (
+        <FeedbackMessage>{signInMutation.error.message}</FeedbackMessage>
       )}
-      <Button className="w-full" size="lg" disabled={isSigningIn}>
-        {isSigningIn ? "Đang đăng nhập..." : "Đăng nhập bằng InsForge"}
+      <Button
+        type="submit"
+        className="w-full"
+        size="lg"
+        disabled={signInMutation.isPending}
+      >
+        {signInMutation.isPending
+          ? "Đang đăng nhập..."
+          : "Đăng nhập"}
       </Button>
     </form>
   );

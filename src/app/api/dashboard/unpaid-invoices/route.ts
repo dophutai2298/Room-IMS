@@ -1,38 +1,17 @@
-import { apiException, apiFailure, apiResult } from "@/lib/api/response";
-import { createApiTimer, logApiTiming } from "@/lib/api/timing";
 import { getDashboardBillingPeriodFromRequest } from "@/lib/dashboard/api";
 import { getDashboardUnpaidInvoicesForOperations } from "@/lib/dashboard/service";
 import { createInsForgeDashboardRepository } from "@/lib/insforge/dashboard-repository";
-import { resolveOperationalAppUser } from "@/lib/server/operational-auth";
+import { withOperationalAuth } from "@/lib/server/operational-route";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: Request) {
-  const timer = createApiTimer("dashboard.unpaid-invoices");
-
-  try {
+export const GET = withOperationalAuth(
+  { operation: "dashboard.unpaid-invoices" },
+  async ({ timer }, request: Request) => {
     const billingPeriod = getDashboardBillingPeriodFromRequest(request);
-    const auth = await resolveOperationalAppUser({ timer });
-
-    if (auth.error) {
-      const meta = { timing: timer.snapshot() };
-      logApiTiming(meta.timing);
-
-      return apiFailure(auth.error, meta);
-    }
-
     const repository = createInsForgeDashboardRepository({ timer });
-    const result = await timer.measure("service", () =>
+    return timer.measure("service", () =>
       getDashboardUnpaidInvoicesForOperations({ repository, billingPeriod }),
     );
-    const meta = { timing: timer.snapshot() };
-    logApiTiming(meta.timing);
-
-    return apiResult(result, meta);
-  } catch (error) {
-    const meta = { timing: timer.snapshot() };
-    logApiTiming(meta.timing);
-
-    return apiException(error, meta);
-  }
-}
+  },
+);

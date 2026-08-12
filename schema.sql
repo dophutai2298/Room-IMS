@@ -213,6 +213,7 @@ DROP POLICY IF EXISTS "authenticated_manage_utility_metrics" ON public.utility_m
 DROP POLICY IF EXISTS "authenticated_manage_utility_pricing" ON public.utility_pricing;
 DROP POLICY IF EXISTS "authenticated_manage_invoices" ON public.invoices;
 DROP POLICY IF EXISTS "authenticated_read_own_app_user" ON public.app_users;
+DROP POLICY IF EXISTS "authenticated_landlord_read_app_users" ON public.app_users;
 
 CREATE POLICY "authenticated_manage_rooms"
 ON public.rooms FOR ALL TO authenticated
@@ -264,6 +265,28 @@ WITH CHECK (true);
 CREATE POLICY "authenticated_read_own_app_user"
 ON public.app_users FOR SELECT TO authenticated
 USING (auth_user_id = auth.uid());
+
+CREATE OR REPLACE FUNCTION public.current_app_user_is_landlord()
+RETURNS BOOLEAN
+LANGUAGE SQL
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.app_users
+    WHERE auth_user_id = auth.uid()
+      AND role = 'landlord'
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.current_app_user_is_landlord() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.current_app_user_is_landlord() TO authenticated;
+
+CREATE POLICY "authenticated_landlord_read_app_users"
+ON public.app_users FOR SELECT TO authenticated
+USING (public.current_app_user_is_landlord());
 
 INSERT INTO public.rooms (id, name, status, base_price)
 VALUES

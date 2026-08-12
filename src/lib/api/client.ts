@@ -44,8 +44,22 @@ export async function fetchAppApi<T>(
   }
 
   if (!payload.ok) {
+    redirectExpiredSession(payload.error);
     throw new AppApiClientError(payload.error);
   }
 
   return payload.data;
+}
+
+function redirectExpiredSession(error: ApiError) {
+  if (
+    error.status !== 401 ||
+    typeof window === "undefined" ||
+    window.location.pathname === "/sign-in"
+  ) {
+    return;
+  }
+
+  const nextPath = `${window.location.pathname}${window.location.search}`;
+  window.location.assign(`/sign-in?next=${encodeURIComponent(nextPath)}`);
 }

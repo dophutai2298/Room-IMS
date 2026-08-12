@@ -1,43 +1,25 @@
 import { validationApiError, type ApiError } from "@/lib/api/errors";
-import { apiException, apiFailure, apiResult } from "@/lib/api/response";
-import { createApiTimer, logApiTiming } from "@/lib/api/timing";
 import { createInsForgeInvoiceRepository } from "@/lib/insforge/invoice-repository";
 import type { InvoiceRecord } from "@/lib/insforge/types";
 import { recordInvoicePaymentForOperations } from "@/lib/invoices/service";
-import { resolveOperationalAppUser } from "@/lib/server/operational-auth";
+import { withOperationalAuth } from "@/lib/server/operational-route";
 
 export const dynamic = "force-dynamic";
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const timer = createApiTimer("invoices.payment.update");
-
-  try {
+export const PATCH = withOperationalAuth(
+  { operation: "invoices.payment.update" },
+  async ({ timer }, request: Request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
     const validation = await timer.measure("validation", async () =>
       validatePaymentRequest({ invoiceId: id, request }),
     );
 
     if (validation.error) {
-      const meta = { timing: timer.snapshot() };
-      logApiTiming(meta.timing);
-
-      return apiFailure(validation.error, meta);
-    }
-
-    const auth = await resolveOperationalAppUser({ timer });
-
-    if (auth.error) {
-      const meta = { timing: timer.snapshot() };
-      logApiTiming(meta.timing);
-
-      return apiFailure(auth.error, meta);
+      return validation.error;
     }
 
     const repository = createInsForgeInvoiceRepository({ timer });
-    const result = await timer.measure("service", () =>
+    return timer.measure("service", () =>
       recordInvoicePaymentForOperations({
         repository,
         invoiceId: id,
@@ -45,17 +27,8 @@ export async function PATCH(
         amountPaid: validation.data.amountPaid,
       }),
     );
-    const meta = { timing: timer.snapshot() };
-    logApiTiming(meta.timing);
-
-    return apiResult(result, meta);
-  } catch (error) {
-    const meta = { timing: timer.snapshot() };
-    logApiTiming(meta.timing);
-
-    return apiException(error, meta);
-  }
-}
+  },
+);
 
 type ValidationResult<T> =
   | { data: T; error: null }

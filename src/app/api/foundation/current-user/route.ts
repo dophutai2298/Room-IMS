@@ -1,17 +1,9 @@
-import { apiFailure, apiSuccess } from "@/lib/api/response";
-import { createApiTimer } from "@/lib/api/timing";
-import { resolveOperationalAppUser } from "@/lib/server/operational-auth";
+import { ok } from "@/lib/insforge/errors";
+import { withOperationalAuth } from "@/lib/server/operational-route";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const timer = createApiTimer("foundation.current-user");
-  const auth = await resolveOperationalAppUser({ timer });
-  const meta = { timing: timer.snapshot() };
-
-  if (auth.error) {
-    return apiFailure(auth.error, meta);
-  }
-
-  return apiSuccess(auth.user, meta);
-}
+export const GET = withOperationalAuth(
+  { operation: "foundation.current-user" },
+  ({ user }) => ok(user),
+);
