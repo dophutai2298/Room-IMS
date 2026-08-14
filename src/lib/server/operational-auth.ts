@@ -24,6 +24,7 @@ export async function resolveOperationalAppUser({
     (() =>
       getCurrentAppUserForOperations({
         repository: createInsForgeAuthRepository({ timer }),
+        timer,
       }));
 
   return resolveOperationalAppUserResult({

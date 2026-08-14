@@ -15,6 +15,7 @@ import {
   requireOperationalRole,
   type OperationalAuthResult,
 } from "./operational-auth-core";
+import { runWithOperationalAppUser } from "./operational-auth-context";
 
 export type AuthenticatedRouteContext = {
   timer: ApiTimer;
@@ -69,10 +70,12 @@ export function withOperationalAuth<TArgs extends unknown[], TData>(
           }
         }
 
-        return finishResult(
-          await handler({ timer, user: auth.user }, ...args),
-          timer,
-          logTiming,
+        return await runWithOperationalAppUser(auth.user, async () =>
+          finishResult(
+            await handler({ timer, user: auth.user }, ...args),
+            timer,
+            logTiming,
+          ),
         );
       } catch (error) {
         return finishException(error, timer, logTiming);
