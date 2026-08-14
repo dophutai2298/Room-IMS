@@ -3,12 +3,37 @@
 import { revalidatePath } from "next/cache";
 
 import type { InvoiceGenerationActionState } from "./invoice-generation-state";
+import {
+  createApiTimer,
+  logApiTiming,
+  runWithApiTimer,
+  type ApiTimer,
+} from "@/lib/api/timing";
 import { generateInvoiceFromUtilityMetrics } from "@/lib/insforge/rental-repository";
 import { formatBillingPeriod } from "@/lib/utilities/presenter";
 
 export async function generateMonthlyInvoice(
   _previousState: InvoiceGenerationActionState,
   formData: FormData,
+): Promise<InvoiceGenerationActionState> {
+  const timer = createApiTimer("invoice-generation.action");
+
+  return runWithApiTimer(timer, async () => {
+    try {
+      const state = await timer.measure("service", () =>
+        generateMonthlyInvoiceState(formData, timer),
+      );
+
+      return { ...state, timing: timer.snapshot() };
+    } finally {
+      logApiTiming(timer.snapshot());
+    }
+  });
+}
+
+async function generateMonthlyInvoiceState(
+  formData: FormData,
+  timer: ApiTimer,
 ): Promise<InvoiceGenerationActionState> {
   const roomId = String(formData.get("roomId") ?? "").trim();
   const monthRaw = String(formData.get("month") ?? "").trim();
@@ -61,15 +86,19 @@ export async function generateMonthlyInvoice(
     };
   }
 
-  const result = await generateInvoiceFromUtilityMetrics({
-    roomId,
-    billingPeriod: {
-      month: month as number,
-      year: year as number,
-    },
-    otherFee: otherFee as number,
-    otherFeeNote: otherFeeNoteRaw || null,
-  });
+  const result = await timer.measure(
+    "repository.insforge.invoice-generation",
+    () =>
+      generateInvoiceFromUtilityMetrics({
+        roomId,
+        billingPeriod: {
+          month: month as number,
+          year: year as number,
+        },
+        otherFee: otherFee as number,
+        otherFeeNote: otherFeeNoteRaw || null,
+      }),
+  );
 
   if (result.error) {
     return {

@@ -219,7 +219,7 @@ export function buildRoomOperationsSummary({
 
 export function deriveRoomStatus(
   storedStatus: RoomDbStatus,
-  activeContract: ContractRecord | null,
+  activeContract: Pick<ContractRecord, "id"> | null,
 ): RoomUiStatus {
   if (storedStatus === "Maintenance") {
     return "maintenance";

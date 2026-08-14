@@ -33,14 +33,14 @@ export function createInsForgeStaffRepository({
 } = {}): StaffRepository {
   return {
     async listStaff() {
-      const query = readStaffFromInsForge;
+      const query = () => readStaffFromInsForge({ timer });
 
       return timer
         ? timer.measure("repository.insforge.staff-list", query)
         : query();
     },
     async createStaff(input) {
-      const query = () => createStaffInInsForge(input);
+      const query = () => createStaffInInsForge({ ...input, timer });
 
       return timer
         ? timer.measure("repository.insforge.staff-create", query)
@@ -49,9 +49,13 @@ export function createInsForgeStaffRepository({
   };
 }
 
-async function readStaffFromInsForge(): Promise<AppResult<StaffListItem[]>> {
+async function readStaffFromInsForge({
+  timer,
+}: {
+  timer?: ApiTimer;
+} = {}): Promise<AppResult<StaffListItem[]>> {
   try {
-    const client = await createInsForgeServerClient();
+    const client = await createInsForgeServerClient({ timer });
     const response = (await client.database
       .from("app_users")
       .select(staffSelect)
@@ -68,11 +72,14 @@ async function readStaffFromInsForge(): Promise<AppResult<StaffListItem[]>> {
   }
 }
 
-async function createStaffInInsForge(
-  input: CreateStaffInput,
-): Promise<AppResult<StaffListItem>> {
+async function createStaffInInsForge({
+  timer,
+  ...input
+}: CreateStaffInput & {
+  timer?: ApiTimer;
+}): Promise<AppResult<StaffListItem>> {
   try {
-    const authClient = createInsForgeAdminClient();
+    const authClient = createInsForgeAdminClient({ timer });
     const authResult = await authClient.auth.signUp({
       email: input.email,
       password: input.password,
@@ -102,7 +109,7 @@ async function createStaffInInsForge(
 
     // signUp may return a user session. A fresh admin client ensures the
     // following role mapping still runs with the project admin credential.
-    const databaseClient = createInsForgeAdminClient();
+    const databaseClient = createInsForgeAdminClient({ timer });
     const existingStaffResult = await readExistingStaffProfile({
       authUserId: authUserIdResult.data,
       databaseClient,

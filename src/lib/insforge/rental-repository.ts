@@ -29,6 +29,7 @@ import type {
   UtilityPricingRecord,
 } from "./types";
 import { getCurrentAppUserForOperations } from "@/lib/auth/service";
+import { getActiveApiTimer } from "@/lib/api/timing";
 import { createInsForgeAuthRepository } from "./auth-repository";
 
 type QueryResponse<T> = {
@@ -37,8 +38,10 @@ type QueryResponse<T> = {
 };
 
 export async function requireAppUserRole(): Promise<AppUser> {
+  const timer = getActiveApiTimer();
   const result = await getCurrentAppUserForOperations({
-    repository: createInsForgeAuthRepository(),
+    repository: createInsForgeAuthRepository({ timer }),
+    timer,
   });
 
   if (result.error) {

@@ -118,6 +118,17 @@ const authenticatedRoomDetailApiSmoke = {
     keyTenantName: "Tenant Demo",
     integrityWarning: null,
   },
+  meta: {
+    timing: {
+      operation: "rooms.detail",
+      totalMs: 1,
+      spans: [
+        { name: "auth", durationMs: 1 },
+        { name: "service", durationMs: 1 },
+        { name: "repository.insforge.room-detail", durationMs: 1 },
+      ],
+    },
+  },
 } satisfies ApiResponse<RoomDetailView>;
 
 const authenticatedRoomOperationsSummaryApiSmoke = {
@@ -143,6 +154,17 @@ const authenticatedRoomOperationsSummaryApiSmoke = {
         amountPaid: 0,
         balanceDue: 3020000,
       },
+    },
+  },
+  meta: {
+    timing: {
+      operation: "rooms.operations-summary",
+      totalMs: 1,
+      spans: [
+        { name: "auth", durationMs: 1 },
+        { name: "service", durationMs: 1 },
+        { name: "repository.insforge.room-operations-summary", durationMs: 1 },
+      ],
     },
   },
 } satisfies ApiResponse<RoomOperationsSummaryView>;

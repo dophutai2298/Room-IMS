@@ -2,16 +2,21 @@ import "server-only";
 
 import type { ApiTimer } from "@/lib/api/timing";
 import {
-  buildDashboardMissingUtilityMetricsFromItems,
+  buildDashboardMissingUtilityMetricsFromCompactRows,
   buildDashboardRevenue,
   buildDashboardUnpaidInvoices,
 } from "@/lib/dashboard/presenter";
 import type { DashboardRepository } from "@/lib/dashboard/repository";
 import type { BillingPeriod } from "@/lib/utilities/presenter";
 import { fail, ok, toAppBackendError } from "./errors";
-import { createInsForgeRoomRepository } from "./room-repository";
 import { createInsForgeServerClient } from "./server";
-import type { InvoiceRecord, RoomRecord, UtilityMetricRecord } from "./types";
+import type {
+  ContractRecord,
+  InvoiceRecord,
+  RoomRecord,
+  TenantRecord,
+  UtilityMetricRecord,
+} from "./types";
 
 type InsForgeServerClient = Awaited<ReturnType<typeof createInsForgeServerClient>>;
 
@@ -25,8 +30,6 @@ export function createInsForgeDashboardRepository({
     clientPromise ??= createInsForgeServerClient();
     return clientPromise;
   };
-  const roomRepository = createInsForgeRoomRepository({ timer });
-
   return {
     async readRevenueSummary(billingPeriod) {
       const query = () => readRevenueSummaryFromInsForge({ getClient, billingPeriod });
@@ -39,7 +42,6 @@ export function createInsForgeDashboardRepository({
       const query = () =>
         readMissingUtilityMetricsFromInsForge({
           getClient,
-          roomRepository,
           billingPeriod,
         });
 
@@ -89,35 +91,59 @@ async function readRevenueSummaryFromInsForge({
 
 async function readMissingUtilityMetricsFromInsForge({
   getClient,
-  roomRepository,
   billingPeriod,
 }: {
   getClient: () => Promise<InsForgeServerClient>;
-  roomRepository: ReturnType<typeof createInsForgeRoomRepository>;
   billingPeriod: BillingPeriod;
 }) {
   try {
     const client = await getClient();
-    const [rooms, metrics] = await Promise.all([
-      roomRepository.listRoomItems(),
+    const [rooms, tenants, activeContracts, metrics] = await Promise.all([
+      client.database.from("rooms").select("id, name, status, base_price").order("name"),
+      client.database.from("tenants").select("id, full_name").order("full_name"),
+      client.database
+        .from("contracts")
+        .select("id, room_id, key_tenant_id, rent_amount")
+        .eq("status", "Active")
+        .order("start_date"),
       client.database
         .from("utility_metrics")
-        .select("id, room_id, month, year, electricity_old, electricity_new, water_old, water_new")
+        .select(
+          [
+            "id",
+            "room_id",
+            "month",
+            "year",
+            "electricity_old",
+            "electricity_new",
+            "water_old",
+            "water_new",
+          ].join(", "),
+        )
         .eq("month", billingPeriod.month)
         .eq("year", billingPeriod.year),
     ]);
 
-    if (rooms.error) {
-      return rooms;
-    }
-
-    if (metrics.error) {
-      return fail(metrics.error, "Could not read Dashboard Utility Metrics");
+    for (const response of [rooms, tenants, activeContracts, metrics]) {
+      if (response.error) {
+        return fail(response.error, "Could not read Dashboard Utility Metrics");
+      }
     }
 
     return ok(
-      buildDashboardMissingUtilityMetricsFromItems({
-        roomItems: rooms.data,
+      buildDashboardMissingUtilityMetricsFromCompactRows({
+        rooms: (rooms.data ?? []) as unknown as Pick<
+          RoomRecord,
+          "id" | "name" | "status" | "base_price"
+        >[],
+        activeContracts: (activeContracts.data ?? []) as unknown as Pick<
+          ContractRecord,
+          "id" | "room_id" | "key_tenant_id" | "rent_amount"
+        >[],
+        tenants: (tenants.data ?? []) as unknown as Pick<
+          TenantRecord,
+          "id" | "full_name"
+        >[],
         metrics: (metrics.data ?? []) as unknown as UtilityMetricRecord[],
         billingPeriod,
       }),
