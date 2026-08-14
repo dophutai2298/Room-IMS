@@ -88,6 +88,13 @@ export function getActiveApiTimer(): ApiTimer | undefined {
 }
 
 export function logApiTiming(snapshot: ApiTimingSnapshot) {
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.API_TIMING_LOG_ENABLED !== "true"
+  ) {
+    return;
+  }
+
   console.info(
     `[api-timing] ${snapshot.operation} requestId=${snapshot.requestId} total=${snapshot.totalMs}ms spans=${snapshot.spans
       .map(formatSpanForLog)

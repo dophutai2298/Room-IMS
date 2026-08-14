@@ -1,82 +1,89 @@
-type ApiTimingSpan = {
-  name: string;
-  durationMs: number;
-  attributes?: Record<string, string | number | boolean | null>;
-};
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 
-type ApiTimingSnapshot = {
-  requestId: string;
-  operation: string;
-  totalMs: number;
-  spans: ApiTimingSpan[];
-};
+import {
+  comparePerformanceReports,
+  parsePerformanceReport,
+  summarizeEndpointSamples,
+  type ApiPerformanceEndpoint,
+  type ApiPerformanceReport,
+  type ApiPerformanceSample,
+  type ApiTimingSnapshot,
+} from "./api-performance-report";
 
 type ApiPayload = {
   ok?: boolean;
-  meta?: {
-    timing?: ApiTimingSnapshot;
-  };
+  meta?: { timing?: ApiTimingSnapshot };
 };
 
-type Endpoint = {
-  name: string;
-  path: string;
-};
-
-type Sample = {
-  status: number;
-  durationMs: number;
-  timing?: ApiTimingSnapshot;
-};
-
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+const baseUrl =
+  process.env.API_BASELINE_BASE_URL ??
+  process.env.NEXT_PUBLIC_APP_URL ??
+  "http://localhost:3000";
 const cookie = process.env.NEXT_API_BASELINE_COOKIE;
-console.log(`----------------->cookie=${cookie}`);
+
+const allowUnauthenticated =
+  process.env.API_BASELINE_ALLOW_UNAUTHENTICATED === "true";
 const samplesPerEndpoint = readPositiveInt("API_BASELINE_SAMPLES", 5);
-const roomId =
-  process.env.API_BASELINE_ROOM_ID ??
-  "00000000-0000-0000-0000-000000000101";
-const tenantId =
-  process.env.API_BASELINE_TENANT_ID ??
-  "10000000-0000-0000-0000-000000000001";
+const outputPath = resolve(
+  process.env.API_BASELINE_OUTPUT ??
+    ".scratch/performance/api-baseline-latest.json",
+);
+const beforePath = process.env.API_BASELINE_BEFORE
+  ? resolve(process.env.API_BASELINE_BEFORE)
+  : null;
+const roomId = "00000000-0000-0000-0000-000000000101";
+const tenantId = "10000000-0000-0000-0000-000000000001";
 const month = readPositiveInt("API_BASELINE_MONTH", new Date().getMonth() + 1);
 const year = readPositiveInt("API_BASELINE_YEAR", new Date().getFullYear());
+const invoiceGenerationDurations = readDurationList(
+  "API_BASELINE_INVOICE_GENERATION_SAMPLES",
+);
 
-const endpoints: Endpoint[] = [
-  { name: "Foundation current user", path: "/api/foundation/current-user" },
-  { name: "Foundation seeded data", path: "/api/foundation/seeded-data" },
-  { name: "Rooms list", path: "/api/rooms" },
-  { name: "Room detail", path: `/api/rooms/${roomId}/detail` },
-  {
-    name: "Room operations summary",
-    path: `/api/rooms/${roomId}/operations-summary`,
-  },
-  { name: "Room tenants", path: `/api/rooms/${roomId}/tenants` },
-  { name: "Room contracts", path: `/api/rooms/${roomId}/contracts` },
-  {
-    name: "Utility Metrics read",
-    path: `/api/rooms/${roomId}/utility-metrics?month=${month}&year=${year}`,
-  },
-  { name: "Invoices list", path: "/api/invoices" },
-  {
-    name: "Dashboard revenue",
-    path: `/api/dashboard/revenue?month=${month}&year=${year}`,
-  },
-  {
-    name: "Dashboard missing Utility Metrics",
-    path: `/api/dashboard/missing-utility-metrics?month=${month}&year=${year}`,
-  },
-  {
-    name: "Dashboard unpaid Invoices",
-    path: `/api/dashboard/unpaid-invoices?month=${month}&year=${year}`,
-  },
-  { name: "Tenants directory", path: "/api/tenants" },
-  { name: "Tenant detail", path: `/api/tenants/${tenantId}` },
-  { name: "Utility Pricing list", path: "/api/utility-pricing" },
-  { name: "Staff list", path: "/api/staff" },
+const endpoints: ApiPerformanceEndpoint[] = [
+  endpoint("foundation-current-user", "Foundation current user", "/api/foundation/current-user"),
+  endpoint("foundation-seeded-data", "Foundation seeded data", "/api/foundation/seeded-data"),
+  endpoint("rooms-list", "Rooms list", "/api/rooms"),
+  endpoint("room-detail", "Room detail", `/api/rooms/${roomId}/detail`),
+  endpoint(
+    "room-operations-summary",
+    "Room operations summary",
+    `/api/rooms/${roomId}/operations-summary`,
+  ),
+  endpoint("room-tenants", "Room tenants", `/api/rooms/${roomId}/tenants`),
+  endpoint("room-contracts", "Room contracts", `/api/rooms/${roomId}/contracts`),
+  endpoint(
+    "utility-metrics-read",
+    "Utility Metrics read",
+    `/api/rooms/${roomId}/utility-metrics?month=${month}&year=${year}`,
+  ),
+  endpoint("invoices-list", "Invoices list", "/api/invoices"),
+  endpoint(
+    "dashboard-revenue",
+    "Dashboard revenue",
+    `/api/dashboard/revenue?month=${month}&year=${year}`,
+  ),
+  endpoint(
+    "dashboard-missing-utility-metrics",
+    "Dashboard missing Utility Metrics",
+    `/api/dashboard/missing-utility-metrics?month=${month}&year=${year}`,
+  ),
+  endpoint(
+    "dashboard-unpaid-invoices",
+    "Dashboard unpaid Invoices",
+    `/api/dashboard/unpaid-invoices?month=${month}&year=${year}`,
+  ),
+  endpoint("tenants-directory", "Tenants directory", "/api/tenants"),
+  endpoint("tenant-detail", "Tenant detail", `/api/tenants/${tenantId}`),
+  endpoint("utility-pricing-list", "Utility Pricing list", "/api/utility-pricing"),
+  endpoint("staff-list", "Staff list", "/api/staff"),
 ];
 
-void main();
+void main().catch((error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(`API performance baseline failed: ${message}`);
+  process.exitCode = 1;
+});
 
 async function main() {
   console.info(`API baseline: ${baseUrl}`);
@@ -84,108 +91,147 @@ async function main() {
     `Samples: 1 cold + ${samplesPerEndpoint} warm per endpoint; month=${month}; year=${year}`,
   );
 
-  if (!cookie) {
-    console.info(
-      "API_BASELINE_COOKIE is not set. Protected endpoints may return 401, but timing still reports auth cost.",
+  if (!cookie && !allowUnauthenticated) {
+    throw new Error(
+      "Set NEXT_API_BASELINE_COOKIE to an authenticated browser Cookie header. Set API_BASELINE_ALLOW_UNAUTHENTICATED=true only for an intentional 401 Auth check.",
     );
   }
 
-  const results: Array<{
-    endpoint: Endpoint;
-    cold: Sample;
-    warm: Sample[];
-  }> = [];
-
-  for (const endpoint of endpoints) {
-    const cold = await requestEndpoint(endpoint);
-    const warm: Sample[] = [];
-
-    for (let index = 0; index < samplesPerEndpoint; index += 1) {
-      warm.push(await requestEndpoint(endpoint));
-    }
-
-    results.push({ endpoint, cold, warm });
+  if (!cookie) {
+    console.warn(
+      "Running an unauthenticated Auth-only check. Results are not a valid operational performance baseline.",
+    );
   }
 
-  printResults(results);
+  const results: ApiPerformanceReport["results"] = [];
+
+  for (const currentEndpoint of endpoints) {
+    const cold = await requestEndpoint(currentEndpoint);
+
+    if (
+      currentEndpoint.key === "foundation-current-user" &&
+      cold.status === 401 &&
+      !allowUnauthenticated
+    ) {
+      throw new Error(
+        "The configured baseline cookie is expired or invalid. Copy a fresh Cookie header from an authenticated browser request.",
+      );
+    }
+
+    const warm: ApiPerformanceSample[] = [];
+
+    for (let index = 0; index < samplesPerEndpoint; index += 1) {
+      warm.push(await requestEndpoint(currentEndpoint));
+    }
+
+    results.push(
+      summarizeEndpointSamples({ endpoint: currentEndpoint, cold, warm }),
+    );
+  }
+
+  if (invoiceGenerationDurations.length >= 2) {
+    const invoiceGenerationEndpoint: ApiPerformanceEndpoint = {
+      key: "invoice-generation-action",
+      name: "Invoice generation",
+      method: "POST",
+      path: "Server Action: generateMonthlyInvoice",
+    };
+    const [coldDuration = 0, ...warmDurations] = invoiceGenerationDurations;
+
+    results.push(
+      summarizeEndpointSamples({
+        endpoint: invoiceGenerationEndpoint,
+        cold: manualActionSample(coldDuration),
+        warm: warmDurations.map(manualActionSample),
+      }),
+    );
+  } else {
+    console.warn(
+      "Invoice generation is a mutating Server Action, so it is not repeated automatically. Run controlled UI submissions and set API_BASELINE_INVOICE_GENERATION_SAMPLES to comma-separated totalMs values (cold first, then warm).",
+    );
+  }
+
+  const report: ApiPerformanceReport = {
+    version: 1,
+    generatedAt: new Date().toISOString(),
+    baseUrl,
+    results,
+  };
+
+  console.table(results);
+  await writeReport(report);
+
+  if (beforePath) {
+    const before = parsePerformanceReport(
+      JSON.parse(await readFile(beforePath, "utf8")) as unknown,
+    );
+    console.info(`Before/after comparison: ${beforePath}`);
+    console.table(comparePerformanceReports(before, report));
+  }
+
+  const unexpectedStatuses = results.filter((result) => result.status !== "200");
+
+  if (unexpectedStatuses.length > 0 && !allowUnauthenticated) {
+    throw new Error(
+      `Unexpected HTTP status for: ${unexpectedStatuses
+        .map((result) => `${result.endpoint} (${result.status})`)
+        .join(", ")}`,
+    );
+  }
+
 }
 
-async function requestEndpoint(endpoint: Endpoint): Promise<Sample> {
-  const url = new URL(endpoint.path, baseUrl);
+async function requestEndpoint(
+  currentEndpoint: ApiPerformanceEndpoint,
+): Promise<ApiPerformanceSample> {
+  const url = new URL(currentEndpoint.path, baseUrl);
   const startedAt = performance.now();
   const response = await fetch(url, {
+    method: currentEndpoint.method,
     headers: {
       Accept: "application/json",
       ...(cookie ? { Cookie: cookie } : {}),
     },
   });
-  const durationMs = roundDuration(performance.now() - startedAt);
-  const payload = (await response.json().catch(() => null)) as ApiPayload | null;
+  const responseBody = await response.text();
+  const payload = parseApiPayload(responseBody);
 
   return {
     status: response.status,
-    durationMs,
+    durationMs: roundDuration(performance.now() - startedAt),
+    payloadBytes: Buffer.byteLength(responseBody),
     timing: payload?.meta?.timing,
   };
 }
 
-function printResults(
-  results: Array<{
-    endpoint: Endpoint;
-    cold: Sample;
-    warm: Sample[];
-  }>,
-) {
-  const table = results.map(({ endpoint, cold, warm }) => {
-    const warmDurations = warm.map((sample) => sample.durationMs).sort(sortNumber);
-    const statuses = Array.from(new Set(warm.map((sample) => sample.status))).join(
-      ",",
-    );
-    const largestSpan = findLargestSpan(warm);
-
-    return {
-      endpoint: endpoint.name,
-      status: statuses || String(cold.status),
-      coldMs: cold.durationMs,
-      minMs: percentile(warmDurations, 0),
-      p50Ms: percentile(warmDurations, 50),
-      p95Ms: percentile(warmDurations, 95),
-      maxMs: percentile(warmDurations, 100),
-      samples: warm.length,
-      largestSpan,
-    };
-  });
-
-  console.table(table);
+async function writeReport(report: ApiPerformanceReport) {
+  await mkdir(dirname(outputPath), { recursive: true });
+  await writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  console.info(`Wrote performance report: ${outputPath}`);
 }
 
-function findLargestSpan(samples: Sample[]) {
-  const spans = samples.flatMap((sample) => sample.timing?.spans ?? []);
-  const largest = spans.sort((left, right) => right.durationMs - left.durationMs)[0];
-
-  if (!largest) {
-    return "n/a";
+function parseApiPayload(value: string): ApiPayload | null {
+  try {
+    return JSON.parse(value) as ApiPayload;
+  } catch {
+    return null;
   }
-
-  return `${largest.name}:${largest.durationMs}ms`;
 }
 
-function percentile(values: number[], percentileValue: number) {
-  if (values.length === 0) {
-    return 0;
-  }
+function endpoint(
+  key: string,
+  name: string,
+  path: string,
+): ApiPerformanceEndpoint {
+  return { key, name, method: "GET", path };
+}
 
-  if (percentileValue <= 0) {
-    return values[0] ?? 0;
-  }
-
-  if (percentileValue >= 100) {
-    return values[values.length - 1] ?? 0;
-  }
-
-  const index = Math.ceil((percentileValue / 100) * values.length) - 1;
-
-  return values[Math.max(0, index)] ?? 0;
+function manualActionSample(durationMs: number): ApiPerformanceSample {
+  return {
+    status: 200,
+    durationMs,
+    payloadBytes: 0,
+  };
 }
 
 function readPositiveInt(name: string, fallback: number) {
@@ -196,12 +242,21 @@ function readPositiveInt(name: string, fallback: number) {
   }
 
   const parsed = Number.parseInt(value, 10);
-
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-function sortNumber(left: number, right: number) {
-  return left - right;
+function readDurationList(name: string) {
+  const value = process.env[name];
+
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((item) => Number.parseFloat(item.trim()))
+    .filter((item) => Number.isFinite(item) && item >= 0)
+    .map(roundDuration);
 }
 
 function roundDuration(value: number) {

@@ -1,3 +1,5 @@
+import type { ApiTimingSnapshot } from "@/lib/api/timing";
+
 export type InvoiceGenerationActionState = {
   status: "idle" | "success" | "error";
   message: string | null;
@@ -12,6 +14,7 @@ export type InvoiceGenerationActionState = {
     otherFee: string;
     otherFeeNote: string;
   };
+  timing?: ApiTimingSnapshot;
 };
 
 export const initialInvoiceGenerationActionState: InvoiceGenerationActionState = {
