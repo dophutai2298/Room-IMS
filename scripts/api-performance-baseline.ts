@@ -29,8 +29,9 @@ type Sample = {
   timing?: ApiTimingSnapshot;
 };
 
-const baseUrl = process.env.API_BASELINE_BASE_URL ?? "http://localhost:3000";
-const cookie = process.env.API_BASELINE_COOKIE;
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+const cookie = process.env.NEXT_API_BASELINE_COOKIE;
+console.log(`----------------->cookie=${cookie}`);
 const samplesPerEndpoint = readPositiveInt("API_BASELINE_SAMPLES", 5);
 const roomId =
   process.env.API_BASELINE_ROOM_ID ??

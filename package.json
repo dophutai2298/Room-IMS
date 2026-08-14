@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "perf:api-baseline": "tsx scripts/api-performance-baseline.ts",
-    "test": "node --conditions=react-server --import tsx --test src/lib/auth/auth.behavior.test.ts src/lib/contracts/contract.behavior.test.ts src/lib/staff/staff.behavior.test.ts src/lib/server/operational-route.behavior.test.ts"
+    "test": "node --conditions=react-server --import tsx --test src/lib/auth/auth.behavior.test.ts src/lib/contracts/contract.behavior.test.ts src/lib/dashboard/dashboard.behavior.test.ts src/lib/staff/staff.behavior.test.ts src/lib/server/operational-route.behavior.test.ts"
   },
   "dependencies": {
     "@insforge/sdk": "^1.5.2",

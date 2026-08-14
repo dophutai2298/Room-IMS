@@ -1,10 +1,16 @@
 import { formatBillingPeriod, type BillingPeriod } from "@/lib/utilities/presenter";
 import type {
+  ContractRecord,
   InvoiceRecord,
   RoomRecord,
+  TenantRecord,
   UtilityMetricRecord,
 } from "@/lib/insforge/types";
-import type { RoomListItem, RoomUiStatus } from "@/lib/rooms/presenter";
+import {
+  deriveRoomStatus,
+  type RoomListItem,
+  type RoomUiStatus,
+} from "@/lib/rooms/presenter";
 
 export type DashboardRevenuePoint = {
   period: string;
@@ -170,6 +176,84 @@ export function buildDashboardMissingUtilityMetricsFromItems({
     metrics,
     billingPeriod,
   });
+}
+
+export type DashboardMissingUtilityMetricsRoomInput = Pick<
+  RoomRecord,
+  "id" | "name" | "status" | "base_price"
+>;
+
+export type DashboardMissingUtilityMetricsContractInput = Pick<
+  ContractRecord,
+  "id" | "room_id" | "key_tenant_id" | "rent_amount"
+>;
+
+export type DashboardMissingUtilityMetricsTenantInput = Pick<
+  TenantRecord,
+  "id" | "full_name"
+>;
+
+export function buildDashboardMissingUtilityMetricsFromCompactRows({
+  rooms,
+  activeContracts,
+  tenants,
+  metrics,
+  billingPeriod,
+}: {
+  rooms: DashboardMissingUtilityMetricsRoomInput[];
+  activeContracts: DashboardMissingUtilityMetricsContractInput[];
+  tenants: DashboardMissingUtilityMetricsTenantInput[];
+  metrics: UtilityMetricRecord[];
+  billingPeriod: BillingPeriod;
+}): DashboardMissingUtilityMetricsView {
+  const metricRoomIds = new Set(
+    metrics
+      .filter((metric) => isSamePeriod(metric, billingPeriod))
+      .map((metric) => metric.room_id),
+  );
+  const tenantNameById = new Map(
+    tenants.map((tenant) => [tenant.id, tenant.full_name]),
+  );
+  const activeContractByRoomId = new Map<
+    string,
+    DashboardMissingUtilityMetricsContractInput
+  >();
+
+  for (const contract of activeContracts) {
+    if (!activeContractByRoomId.has(contract.room_id)) {
+      activeContractByRoomId.set(contract.room_id, contract);
+    }
+  }
+
+  const missingRooms = rooms
+    .map((room) => {
+      const activeContract = activeContractByRoomId.get(room.id) ?? null;
+
+      return {
+        room,
+        activeContract,
+        status: deriveRoomStatus(room.status, activeContract),
+      };
+    })
+    .filter(
+      ({ room, status }) =>
+        status === "occupied" && !metricRoomIds.has(room.id),
+    )
+    .map(({ room, activeContract }) => ({
+      id: room.id,
+      name: room.name,
+      keyTenantName: activeContract
+        ? tenantNameById.get(activeContract.key_tenant_id) ?? null
+        : null,
+      basePrice: toMoney(activeContract?.rent_amount ?? room.base_price),
+    }))
+    .sort((left, right) => left.name.localeCompare(right.name));
+
+  return {
+    billingPeriod,
+    periodLabel: formatBillingPeriod(billingPeriod),
+    rooms: missingRooms,
+  };
 }
 
 export function buildDashboardUnpaidInvoices({

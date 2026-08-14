@@ -12,7 +12,6 @@ export const GET = withOperationalAuth(
   { operation: "rooms.list" },
   async ({ timer }) => {
     const repository = createInsForgeRoomRepository({ timer });
-    console.log("repository:::: ",repository)
     return timer.measure("service", () =>
       listRoomsForOperations({ repository }),
     );
