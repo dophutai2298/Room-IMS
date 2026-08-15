@@ -1,9 +1,10 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
+import { DataTable } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -18,19 +19,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { AppApiClientError, fetchAppApi } from "@/lib/api/client";
 import { fetchCurrentAppUser } from "@/lib/auth/client";
 import { authQueryKeys } from "@/lib/auth/query-keys";
-import { fetchAppApi } from "@/lib/api/client";
+import { createDataTableColumnHelper } from "@/lib/data-table/tanstack";
 import type { StaffListItem } from "@/lib/staff/presenter";
 import { staffQueryKeys } from "@/lib/staff/query-keys";
+
+const staffColumnHelper = createDataTableColumnHelper<StaffListItem>();
 
 export function StaffManagementClient() {
   const currentUserQuery = useQuery({
@@ -44,6 +40,33 @@ export function StaffManagementClient() {
       fetchAppApi<StaffListItem[]>("/api/staff", { cache: "no-store" }),
     enabled: isLandlord,
   });
+  const columns = useMemo(
+    () =>
+      staffColumnHelper.columns([
+        staffColumnHelper.accessor("displayName", {
+          header: "Staff",
+          cell: (info) => <span className="font-medium">{info.getValue()}</span>,
+          sortFn: "alphanumeric",
+        }),
+        staffColumnHelper.accessor("email", {
+          header: "Email",
+          sortFn: "alphanumeric",
+        }),
+        staffColumnHelper.accessor("createdAt", {
+          header: "Ngày cấp",
+          cell: (info) => formatDate(info.getValue()),
+          sortFn: "datetime",
+          enableGlobalFilter: false,
+        }),
+        staffColumnHelper.accessor(() => "Staff", {
+          id: "role",
+          header: "Vai trò",
+          enableGlobalFilter: false,
+          enableSorting: false,
+        }),
+      ]),
+    [],
+  );
 
   if (currentUserQuery.isPending) {
     return <StaffPageSkeleton />;
@@ -89,30 +112,20 @@ export function StaffManagementClient() {
         <CreateStaffDialog />
       </header>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Danh sách Staff</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {staffQuery.isPending ? (
-            <StaffTableSkeleton />
-          ) : staffQuery.isError ? (
-            <StaffError
-              message={staffQuery.error.message}
-              onRetry={() => void staffQuery.refetch()}
-            />
-          ) : staffQuery.data.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border px-6 py-12 text-center">
-              <p className="font-medium">Chưa có tài khoản Staff</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Chọn “Thêm Staff” để cấp tài khoản đầu tiên.
-              </p>
-            </div>
-          ) : (
-            <StaffTable staff={staffQuery.data} />
-          )}
-        </CardContent>
-      </Card>
+      <DataTable
+        columns={columns}
+        data={staffQuery.data ?? []}
+        emptyMessage="Chọn Thêm Staff để cấp tài khoản đầu tiên."
+        emptyTitle="Chưa có tài khoản Staff"
+        errorMessage={staffQuery.isError ? staffQuery.error.message : undefined}
+        filteredEmptyMessage="Thử đổi từ khóa search theo tên hoặc email."
+        filteredEmptyTitle="Không tìm thấy Staff"
+        isFetching={staffQuery.isFetching}
+        isLoading={staffQuery.isPending}
+        onRetry={() => void staffQuery.refetch()}
+        searchPlaceholder="Tìm Staff hoặc email..."
+        title="Danh sách Staff"
+      />
     </>
   );
 }
@@ -123,12 +136,16 @@ function CreateStaffDialog() {
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const createMutation = useMutation({
-    mutationFn: (input: {
+  const createMutation = useMutation<
+    StaffListItem,
+    AppApiClientError,
+    {
       displayName: string;
       email: string;
       password: string;
-    }) =>
+    }
+  >({
+    mutationFn: (input) =>
       fetchAppApi<StaffListItem>("/api/staff", {
         method: "POST",
         body: JSON.stringify(input),
@@ -237,31 +254,6 @@ function CreateStaffDialog() {
   );
 }
 
-function StaffTable({ staff }: { staff: StaffListItem[] }) {
-  return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Staff</TableHead>
-          <TableHead>Email</TableHead>
-          <TableHead>Ngày cấp</TableHead>
-          <TableHead>Vai trò</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {staff.map((member) => (
-          <TableRow key={member.id}>
-            <TableCell className="font-medium">{member.displayName}</TableCell>
-            <TableCell>{member.email}</TableCell>
-            <TableCell>{formatDate(member.createdAt)}</TableCell>
-            <TableCell>Staff</TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  );
-}
-
 function StaffError({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <div className="rounded-2xl border border-destructive/25 bg-destructive/10 px-5 py-6">
@@ -279,16 +271,6 @@ function StaffPageSkeleton() {
     <div className="space-y-6" aria-label="Đang tải tài khoản hiện tại">
       <Skeleton className="h-28 w-full" />
       <Skeleton className="h-72 w-full" />
-    </div>
-  );
-}
-
-function StaffTableSkeleton() {
-  return (
-    <div className="space-y-3" aria-label="Đang tải danh sách Staff">
-      {[0, 1, 2].map((item) => (
-        <Skeleton key={item} className="h-12 w-full" />
-      ))}
     </div>
   );
 }

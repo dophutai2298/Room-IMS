@@ -5,12 +5,9 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -29,16 +26,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
 import { AppApiClientError, fetchAppApi } from "@/lib/api/client";
+import { createDataTableColumnHelper } from "@/lib/data-table/tanstack";
 import { dashboardQueryKeys } from "@/lib/dashboard/query-keys";
 import { formatCurrency } from "@/lib/formatters";
-import type { RoomWriteStatus } from "@/lib/rooms/repository";
 import {
   roomStatusLabel,
   type RoomListItem,
   type RoomUiStatus,
 } from "@/lib/rooms/presenter";
+import type { RoomWriteStatus } from "@/lib/rooms/repository";
 import { roomQueryKeys } from "@/lib/rooms/query-keys";
 
 type RoomDraft = {
@@ -53,6 +50,8 @@ const defaultRoomDraft: RoomDraft = {
   status: "Available",
 };
 
+const roomColumnHelper = createDataTableColumnHelper<RoomListItem>();
+
 export function RoomsClient() {
   const roomsQuery = useQuery({
     queryKey: roomQueryKeys.list(),
@@ -61,6 +60,91 @@ export function RoomsClient() {
         cache: "no-store",
       }),
   });
+  const columns = useMemo(
+    () =>
+      roomColumnHelper.columns([
+        roomColumnHelper.accessor("name", {
+          header: "Phòng",
+          cell: (info) => (
+            <div className="space-y-1">
+              <Link
+                href={`/rooms/${info.row.original.id}`}
+                className="font-medium hover:underline"
+              >
+                {info.getValue()}
+              </Link>
+              <p className="text-xs text-muted-foreground">
+                {info.row.original.nextAction}
+              </p>
+            </div>
+          ),
+          sortFn: "alphanumeric",
+        }),
+        roomColumnHelper.accessor("status", {
+          header: "Trạng thái",
+          cell: (info) => <RoomBadge status={info.getValue()} />,
+          enableGlobalFilter: false,
+          filterFn: "equalsString",
+          sortFn: "alphanumeric",
+        }),
+        roomColumnHelper.accessor(
+          (room) => room.keyTenantName ?? "Chưa có Key Tenant",
+          {
+            id: "keyTenantName",
+            header: "Key Tenant",
+            sortFn: "alphanumeric",
+          },
+        ),
+        roomColumnHelper.accessor("roomBasePrice", {
+          header: "Base rent",
+          cell: (info) => (
+            <span className="font-mono tabular-nums">
+              {formatCurrency(info.getValue())}
+            </span>
+          ),
+          enableGlobalFilter: false,
+        }),
+        roomColumnHelper.accessor("basePrice", {
+          header: "Giá áp dụng",
+          cell: (info) => (
+            <span className="font-mono tabular-nums">
+              {formatCurrency(info.getValue())}
+            </span>
+          ),
+          enableGlobalFilter: false,
+        }),
+        roomColumnHelper.accessor("tenantCount", {
+          header: "Người ở",
+          cell: (info) => (
+            <span className="font-mono tabular-nums">{info.getValue()}</span>
+          ),
+          enableGlobalFilter: false,
+        }),
+        roomColumnHelper.accessor(
+          (room) => (room.activeContractId ? "Có" : "Chưa có"),
+          {
+            id: "activeContract",
+            header: "Active Contract",
+            sortFn: "alphanumeric",
+          },
+        ),
+        roomColumnHelper.display({
+          id: "actions",
+          header: "Thao tác",
+          cell: ({ row }) => (
+            <div className="flex justify-end gap-2">
+              <RoomEditorDialog mode="edit" room={row.original} />
+              <Button asChild variant="secondary" size="sm">
+                <Link href={`/rooms/${row.original.id}`}>Chi tiết</Link>
+              </Button>
+            </div>
+          ),
+          enableHiding: false,
+          enableSorting: false,
+        }),
+      ]),
+    [],
+  );
 
   return (
     <>
@@ -78,63 +162,31 @@ export function RoomsClient() {
         <RoomEditorDialog mode="create" />
       </header>
 
-      {roomsQuery.isPending ? (
-        <RoomsGridSkeleton />
-      ) : roomsQuery.isError ? (
-        <ErrorCard
-          message={roomsQuery.error.message}
-          onRetry={() => void roomsQuery.refetch()}
-        />
-      ) : roomsQuery.data.length === 0 ? (
-        <EmptyRooms onRetry={() => void roomsQuery.refetch()} />
-      ) : (
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {roomsQuery.data.map((room) => (
-            <RoomCard key={room.id} room={room} />
-          ))}
-        </section>
-      )}
+      <DataTable
+        columns={columns}
+        data={roomsQuery.data ?? []}
+        emptyMessage="Tạo phòng đầu tiên để bắt đầu thêm Tenant, Contract và chốt chỉ số."
+        emptyTitle="Chưa có phòng nào"
+        errorMessage={roomsQuery.isError ? roomsQuery.error.message : undefined}
+        filteredEmptyMessage="Thử đổi từ khóa search hoặc trạng thái phòng."
+        filteredEmptyTitle="Không tìm thấy phòng"
+        isFetching={roomsQuery.isFetching}
+        isLoading={roomsQuery.isPending}
+        onRetry={() => void roomsQuery.refetch()}
+        searchPlaceholder="Tìm phòng hoặc Key Tenant..."
+        statusFilter={{
+          columnId: "status",
+          label: "Lọc trạng thái",
+          allLabel: "Tất cả trạng thái",
+          options: [
+            { value: "available", label: roomStatusLabel.available },
+            { value: "occupied", label: roomStatusLabel.occupied },
+            { value: "maintenance", label: roomStatusLabel.maintenance },
+          ],
+        }}
+        title="Danh sách phòng"
+      />
     </>
-  );
-}
-
-function RoomCard({ room }: { room: RoomListItem }) {
-  return (
-    <Card className="h-full">
-      <CardContent className="space-y-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-semibold">{room.name}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {room.keyTenantName ?? "Chưa có Key Tenant"}
-            </p>
-          </div>
-          <RoomBadge status={room.status} />
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 rounded-2xl border border-white/40 bg-background/35 p-4 clay-inset dark:border-white/8">
-          <InfoBlock label="Giá đang áp dụng" value={formatCurrency(room.basePrice)} />
-          <InfoBlock label="Base rent" value={formatCurrency(room.roomBasePrice)} />
-          <InfoBlock label="Số người ở" value={`${room.tenantCount} người`} />
-          <InfoBlock
-            label="Active Contract"
-            value={room.activeContractId ? "Có" : "Chưa có"}
-          />
-        </div>
-
-        <div className="flex items-center justify-between gap-3 text-sm">
-          <span className="text-muted-foreground">Việc tiếp theo</span>
-          <span className="text-right font-medium">{room.nextAction}</span>
-        </div>
-
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <RoomEditorDialog mode="edit" room={room} />
-          <Button asChild variant="secondary" size="sm">
-            <Link href={`/rooms/${room.id}`}>Chi tiết</Link>
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -329,80 +381,6 @@ function RoomEditorDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function RoomsGridSkeleton() {
-  return (
-    <section
-      className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
-      aria-busy="true"
-      aria-live="polite"
-    >
-      {Array.from({ length: 6 }).map((_, index) => (
-        <Card key={index}>
-          <CardContent className="space-y-5">
-            <Skeleton className="h-6 w-36" />
-            <div className="grid grid-cols-2 gap-3 rounded-2xl border border-border/60 bg-muted/20 p-4">
-              <Skeleton className="h-12" />
-              <Skeleton className="h-12" />
-              <Skeleton className="h-12" />
-              <Skeleton className="h-12" />
-            </div>
-            <Skeleton className="h-5 w-full" />
-          </CardContent>
-        </Card>
-      ))}
-    </section>
-  );
-}
-
-function EmptyRooms({ onRetry }: { onRetry: () => void }) {
-  return (
-    <Card>
-      <CardContent className="rounded-[1.5rem] border border-dashed border-border bg-muted/25 p-8 text-center">
-        <p className="text-lg font-semibold">Chưa có phòng nào</p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Tạo phòng đầu tiên để bắt đầu thêm Tenant, Contract và chốt chỉ số.
-        </p>
-        <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
-          <RoomEditorDialog mode="create" />
-          <Button variant="secondary" onClick={onRetry}>
-            Tải lại
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ErrorCard({
-  message,
-  onRetry,
-}: {
-  message: string;
-  onRetry: () => void;
-}) {
-  return (
-    <Card className="border-destructive/20">
-      <CardContent className="space-y-3">
-        <Badge variant="destructive">Lỗi API</Badge>
-        <h2 className="text-lg font-semibold">Không tải được danh sách phòng</h2>
-        <p className="text-sm text-muted-foreground">{message}</p>
-        <Button variant="secondary" onClick={onRetry}>
-          Thử lại
-        </Button>
-      </CardContent>
-    </Card>
-  );
-}
-
-function InfoBlock({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 font-mono text-sm font-semibold tabular-nums">{value}</p>
-    </div>
   );
 }
 

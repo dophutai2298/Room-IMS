@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
+import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +42,7 @@ import {
 } from "@/lib/contracts/presenter";
 import { contractQueryKeys } from "@/lib/contracts/query-keys";
 import type { ContractWriteValues } from "@/lib/contracts/repository";
+import { createDataTableColumnHelper } from "@/lib/data-table/tanstack";
 import { dashboardQueryKeys } from "@/lib/dashboard/query-keys";
 import { formatCurrency } from "@/lib/formatters";
 import type { ContractDbStatus } from "@/lib/insforge/types";
@@ -48,6 +50,8 @@ import { invoiceQueryKeys } from "@/lib/invoices/query-keys";
 import { roomQueryKeys } from "@/lib/rooms/query-keys";
 import type { TenantListItem } from "@/lib/tenants/presenter";
 import { tenantQueryKeys } from "@/lib/tenants/query-keys";
+
+const contractColumnHelper = createDataTableColumnHelper<ContractListItem>();
 
 export function ContractManagementCard({
   roomId,
@@ -171,25 +175,16 @@ export function ContractManagementCard({
                   Các hợp đồng đã kết thúc vẫn giữ nguyên Người đại diện và giá tiện ích.
                 </p>
               </div>
-              {historicalContracts.map((contract) => (
-                <ContractHistoryRow
-                  key={contract.id}
-                  contract={contract}
-                  action={
-                    <ContractEditorDialog
-                      mode="edit"
-                      roomId={roomId}
-                      roomName={roomName}
-                      roomBasePrice={roomBasePrice}
-                      contract={contract}
-                      tenants={tenants}
-                      tenantsPending={tenantsQuery.isPending}
-                      tenantsError={tenantsQuery.error?.message}
-                      onRetryTenants={() => void tenantsQuery.refetch()}
-                    />
-                  }
-                />
-              ))}
+              <ContractHistoryTable
+                contracts={historicalContracts}
+                onRetryTenants={() => void tenantsQuery.refetch()}
+                roomBasePrice={roomBasePrice}
+                roomId={roomId}
+                roomName={roomName}
+                tenants={tenants}
+                tenantsError={tenantsQuery.error?.message}
+                tenantsPending={tenantsQuery.isPending}
+              />
             </div>
           </>
         )}
@@ -235,31 +230,122 @@ function ContractSummary({
   );
 }
 
-function ContractHistoryRow({
-  contract,
-  action,
+function ContractHistoryTable({
+  contracts,
+  onRetryTenants,
+  roomBasePrice,
+  roomId,
+  roomName,
+  tenants,
+  tenantsError,
+  tenantsPending,
 }: {
-  contract: ContractListItem;
-  action: React.ReactNode;
+  contracts: ContractListItem[];
+  onRetryTenants: () => void;
+  roomBasePrice: number;
+  roomId: string;
+  roomName: string;
+  tenants: TenantListItem[];
+  tenantsError?: string;
+  tenantsPending: boolean;
 }) {
+  const columns = useMemo(
+    () =>
+      contractColumnHelper.columns([
+        contractColumnHelper.accessor("keyTenantName", {
+          header: "Người đại diện",
+          cell: (info) => <span className="font-medium">{info.getValue()}</span>,
+          sortFn: "alphanumeric",
+        }),
+        contractColumnHelper.accessor("startDate", {
+          header: "Thời hạn",
+          cell: (info) => {
+            const contract = info.row.original;
+
+            return (
+              <span>
+                {formatDate(contract.startDate)} -{" "}
+                {contract.endDate ? formatDate(contract.endDate) : "Không có"}
+              </span>
+            );
+          },
+          sortFn: "datetime",
+        }),
+        contractColumnHelper.accessor("rentAmount", {
+          header: "Giá thuê",
+          cell: (info) => (
+            <span className="font-mono tabular-nums">
+              {formatCurrency(info.getValue())} / tháng
+            </span>
+          ),
+          enableGlobalFilter: false,
+        }),
+        contractColumnHelper.accessor("depositAmount", {
+          header: "Tiền cọc",
+          cell: (info) => (
+            <span className="font-mono tabular-nums">
+              {formatCurrency(info.getValue())}
+            </span>
+          ),
+          enableGlobalFilter: false,
+        }),
+        contractColumnHelper.accessor("status", {
+          header: "Trạng thái",
+          cell: (info) => (
+            <Badge variant="secondary">{contractStatusLabel[info.getValue()]}</Badge>
+          ),
+          enableGlobalFilter: false,
+          filterFn: "equalsString",
+          sortFn: "alphanumeric",
+        }),
+        contractColumnHelper.display({
+          id: "actions",
+          header: "Thao tác",
+          cell: ({ row }) => (
+            <div className="flex justify-end">
+              <ContractEditorDialog
+                mode="edit"
+                roomId={roomId}
+                roomName={roomName}
+                roomBasePrice={roomBasePrice}
+                contract={row.original}
+                tenants={tenants}
+                tenantsPending={tenantsPending}
+                tenantsError={tenantsError}
+                onRetryTenants={onRetryTenants}
+              />
+            </div>
+          ),
+          enableHiding: false,
+          enableSorting: false,
+        }),
+      ]),
+    [
+      onRetryTenants,
+      roomBasePrice,
+      roomId,
+      roomName,
+      tenants,
+      tenantsError,
+      tenantsPending,
+    ],
+  );
+
   return (
-    <div className="rounded-2xl border border-white/45 bg-background/35 p-4 clay-inset dark:border-white/8">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="font-medium">{contract.keyTenantName}</p>
-            <Badge variant="secondary">{contractStatusLabel[contract.status]}</Badge>
-          </div>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {formatDate(contract.startDate)} – {contract.endDate ? formatDate(contract.endDate) : "Không có ngày kết thúc"}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {formatCurrency(contract.rentAmount)} / tháng
-          </p>
-        </div>
-        {action}
-      </div>
-    </div>
+    <DataTable
+      columns={columns}
+      data={contracts}
+      filteredEmptyMessage="Thử đổi từ khóa search hoặc trạng thái hợp đồng."
+      filteredEmptyTitle="Không tìm thấy hợp đồng"
+      searchPlaceholder="Tìm người đại diện hoặc ngày..."
+      statusFilter={{
+        columnId: "status",
+        label: "Lọc trạng thái",
+        allLabel: "Tất cả trạng thái",
+        options: [{ value: "Terminated", label: contractStatusLabel.Terminated }],
+      }}
+      variant="plain"
+    />
   );
 }
 

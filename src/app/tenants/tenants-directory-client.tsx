@@ -1,15 +1,11 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
+import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -18,20 +14,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { fetchAppApi } from "@/lib/api/client";
+import { createDataTableColumnHelper } from "@/lib/data-table/tanstack";
 import type { RoomListItem } from "@/lib/rooms/presenter";
 import { roomQueryKeys } from "@/lib/rooms/query-keys";
-import type { TenantListItem } from "@/lib/tenants/presenter";
+import {
+  tenantStatusLabel,
+  type TenantListItem,
+} from "@/lib/tenants/presenter";
 import { tenantQueryKeys } from "@/lib/tenants/query-keys";
 import {
   TenantDeleteButton,
@@ -41,16 +31,15 @@ import {
   type TenantRoomOption,
 } from "./tenant-management-components";
 
+const tenantColumnHelper = createDataTableColumnHelper<TenantListItem>();
+
 export function TenantsDirectoryClient() {
-  const [search, setSearch] = useState("");
-  const trimmedSearch = search.trim();
   const tenantsQuery = useQuery({
-    queryKey: tenantQueryKeys.list(trimmedSearch),
+    queryKey: tenantQueryKeys.list(),
     queryFn: () =>
-      fetchAppApi<TenantListItem[]>(
-        `/api/tenants${trimmedSearch ? `?search=${encodeURIComponent(trimmedSearch)}` : ""}`,
-        { cache: "no-store" },
-      ),
+      fetchAppApi<TenantListItem[]>("/api/tenants", {
+        cache: "no-store",
+      }),
   });
   const roomsQuery = useQuery({
     queryKey: roomQueryKeys.list(),
@@ -67,19 +56,93 @@ export function TenantsDirectoryClient() {
       })),
     [roomsQuery.data],
   );
+  const columns = useMemo(
+    () =>
+      tenantColumnHelper.columns([
+        tenantColumnHelper.accessor("name", {
+          header: "Họ tên",
+          cell: (info) => (
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium">{info.getValue()}</span>
+                {info.row.original.isKeyTenant && <Badge>Người thuê chính</Badge>}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {info.row.original.phone ?? "Chưa có SĐT"}
+              </p>
+            </div>
+          ),
+          sortFn: "alphanumeric",
+        }),
+        tenantColumnHelper.accessor(
+          (tenant) => tenant.roomName ?? "Chưa gắn phòng",
+          {
+            id: "roomName",
+            header: "Phòng",
+            sortFn: "alphanumeric",
+          },
+        ),
+        tenantColumnHelper.accessor(
+          (tenant) => tenant.cccdNumber ?? "Chưa có",
+          {
+            id: "cccdNumber",
+            header: "CCCD",
+            cell: (info) => (
+              <div className="space-y-1">
+                <p>{info.getValue()}</p>
+                <p className="text-xs text-muted-foreground">
+                  {info.row.original.dateOfBirth ?? "Chưa có ngày sinh"}
+                </p>
+              </div>
+            ),
+            sortFn: "alphanumeric",
+          },
+        ),
+        tenantColumnHelper.accessor("status", {
+          header: "Trạng thái",
+          cell: (info) => <TenantStatusBadge status={info.getValue()} />,
+          enableGlobalFilter: false,
+          filterFn: "equalsString",
+          sortFn: "alphanumeric",
+        }),
+        tenantColumnHelper.accessor((tenant) => tenant.cccdImages.length, {
+          id: "cccdImages",
+          header: "Ảnh",
+          cell: (info) => (
+            <span className="font-mono tabular-nums">{info.getValue()} ảnh</span>
+          ),
+          enableGlobalFilter: false,
+        }),
+        tenantColumnHelper.display({
+          id: "actions",
+          header: "Action",
+          cell: ({ row }) => (
+            <div className="flex flex-wrap justify-end gap-2">
+              <TenantDetailDialog tenant={row.original} roomOptions={roomOptions} />
+              <TenantEditorDialog
+                mode="edit"
+                tenant={row.original}
+                rooms={roomOptions}
+                triggerSize="sm"
+              />
+              <TenantDeleteButton tenant={row.original} />
+            </div>
+          ),
+          enableHiding: false,
+          enableSorting: false,
+        }),
+      ]),
+    [roomOptions],
+  );
 
   return (
     <>
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-semibold text-primary">Quản lý Người thuê</p>
+          <p className="text-sm font-semibold text-primary">Quản lý Người thuê</p>
           <h1 className="mt-2 text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
-            Danh bạ Người thuê
+            Danh bạ Người thuê
           </h1>
-          {/* <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Quản lý toàn bộ Tenant, hồ sơ CCCD, phòng đang ở và trạng thái từ
-            một bảng tập trung.
-          </p> */}
         </div>
         <TenantEditorDialog
           mode="create"
@@ -88,103 +151,33 @@ export function TenantsDirectoryClient() {
         />
       </header>
 
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-
-            <div className="w-full max-w-md">
-              <Input
-                value={search}
-                placeholder="Tìm kiếm bằng tên..."
-                onChange={(event) => setSearch(event.target.value)}
-              />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {tenantsQuery.isPending ? (
-            <TenantsTableSkeleton />
-          ) : tenantsQuery.isError ? (
-            <TenantDirectoryError
-              message={tenantsQuery.error.message}
-              onRetry={() => void tenantsQuery.refetch()}
-            />
-          ) : tenantsQuery.data.length === 0 ? (
-            <TenantDirectoryEmpty
-              hasSearch={Boolean(trimmedSearch)}
-              onRetry={() => void tenantsQuery.refetch()}
-            />
-          ) : (
-            <TenantsTable tenants={tenantsQuery.data} roomOptions={roomOptions} />
-          )}
-        </CardContent>
-      </Card>
+      <DataTable
+        columns={columns}
+        data={tenantsQuery.data ?? []}
+        emptyMessage="Thêm Tenant đầu tiên và chọn phòng tương ứng."
+        emptyTitle="Chưa có Tenant"
+        errorMessage={tenantsQuery.isError ? tenantsQuery.error.message : undefined}
+        filteredEmptyMessage="Thử đổi từ khóa search hoặc trạng thái Tenant."
+        filteredEmptyTitle="Không tìm thấy Tenant"
+        isFetching={tenantsQuery.isFetching || roomsQuery.isFetching}
+        isLoading={tenantsQuery.isPending}
+        onRetry={() => {
+          void tenantsQuery.refetch();
+          void roomsQuery.refetch();
+        }}
+        searchPlaceholder="Tìm Tenant, phòng, CCCD..."
+        statusFilter={{
+          columnId: "status",
+          label: "Lọc trạng thái",
+          allLabel: "Tất cả trạng thái",
+          options: [
+            { value: "Active", label: tenantStatusLabel.Active },
+            { value: "Moved Out", label: tenantStatusLabel["Moved Out"] },
+          ],
+        }}
+        title="Danh sách Tenant"
+      />
     </>
-  );
-}
-
-function TenantsTable({
-  tenants,
-  roomOptions,
-}: {
-  tenants: TenantListItem[];
-  roomOptions: TenantRoomOption[];
-}) {
-  return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Họ tên</TableHead>
-          <TableHead>Phòng</TableHead>
-          <TableHead>CCCD</TableHead>
-          <TableHead>Trạng thái</TableHead>
-          <TableHead>Ảnh</TableHead>
-          <TableHead className="text-right">Action</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {tenants.map((tenant) => (
-          <TableRow key={tenant.id}>
-            <TableCell>
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{tenant.name}</span>
-                  {tenant.isKeyTenant && <Badge>Người thuê chính</Badge>}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {tenant.phone ?? "Chưa có SĐT"}
-                </p>
-              </div>
-            </TableCell>
-            <TableCell>{tenant.roomName ?? "Chưa gắn phòng"}</TableCell>
-            <TableCell>
-              <div className="space-y-1">
-                <p>{tenant.cccdNumber ?? "Chưa có"}</p>
-                <p className="text-xs text-muted-foreground">
-                  {tenant.dateOfBirth ?? "Chưa có ngày sinh"}
-                </p>
-              </div>
-            </TableCell>
-            <TableCell>
-              <TenantStatusBadge status={tenant.status} />
-            </TableCell>
-            <TableCell>{tenant.cccdImages.length} ảnh</TableCell>
-            <TableCell>
-              <div className="flex flex-wrap justify-end gap-2">
-                <TenantDetailDialog tenant={tenant} roomOptions={roomOptions} />
-                <TenantEditorDialog
-                  mode="edit"
-                  tenant={tenant}
-                  rooms={roomOptions}
-                  triggerSize="sm"
-                />
-                <TenantDeleteButton tenant={tenant} />
-              </div>
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
   );
 }
 
@@ -206,7 +199,7 @@ function TenantDetailDialog({
         <DialogHeader>
           <DialogTitle>{tenant.name}</DialogTitle>
           <DialogDescription>
-            Hồ sơ Người thuê, CCCD, ảnh định danh và phòng đang thuê.
+            Hồ sơ Người thuê, CCCD, ảnh định danh và phòng đang thuê.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -223,7 +216,7 @@ function TenantDetailDialog({
             className="sm:col-span-2"
           />
           <div className="space-y-2 sm:col-span-2">
-            <p className="text-sm font-medium">Ảnh Hồ sơ</p>
+            <p className="text-sm font-medium">Ảnh Hồ sơ</p>
             <TenantImageGallery images={tenant.cccdImages} />
           </div>
           <div className="flex flex-wrap justify-end gap-2 sm:col-span-2">
@@ -256,64 +249,6 @@ function DetailBlock({
       <p className="mt-1 rounded-2xl border border-white/45 bg-background/35 px-4 py-3 text-sm clay-inset dark:border-white/8">
         {value}
       </p>
-    </div>
-  );
-}
-
-function TenantsTableSkeleton() {
-  return (
-    <div className="space-y-3" aria-busy="true" aria-live="polite">
-      {Array.from({ length: 6 }).map((_, index) => (
-        <div
-          key={index}
-          className="rounded-2xl border border-border/60 bg-muted/20 p-4"
-        >
-          <Skeleton className="h-5 w-52" />
-          <Skeleton className="mt-3 h-4 w-full" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function TenantDirectoryError({
-  message,
-  onRetry,
-}: {
-  message: string;
-  onRetry: () => void;
-}) {
-  return (
-    <div className="rounded-2xl border border-destructive/25 bg-destructive/10 p-4">
-      <Badge variant="destructive">Lỗi API</Badge>
-      <p className="mt-3 text-sm text-destructive">{message}</p>
-      <Button className="mt-4" variant="secondary" onClick={onRetry}>
-        Thử lại
-      </Button>
-    </div>
-  );
-}
-
-function TenantDirectoryEmpty({
-  hasSearch,
-  onRetry,
-}: {
-  hasSearch: boolean;
-  onRetry: () => void;
-}) {
-  return (
-    <div className="rounded-2xl border border-dashed border-border bg-muted/25 p-8 text-center">
-      <p className="text-lg font-semibold">
-        {hasSearch ? "Không tìm thấy Tenant" : "Chưa có Tenant"}
-      </p>
-      <p className="mt-2 text-sm text-muted-foreground">
-        {hasSearch
-          ? "Thử đổi từ khoá search hoặc tải lại dữ liệu."
-          : "Thêm Tenant đầu tiên và chọn phòng tương ứng."}
-      </p>
-      <Button className="mt-5" variant="secondary" onClick={onRetry}>
-        Tải lại
-      </Button>
     </div>
   );
 }
