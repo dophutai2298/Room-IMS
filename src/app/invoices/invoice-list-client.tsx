@@ -4,14 +4,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -30,25 +25,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { AppApiClientError, fetchAppApi } from "@/lib/api/client";
+import { createDataTableColumnHelper } from "@/lib/data-table/tanstack";
 import { dashboardQueryKeys } from "@/lib/dashboard/query-keys";
 import { formatCurrency } from "@/lib/formatters";
 import {
-  type InvoicePaymentStatus,
   invoiceStatusLabel,
   type InvoiceListItem,
+  type InvoicePaymentStatus,
 } from "@/lib/invoices/presenter";
 import { invoiceQueryKeys } from "@/lib/invoices/query-keys";
+import {
+  buildInvoicePaymentEndpoint,
+  buildInvoiceUtilityDetailHref,
+} from "@/lib/invoices/table-actions";
 import { roomQueryKeys } from "@/lib/rooms/query-keys";
+
+const invoiceColumnHelper = createDataTableColumnHelper<InvoiceListItem>();
 
 const paymentStatusOptions: Array<{
   value: InvoicePaymentStatus;
@@ -81,27 +74,32 @@ export function InvoiceListClient() {
       }),
   });
 
-  if (invoicesQuery.isPending) {
-    return <InvoiceTableSkeleton />;
-  }
-
-  if (invoicesQuery.isError) {
-    return (
-      <ErrorCard
-        message={invoicesQuery.error.message}
-        onRetry={() => void invoicesQuery.refetch()}
-      />
-    );
-  }
-
-  if (invoicesQuery.data.length === 0) {
-    return <EmptyInvoices onRetry={() => void invoicesQuery.refetch()} />;
-  }
-
-  return <InvoiceTable invoices={invoicesQuery.data} />;
+  return (
+    <InvoiceTable
+      errorMessage={
+        invoicesQuery.isError ? invoicesQuery.error.message : undefined
+      }
+      invoices={invoicesQuery.data ?? []}
+      isFetching={invoicesQuery.isFetching}
+      isLoading={invoicesQuery.isPending}
+      onRetry={() => void invoicesQuery.refetch()}
+    />
+  );
 }
 
-function InvoiceTable({ invoices }: { invoices: InvoiceListItem[] }) {
+function InvoiceTable({
+  errorMessage,
+  invoices,
+  isFetching,
+  isLoading,
+  onRetry,
+}: {
+  errorMessage?: string;
+  invoices: InvoiceListItem[];
+  isFetching: boolean;
+  isLoading: boolean;
+  onRetry: () => void;
+}) {
   const currentPeriod = useMemo(() => getCurrentBillingPeriodOption(), []);
   const periodOptions = useMemo(
     () => buildPeriodOptions({ invoices, currentPeriod }),
@@ -115,11 +113,160 @@ function InvoiceTable({ invoices }: { invoices: InvoiceListItem[] }) {
       : invoices.filter(
           (invoice) => getBillingPeriodKey(invoice) === activePeriodKey,
         );
+  const columns = useMemo(
+    () =>
+      invoiceColumnHelper.columns([
+        invoiceColumnHelper.accessor("shortId", {
+          header: "Mã HĐ",
+          cell: (info) => (
+            <span className="font-mono text-xs tabular-nums">
+              {info.getValue()}
+            </span>
+          ),
+          sortFn: "alphanumeric",
+        }),
+        invoiceColumnHelper.accessor("periodLabel", {
+          header: "Kỳ thu",
+          sortFn: "alphanumeric",
+        }),
+        invoiceColumnHelper.accessor("roomName", {
+          header: "Phòng",
+          cell: (info) => <span className="font-medium">{info.getValue()}</span>,
+          sortFn: "alphanumeric",
+        }),
+        invoiceColumnHelper.accessor("roomFee", {
+          header: "Tiền thuê",
+          cell: (info) => (
+            <span className="font-mono tabular-nums">
+              {formatCurrency(info.getValue())}
+            </span>
+          ),
+          enableGlobalFilter: false,
+        }),
+        invoiceColumnHelper.accessor("electricityFee", {
+          header: "Điện",
+          cell: (info) => (
+            <span className="font-mono tabular-nums">
+              {formatCurrency(info.getValue())}
+            </span>
+          ),
+          enableGlobalFilter: false,
+        }),
+        invoiceColumnHelper.accessor("waterFee", {
+          header: "Nước",
+          cell: (info) => (
+            <span className="font-mono tabular-nums">
+              {formatCurrency(info.getValue())}
+            </span>
+          ),
+          enableGlobalFilter: false,
+        }),
+        invoiceColumnHelper.accessor("otherFee", {
+          header: "Phí khác",
+          cell: (info) => {
+            const invoice = info.row.original;
+
+            return (
+              <div>
+                <div className="font-mono tabular-nums">
+                  {formatCurrency(invoice.otherFee)}
+                </div>
+                {invoice.otherFee > 0 && (
+                  <p className="mt-1 max-w-[14rem] text-xs leading-5 text-muted-foreground">
+                    {invoice.otherFeeNote ?? "Chưa có ghi chú"}
+                  </p>
+                )}
+              </div>
+            );
+          },
+          enableGlobalFilter: false,
+        }),
+        invoiceColumnHelper.accessor("totalAmount", {
+          header: "Tổng tiền",
+          cell: (info) => (
+            <span className="font-mono font-semibold tabular-nums">
+              {formatCurrency(info.getValue())}
+            </span>
+          ),
+          enableGlobalFilter: false,
+        }),
+        invoiceColumnHelper.accessor("amountPaid", {
+          header: "Đã thu",
+          cell: (info) => (
+            <span className="font-mono tabular-nums text-emerald-700 dark:text-emerald-300">
+              {formatCurrency(info.getValue())}
+            </span>
+          ),
+          enableGlobalFilter: false,
+        }),
+        invoiceColumnHelper.accessor("balanceDue", {
+          header: "Còn lại",
+          cell: (info) => (
+            <span className="font-mono tabular-nums text-amber-700 dark:text-amber-300">
+              {formatCurrency(info.getValue())}
+            </span>
+          ),
+          enableGlobalFilter: false,
+        }),
+        invoiceColumnHelper.accessor("status", {
+          header: "Trạng thái",
+          cell: (info) => <InvoiceBadge status={info.getValue()} />,
+          enableGlobalFilter: false,
+          filterFn: "equalsString",
+          sortFn: "alphanumeric",
+        }),
+        invoiceColumnHelper.display({
+          id: "actions",
+          header: "Thao tác",
+          cell: ({ row }) => (
+            <div className="flex justify-end gap-2">
+              <RecordPaymentDialog invoice={row.original} />
+              <Button asChild variant="outline" size="sm">
+                <Link
+                  href={buildInvoiceUtilityDetailHref(row.original)}
+                >
+                  Xem chi tiết
+                </Link>
+              </Button>
+            </div>
+          ),
+          enableHiding: false,
+          enableSorting: false,
+        }),
+      ]),
+    [],
+  );
 
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <CardTitle>Danh sách hóa đơn</CardTitle>
+    <DataTable
+      columns={columns}
+      data={filteredInvoices}
+      emptyMessage={
+        invoices.length === 0
+          ? "Sau khi tạo hóa đơn từ màn hình chốt điện nước, invoice sẽ xuất hiện ở đây."
+          : "Không có hóa đơn trong kỳ đã chọn."
+      }
+      emptyTitle={
+        invoices.length === 0 ? "Chưa có hóa đơn nào" : "Không có hóa đơn"
+      }
+      errorMessage={errorMessage}
+      filteredEmptyMessage="Thử đổi từ khóa search, trạng thái thanh toán, hoặc kỳ thu."
+      filteredEmptyTitle="Không tìm thấy hóa đơn"
+      isFetching={isFetching}
+      isLoading={isLoading}
+      onRetry={onRetry}
+      searchPlaceholder="Tìm mã hóa đơn hoặc phòng..."
+      statusFilter={{
+        columnId: "status",
+        label: "Lọc trạng thái",
+        allLabel: "Tất cả trạng thái",
+        options: paymentStatusOptions.map((option) => ({
+          value: option.value,
+          label: option.label,
+        })),
+      }}
+      title="Danh sách hóa đơn"
+      toolbarStart={
         <div className="w-full md:w-56">
           <Select value={activePeriodKey} onValueChange={setSelectedPeriodKey}>
             <SelectTrigger aria-label="Lọc kỳ thu">
@@ -135,92 +282,8 @@ function InvoiceTable({ invoices }: { invoices: InvoiceListItem[] }) {
             </SelectContent>
           </Select>
         </div>
-      </CardHeader>
-      <CardContent className="overflow-x-auto pt-2">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Mã HĐ</TableHead>
-              <TableHead>Kỳ thu</TableHead>
-              <TableHead>Phòng</TableHead>
-              <TableHead>Tiền thuê</TableHead>
-              <TableHead>Điện</TableHead>
-              <TableHead>Nước</TableHead>
-              <TableHead>Phí khác</TableHead>
-              <TableHead>Tổng tiền</TableHead>
-              <TableHead>Đã thu</TableHead>
-              <TableHead>Còn lại</TableHead>
-              <TableHead>Trạng thái</TableHead>
-              <TableHead className="text-right">Thao tác</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredInvoices.map((invoice) => (
-              <TableRow key={invoice.id}>
-                <TableCell className="font-mono text-xs tabular-nums">
-                  {invoice.shortId}
-                </TableCell>
-                <TableCell>{invoice.periodLabel}</TableCell>
-                <TableCell className="font-medium">{invoice.roomName}</TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {formatCurrency(invoice.roomFee)}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {formatCurrency(invoice.electricityFee)}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {formatCurrency(invoice.waterFee)}
-                </TableCell>
-                <TableCell>
-                  <div className="font-mono tabular-nums">
-                    {formatCurrency(invoice.otherFee)}
-                  </div>
-                  {invoice.otherFee > 0 && (
-                    <p className="mt-1 max-w-[14rem] text-xs leading-5 text-muted-foreground">
-                      {invoice.otherFeeNote ?? "Chưa có ghi chú"}
-                    </p>
-                  )}
-                </TableCell>
-                <TableCell className="font-mono font-semibold tabular-nums">
-                  {formatCurrency(invoice.totalAmount)}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums text-emerald-700 dark:text-emerald-300">
-                  {formatCurrency(invoice.amountPaid)}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums text-amber-700 dark:text-amber-300">
-                  {formatCurrency(invoice.balanceDue)}
-                </TableCell>
-                <TableCell>
-                  <InvoiceBadge status={invoice.status} />
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <RecordPaymentDialog invoice={invoice} />
-                    <Button asChild variant="outline" size="sm">
-                      <Link
-                        href={`/rooms/${invoice.roomId}/utilities?month=${invoice.billingPeriod.month}&year=${invoice.billingPeriod.year}`}
-                      >
-                        Xem chi tiết
-                      </Link>
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-            {filteredInvoices.length === 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={12}
-                  className="py-8 text-center text-sm text-muted-foreground"
-                >
-                  Không có hóa đơn trong kỳ đã chọn.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+      }
+    />
   );
 }
 
@@ -255,7 +318,7 @@ function RecordPaymentDialog({ invoice }: { invoice: InvoiceListItem }) {
     }
   >({
     mutationFn: (payload) =>
-      fetchAppApi<InvoiceListItem>(`/api/invoices/${invoice.id}/payment`, {
+      fetchAppApi<InvoiceListItem>(buildInvoicePaymentEndpoint(invoice.id), {
         method: "PATCH",
         body: JSON.stringify(payload),
       }),
@@ -330,9 +393,18 @@ function RecordPaymentDialog({ invoice }: { invoice: InvoiceListItem }) {
 
         <div className="space-y-4">
           <div className="grid gap-3 rounded-2xl border border-border/70 bg-muted/25 p-4 sm:grid-cols-3">
-            <PaymentFact label="Tổng tiền" value={formatCurrency(invoice.totalAmount)} />
-            <PaymentFact label="Đã thu" value={formatCurrency(invoice.amountPaid)} />
-            <PaymentFact label="Còn lại" value={formatCurrency(invoice.balanceDue)} />
+            <PaymentFact
+              label="Tổng tiền"
+              value={formatCurrency(invoice.totalAmount)}
+            />
+            <PaymentFact
+              label="Đã thu"
+              value={formatCurrency(invoice.amountPaid)}
+            />
+            <PaymentFact
+              label="Còn lại"
+              value={formatCurrency(invoice.balanceDue)}
+            />
           </div>
 
           <div className="space-y-2">
@@ -428,71 +500,6 @@ function PaymentFact({ label, value }: { label: string; value: string }) {
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-1 font-mono text-sm font-semibold tabular-nums">{value}</p>
     </div>
-  );
-}
-
-function InvoiceTableSkeleton() {
-  return (
-    <Card className="overflow-hidden" aria-busy="true" aria-live="polite">
-      <CardHeader>
-        <CardTitle>Danh sách hóa đơn</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3 pt-2">
-        {Array.from({ length: 6 }).map((_, index) => (
-          <div
-            key={index}
-            className="grid grid-cols-2 gap-3 rounded-2xl border border-border/60 bg-muted/20 p-3 md:grid-cols-6"
-          >
-            <Skeleton className="h-4" />
-            <Skeleton className="h-4" />
-            <Skeleton className="h-4" />
-            <Skeleton className="h-4" />
-            <Skeleton className="h-4" />
-            <Skeleton className="h-4" />
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-  );
-}
-
-function EmptyInvoices({ onRetry }: { onRetry: () => void }) {
-  return (
-    <Card>
-      <CardContent className="rounded-[1.5rem] border border-dashed border-border bg-muted/25 p-8 text-center">
-        <p className="text-lg font-semibold">Chưa có hóa đơn nào</p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Sau khi tạo hóa đơn từ màn hình chốt điện nước, invoice sẽ xuất hiện ở
-          đây.
-        </p>
-        <Button className="mt-5" variant="secondary" onClick={onRetry}>
-          Tải lại
-        </Button>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ErrorCard({
-  message,
-  onRetry,
-}: {
-  message: string;
-  onRetry: () => void;
-}) {
-  return (
-    <Card className="border-destructive/20">
-      <CardContent className="space-y-3">
-        <Badge variant="destructive">Lỗi API</Badge>
-        <h2 className="text-lg font-semibold">
-          Không tải được danh sách hóa đơn
-        </h2>
-        <p className="text-sm text-muted-foreground">{message}</p>
-        <Button variant="secondary" onClick={onRetry}>
-          Thử lại
-        </Button>
-      </CardContent>
-    </Card>
   );
 }
 

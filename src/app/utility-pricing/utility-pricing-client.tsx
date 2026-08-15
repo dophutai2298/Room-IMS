@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,16 +16,8 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { AppApiClientError, fetchAppApi } from "@/lib/api/client";
+import { createDataTableColumnHelper } from "@/lib/data-table/tanstack";
 import { dashboardQueryKeys } from "@/lib/dashboard/query-keys";
 import { formatCurrency } from "@/lib/formatters";
 import { invoiceQueryKeys } from "@/lib/invoices/query-keys";
@@ -44,6 +37,9 @@ const defaultPricingDraft: PricingDraft = {
   waterUnitPrice: "",
 };
 
+const pricingColumnHelper =
+  createDataTableColumnHelper<UtilityPricingListItem>();
+
 export function UtilityPricingClient() {
   const pricingQuery = useQuery({
     queryKey: utilityPricingQueryKeys.list(),
@@ -52,6 +48,74 @@ export function UtilityPricingClient() {
         cache: "no-store",
       }),
   });
+  const columns = useMemo(
+    () =>
+      pricingColumnHelper.columns([
+        pricingColumnHelper.accessor("effectiveFrom", {
+          header: "Ngày hiệu lực",
+          cell: (info) => (
+            <span className="font-medium">
+              {info.row.original.effectiveFromLabel}
+            </span>
+          ),
+          sortFn: "datetime",
+        }),
+        pricingColumnHelper.accessor("electricityUnitPrice", {
+          header: "Giá điện",
+          cell: (info) => (
+            <span className="font-mono tabular-nums">
+              {formatCurrency(info.getValue())}
+            </span>
+          ),
+          enableGlobalFilter: false,
+        }),
+        pricingColumnHelper.accessor("waterUnitPrice", {
+          header: "Giá nước",
+          cell: (info) => (
+            <span className="font-mono tabular-nums">
+              {formatCurrency(info.getValue())}
+            </span>
+          ),
+          enableGlobalFilter: false,
+        }),
+        pricingColumnHelper.accessor(
+          (pricing) => (pricing.isActive ? "active" : "history"),
+          {
+            id: "status",
+            header: "Trạng thái",
+            cell: (info) => {
+              const isActive = info.getValue() === "active";
+
+              return (
+                <Badge variant={isActive ? "success" : "secondary"}>
+                  {isActive ? "Đang áp dụng" : "Lịch sử"}
+                </Badge>
+              );
+            },
+            enableGlobalFilter: false,
+            filterFn: "equalsString",
+            sortFn: "alphanumeric",
+          },
+        ),
+        pricingColumnHelper.display({
+          id: "actions",
+          header: "Thao tác",
+          cell: ({ row }) =>
+            row.original.isActive ? (
+              <div className="flex justify-end">
+                <DeactivatePricingButton pricing={row.original} />
+              </div>
+            ) : (
+              <span className="block text-right text-xs text-muted-foreground">
+                Đã lưu lịch sử
+              </span>
+            ),
+          enableHiding: false,
+          enableSorting: false,
+        }),
+      ]),
+    [],
+  );
 
   return (
     <>
@@ -72,18 +136,32 @@ export function UtilityPricingClient() {
       <section className="grid gap-5 xl:grid-cols-[minmax(320px,420px)_1fr]">
         <CreatePricingCard />
 
-        {pricingQuery.isPending ? (
-          <PricingSkeleton />
-        ) : pricingQuery.isError ? (
-          <PricingErrorCard
-            message={pricingQuery.error.message}
-            onRetry={() => void pricingQuery.refetch()}
-          />
-        ) : pricingQuery.data.length === 0 ? (
-          <PricingEmptyCard onRetry={() => void pricingQuery.refetch()} />
-        ) : (
-          <PricingTable pricingRows={pricingQuery.data} />
-        )}
+        <DataTable
+          columns={columns}
+          data={pricingQuery.data ?? []}
+          description="Không xóa giá cũ để hóa đơn tháng trước vẫn resolve đúng giá áp dụng."
+          emptyMessage="Thêm bảng giá đầu tiên để hóa đơn có thể tính điện/nước khi Contract không có override."
+          emptyTitle="Chưa có bảng giá"
+          errorMessage={
+            pricingQuery.isError ? pricingQuery.error.message : undefined
+          }
+          filteredEmptyMessage="Thử đổi từ khóa search hoặc trạng thái bảng giá."
+          filteredEmptyTitle="Không tìm thấy bảng giá"
+          isFetching={pricingQuery.isFetching}
+          isLoading={pricingQuery.isPending}
+          onRetry={() => void pricingQuery.refetch()}
+          searchPlaceholder="Tìm ngày hiệu lực..."
+          statusFilter={{
+            columnId: "status",
+            label: "Lọc trạng thái",
+            allLabel: "Tất cả trạng thái",
+            options: [
+              { value: "active", label: "Đang áp dụng" },
+              { value: "history", label: "Lịch sử" },
+            ],
+          }}
+          title="Lịch sử bảng giá"
+        />
       </section>
     </>
   );
@@ -242,65 +320,6 @@ function CreatePricingCard() {
   );
 }
 
-function PricingTable({
-  pricingRows,
-}: {
-  pricingRows: UtilityPricingListItem[];
-}) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Lịch sử bảng giá</CardTitle>
-        <CardDescription>
-          Không xóa giá cũ để hóa đơn tháng trước vẫn resolve đúng giá áp dụng.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Ngày hiệu lực</TableHead>
-              <TableHead>Giá điện</TableHead>
-              <TableHead>Giá nước</TableHead>
-              <TableHead>Trạng thái</TableHead>
-              <TableHead className="text-right">Thao tác</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {pricingRows.map((pricing) => (
-              <TableRow key={pricing.id}>
-                <TableCell className="font-medium">
-                  {pricing.effectiveFromLabel}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {formatCurrency(pricing.electricityUnitPrice)}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {formatCurrency(pricing.waterUnitPrice)}
-                </TableCell>
-                <TableCell>
-                  <Badge variant={pricing.isActive ? "success" : "secondary"}>
-                    {pricing.statusLabel}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  {pricing.isActive ? (
-                    <DeactivatePricingButton pricing={pricing} />
-                  ) : (
-                    <span className="text-xs text-muted-foreground">
-                      Đã lưu lịch sử
-                    </span>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
-  );
-}
-
 function DeactivatePricingButton({
   pricing,
 }: {
@@ -341,64 +360,6 @@ function DeactivatePricingButton({
     >
       {mutation.isPending ? "Đang lưu..." : "Ngưng áp dụng"}
     </Button>
-  );
-}
-
-function PricingSkeleton() {
-  return (
-    <Card aria-busy="true" aria-live="polite">
-      <CardContent className="space-y-4">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div
-            key={index}
-            className="grid gap-3 rounded-2xl border border-border/60 bg-muted/20 p-4 md:grid-cols-4"
-          >
-            <Skeleton className="h-5" />
-            <Skeleton className="h-5" />
-            <Skeleton className="h-5" />
-            <Skeleton className="h-5" />
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-  );
-}
-
-function PricingEmptyCard({ onRetry }: { onRetry: () => void }) {
-  return (
-    <Card>
-      <CardContent className="rounded-[1.5rem] border border-dashed border-border bg-muted/25 p-8 text-center">
-        <p className="text-lg font-semibold">Chưa có bảng giá</p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Thêm bảng giá đầu tiên để hóa đơn có thể tính điện/nước khi Contract
-          không có override.
-        </p>
-        <Button className="mt-5" variant="secondary" onClick={onRetry}>
-          Tải lại
-        </Button>
-      </CardContent>
-    </Card>
-  );
-}
-
-function PricingErrorCard({
-  message,
-  onRetry,
-}: {
-  message: string;
-  onRetry: () => void;
-}) {
-  return (
-    <Card className="border-destructive/20">
-      <CardContent className="space-y-3">
-        <Badge variant="destructive">Lỗi API</Badge>
-        <h2 className="text-lg font-semibold">Không tải được bảng giá</h2>
-        <p className="text-sm text-muted-foreground">{message}</p>
-        <Button variant="secondary" onClick={onRetry}>
-          Thử lại
-        </Button>
-      </CardContent>
-    </Card>
   );
 }
 
