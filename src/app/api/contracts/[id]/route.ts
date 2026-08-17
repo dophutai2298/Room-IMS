@@ -2,12 +2,20 @@ import { validationApiError } from "@/lib/api/errors";
 import { validateContractUpdateRequest } from "@/lib/contracts/api";
 import { updateContractForOperations } from "@/lib/contracts/service";
 import { createInsForgeContractRepository } from "@/lib/insforge/contract-repository";
+import {
+  existingDataMutationForbiddenMessage,
+  landlordOnlyRoles,
+} from "@/lib/server/role-policy";
 import { withOperationalAuth } from "@/lib/server/operational-route";
 
 export const dynamic = "force-dynamic";
 
 export const PATCH = withOperationalAuth(
-  { operation: "contracts.update" },
+  {
+    operation: "contracts.update",
+    allowedRoles: landlordOnlyRoles,
+    forbiddenMessage: existingDataMutationForbiddenMessage,
+  },
   async ({ timer }, request: Request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
 

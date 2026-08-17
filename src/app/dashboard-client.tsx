@@ -93,13 +93,13 @@ export function DashboardClient({
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-semibold text-primary">{periodLabel}</p>
             <span className="size-1 rounded-full bg-muted-foreground/50" />
-            <p className="text-sm text-muted-foreground">Dữ liệu thật từ InsForge</p>
+            <p className="text-sm text-muted-foreground">Hệ thống quản lý phòng trọ Xin chào</p>
           </div>
           <h1 className="mt-3 max-w-3xl text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
-            Việc cần làm trong kỳ, gom lại một màn hình.
+            Mọi việc bạn cần quản lý, gom lại vào một hệ thống.
           </h1>
           <p className="mt-3 max-w-2xl text-pretty text-sm leading-6 text-muted-foreground sm:text-base">
-            Dashboard tự đọc hóa đơn, chỉ số điện nước và trạng thái phòng qua API
+            Dashboard tự đọc hóa đơn, chỉ số điện nước và trạng thái phòng
             đã xác thực để bạn chốt kỳ nhanh hơn.
           </p>
         </div>

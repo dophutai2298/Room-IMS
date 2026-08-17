@@ -9,7 +9,7 @@ export const PATCH = withOperationalAuth(
   {
     operation: "utility-pricing.deactivate",
     allowedRoles: ["landlord"],
-    forbiddenMessage: "Only Landlords can manage Utility Pricing.",
+    forbiddenMessage: "Chỉ Admin mới được quyền thao tác.",
   },
   async ({ timer }, _request: Request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;

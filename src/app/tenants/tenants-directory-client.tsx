@@ -30,6 +30,7 @@ import {
   TenantStatusBadge,
   type TenantRoomOption,
 } from "./tenant-management-components";
+import dayjs from 'dayjs';
 
 const tenantColumnHelper = createDataTableColumnHelper<TenantListItem>();
 
@@ -91,7 +92,7 @@ export function TenantsDirectoryClient() {
               <div className="space-y-1">
                 <p>{info.getValue()}</p>
                 <p className="text-xs text-muted-foreground">
-                  {info.row.original.dateOfBirth ?? "Chưa có ngày sinh"}
+                  {dayjs(info.row.original.dateOfBirth).format('DD/MM/YYYY') ?? "Chưa có ngày sinh"}
                 </p>
               </div>
             ),
@@ -192,7 +193,7 @@ function TenantDetailDialog({
     <Dialog>
       <DialogTrigger asChild>
         <Button size="sm" variant="secondary">
-          Detail
+          Xem
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">

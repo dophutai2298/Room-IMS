@@ -25,6 +25,7 @@ export async function getUtilityMetricsForOperations({
 export async function saveUtilityMetricsForOperations({
   repository,
   roomId,
+  allowUpdateExisting,
   billingPeriod,
   electricityNew,
   waterNew,
@@ -33,9 +34,9 @@ export async function saveUtilityMetricsForOperations({
 }): Promise<AppResult<UtilityMetricRecord>> {
   return repository.saveUtilityMetrics({
     roomId,
+    allowUpdateExisting,
     billingPeriod,
     electricityNew,
     waterNew,
   });
 }
-

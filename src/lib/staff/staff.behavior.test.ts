@@ -5,7 +5,9 @@ import type { AppUser } from "@/lib/insforge/types";
 import { resolveCreatedStaffAuthUserId } from "@/lib/insforge/staff-auth-user";
 import {
   createStaffForOperations,
+  deleteStaffForOperations,
   listStaffForOperations,
+  updateStaffForOperations,
 } from "@/lib/staff/service";
 import type { StaffRepository } from "@/lib/staff/repository";
 import { createStaffHttpHandlers } from "@/lib/staff/http";
@@ -74,6 +76,26 @@ test("Staff service lists Staff and provisions a normalized account", async () =
   assert.equal(created.error, null);
   assert.equal(created.data.displayName, "Nguyen Van An");
   assert.equal(created.data.email, "staff@example.test");
+  assert.equal(created.data.status, "active");
+});
+
+test("Staff service updates profiles and disables deleted Staff accounts", async () => {
+  const repository = createFakeStaffRepository();
+  const updated = await updateStaffForOperations({
+    repository,
+    staffId: "staff-app-user",
+    displayName: "  Nguyen Van Binh  ",
+  });
+  const deleted = await deleteStaffForOperations({
+    repository,
+    staffId: "staff-app-user",
+  });
+
+  assert.equal(updated.error, null);
+  assert.equal(updated.data.displayName, "Nguyen Van Binh");
+  assert.equal(updated.data.status, "active");
+  assert.equal(deleted.error, null);
+  assert.equal(deleted.data.status, "disabled");
 });
 
 test("Staff service validates fields before provisioning an account", async () => {
@@ -161,6 +183,49 @@ test("Staff HTTP boundary returns standard 200, 401, and 403 responses", async (
   assert.equal(unauthorizedBody.error.code, "AUTH_REQUIRED");
 });
 
+test("Staff HTTP boundary lets Landlord update/delete Staff and rejects Staff users", async () => {
+  const repository = createFakeStaffRepository();
+  const createHandlers = (user: AppUser) =>
+    createStaffHttpHandlers({
+      resolveAuth: async () => ({ user, error: null }),
+      createRepository: () => repository,
+      logTiming: () => undefined,
+    });
+  const params = { params: Promise.resolve({ id: "staff-app-user" }) };
+
+  const landlordPatchResponse = await createHandlers(landlord).PATCH(
+    new Request("http://localhost/api/staff/staff-app-user", {
+      method: "PATCH",
+      body: JSON.stringify({ displayName: "Updated Staff" }),
+    }),
+    params,
+  );
+  const landlordDeleteResponse = await createHandlers(landlord).DELETE(
+    new Request("http://localhost/api/staff/staff-app-user", {
+      method: "DELETE",
+    }),
+    params,
+  );
+  const staffPatchResponse = await createHandlers(staffUser).PATCH(
+    new Request("http://localhost/api/staff/staff-app-user", {
+      method: "PATCH",
+      body: JSON.stringify({ displayName: "Blocked Staff" }),
+    }),
+    params,
+  );
+  const staffDeleteResponse = await createHandlers(staffUser).DELETE(
+    new Request("http://localhost/api/staff/staff-app-user", {
+      method: "DELETE",
+    }),
+    params,
+  );
+
+  assert.equal(landlordPatchResponse.status, 200);
+  assert.equal(landlordDeleteResponse.status, 200);
+  assert.equal(staffPatchResponse.status, 403);
+  assert.equal(staffDeleteResponse.status, 403);
+});
+
 function createFakeStaffRepository(): StaffRepository {
   return {
     async listStaff() {
@@ -171,6 +236,7 @@ function createFakeStaffRepository(): StaffRepository {
             authUserId: "staff-auth-user",
             email: "existing@example.test",
             displayName: "Existing Staff",
+            status: "active",
             createdAt: "2026-08-01T00:00:00.000Z",
             updatedAt: "2026-08-01T00:00:00.000Z",
           },
@@ -185,8 +251,37 @@ function createFakeStaffRepository(): StaffRepository {
           authUserId: "new-staff-auth-user",
           email: input.email,
           displayName: input.displayName,
+          status: "active",
           createdAt: "2026-08-12T00:00:00.000Z",
           updatedAt: "2026-08-12T00:00:00.000Z",
+        },
+        error: null,
+      };
+    },
+    async updateStaff(input) {
+      return {
+        data: {
+          id: input.staffId,
+          authUserId: "staff-auth-user",
+          email: "existing@example.test",
+          displayName: input.displayName,
+          status: "active",
+          createdAt: "2026-08-01T00:00:00.000Z",
+          updatedAt: "2026-08-15T00:00:00.000Z",
+        },
+        error: null,
+      };
+    },
+    async deleteStaff(input) {
+      return {
+        data: {
+          id: input.staffId,
+          authUserId: "staff-auth-user",
+          email: "existing@example.test",
+          displayName: "Existing Staff",
+          status: "disabled",
+          createdAt: "2026-08-01T00:00:00.000Z",
+          updatedAt: "2026-08-15T00:00:00.000Z",
         },
         error: null,
       };

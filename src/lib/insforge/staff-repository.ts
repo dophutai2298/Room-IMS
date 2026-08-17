@@ -22,6 +22,7 @@ type AppUserRow = {
   email: string;
   display_name: string;
   role: "landlord" | "staff";
+  status?: "active" | "disabled";
   created_at: string;
   updated_at: string;
 };
@@ -44,6 +45,20 @@ export function createInsForgeStaffRepository({
 
       return timer
         ? timer.measure("repository.insforge.staff-create", query)
+        : query();
+    },
+    async updateStaff(input) {
+      const query = () => updateStaffInInsForge({ ...input, timer });
+
+      return timer
+        ? timer.measure("repository.insforge.staff-update", query)
+        : query();
+    },
+    async deleteStaff(input) {
+      const query = () => disableStaffInInsForge({ ...input, timer });
+
+      return timer
+        ? timer.measure("repository.insforge.staff-delete", query)
         : query();
     },
   };
@@ -197,15 +212,98 @@ async function readExistingStaffProfile({
   return ok(byEmail.data?.[0] ?? null);
 }
 
+async function updateStaffInInsForge({
+  displayName,
+  staffId,
+  timer,
+}: {
+  displayName: string;
+  staffId: string;
+  timer?: ApiTimer;
+}): Promise<AppResult<StaffListItem>> {
+  try {
+    const client = createInsForgeAdminClient({ timer });
+    const response = (await client.database
+      .from("app_users")
+      .update({
+        display_name: displayName,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", staffId)
+      .eq("role", "staff")
+      .select(staffSelect)
+      .limit(1)) as QueryResponse<AppUserRow[]>;
+
+    if (response.error) {
+      return fail(response.error, "Could not update Staff account");
+    }
+
+    const row = response.data?.[0];
+
+    if (!row) {
+      return staffNotFound();
+    }
+
+    return ok(toStaffListItem(row));
+  } catch (error) {
+    return { data: null, error: toAppBackendError(error) };
+  }
+}
+
+async function disableStaffInInsForge({
+  staffId,
+  timer,
+}: {
+  staffId: string;
+  timer?: ApiTimer;
+}): Promise<AppResult<StaffListItem>> {
+  try {
+    const client = createInsForgeAdminClient({ timer });
+    const response = (await client.database
+      .from("app_users")
+      .update({
+        status: "disabled",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", staffId)
+      .eq("role", "staff")
+      .select(staffSelect)
+      .limit(1)) as QueryResponse<AppUserRow[]>;
+
+    if (response.error) {
+      return fail(response.error, "Could not disable Staff account");
+    }
+
+    const row = response.data?.[0];
+
+    if (!row) {
+      return staffNotFound();
+    }
+
+    return ok(toStaffListItem(row));
+  } catch (error) {
+    return { data: null, error: toAppBackendError(error) };
+  }
+}
+
 function toStaffListItem(row: AppUserRow): StaffListItem {
   return {
     id: row.id,
     authUserId: row.auth_user_id,
     email: row.email,
     displayName: row.display_name,
+    status: row.status ?? "active",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+function staffNotFound() {
+  return appError({
+    message: "Staff account was not found.",
+    code: "STAFF_NOT_FOUND",
+    statusCode: 404,
+  });
 }
 
 const staffSelect = [
@@ -214,6 +312,7 @@ const staffSelect = [
   "email",
   "display_name",
   "role",
+  "status",
   "created_at",
   "updated_at",
 ].join(", ");

@@ -22,7 +22,7 @@ export const POST = withOperationalAuth(
   {
     operation: "utility-pricing.create",
     allowedRoles: ["landlord"],
-    forbiddenMessage: "Only Landlords can manage Utility Pricing.",
+    forbiddenMessage: "Chỉ Admin mới được quyền thao tác.",
   },
   async ({ timer }, request: Request) => {
     const validation = await timer.measure("validation", () =>

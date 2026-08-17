@@ -7,6 +7,12 @@ import { getCurrentAppUserForOperations } from "@/lib/auth/service";
 import type { AppUser } from "@/lib/insforge/types";
 import { resolveOperationalAppUserResult } from "./operational-auth-core";
 import { withOperationalAuth } from "./operational-route";
+import {
+  existingDataMutationForbiddenMessage,
+  landlordOnlyRoles,
+  operationalCreateRoles,
+  operationalReadRoles,
+} from "./role-policy";
 
 const landlord: AppUser = {
   id: "landlord-app-user",
@@ -170,6 +176,69 @@ test("operational route role failures short-circuit protected handlers", async (
   assert.equal(response.status, 403);
   assert.equal(body.error.code, "FORBIDDEN");
   assert.equal(handlerCalled, false);
+});
+
+test("operational route policy lets Staff read/create but blocks update/delete", async () => {
+  let handlerCallCount = 0;
+  const resolveStaff = async () => ({ user: staff, error: null }) as const;
+  const successfulHandler = async () => {
+    handlerCallCount += 1;
+    return { data: "ok", error: null };
+  };
+  const GET = withOperationalAuth(
+    {
+      operation: "policy.read",
+      allowedRoles: operationalReadRoles,
+      resolveAuth: resolveStaff,
+      logTiming: () => undefined,
+    },
+    successfulHandler,
+  );
+  const POST = withOperationalAuth(
+    {
+      operation: "policy.create",
+      allowedRoles: operationalCreateRoles,
+      resolveAuth: resolveStaff,
+      logTiming: () => undefined,
+    },
+    successfulHandler,
+  );
+  const PATCH = withOperationalAuth(
+    {
+      operation: "policy.update",
+      allowedRoles: landlordOnlyRoles,
+      forbiddenMessage: existingDataMutationForbiddenMessage,
+      resolveAuth: resolveStaff,
+      logTiming: () => undefined,
+    },
+    successfulHandler,
+  );
+  const DELETE = withOperationalAuth(
+    {
+      operation: "policy.delete",
+      allowedRoles: landlordOnlyRoles,
+      forbiddenMessage: existingDataMutationForbiddenMessage,
+      resolveAuth: resolveStaff,
+      logTiming: () => undefined,
+    },
+    successfulHandler,
+  );
+
+  const readResponse = await GET();
+  const createResponse = await POST();
+  const updateResponse = await PATCH();
+  const deleteResponse = await DELETE();
+  const updateBody = (await updateResponse.json()) as {
+    ok: false;
+    error: { message: string };
+  };
+
+  assert.equal(readResponse.status, 200);
+  assert.equal(createResponse.status, 200);
+  assert.equal(updateResponse.status, 403);
+  assert.equal(deleteResponse.status, 403);
+  assert.equal(updateBody.error.message, existingDataMutationForbiddenMessage);
+  assert.equal(handlerCallCount, 2);
 });
 
 test("operational route still converts handler exceptions to the standard error response", async () => {

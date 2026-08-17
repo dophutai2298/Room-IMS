@@ -33,7 +33,11 @@ export const GET = withOperationalAuth(
 
 export const PATCH = withOperationalAuth(
   { operation: "utility-metrics.save" },
-  async ({ timer }, request: Request, { params }: { params: Promise<{ id: string }> }) => {
+  async (
+    { timer, user },
+    request: Request,
+    { params }: { params: Promise<{ id: string }> },
+  ) => {
     const { id } = await params;
     const validation = await timer.measure("validation", async () =>
       validateSaveRequest({ roomId: id, request }),
@@ -48,6 +52,7 @@ export const PATCH = withOperationalAuth(
       saveUtilityMetricsForOperations({
         repository,
         roomId: id,
+        allowUpdateExisting: user.role === "landlord",
         billingPeriod: validation.data.billingPeriod,
         electricityNew: validation.data.electricityNew,
         waterNew: validation.data.waterNew,

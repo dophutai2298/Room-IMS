@@ -10,15 +10,15 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "border border-primary/20 bg-primary text-primary-foreground shadow-[inset_0_1px_0_rgb(255_255_255_/_0.28),0_9px_18px_-10px_var(--primary)] hover:-translate-y-0.5 hover:bg-primary/92",
+          "cursor-pointer border border-primary/20 bg-primary text-primary-foreground shadow-[inset_0_1px_0_rgb(255_255_255_/_0.28),0_9px_18px_-10px_var(--primary)] hover:-translate-y-0.5 hover:bg-primary/92",
         secondary:
-          "clay-surface-sm border border-white/55 bg-secondary/75 text-secondary-foreground hover:-translate-y-0.5 hover:bg-secondary dark:border-white/10",
+          "cursor-pointer clay-surface-sm border border-white/55 bg-secondary/75 text-secondary-foreground hover:-translate-y-0.5 hover:bg-secondary dark:border-white/10",
         destructive:
-          "bg-destructive text-white shadow-sm hover:bg-destructive/90",
+          "cursor-pointer bg-destructive text-white shadow-sm hover:bg-destructive/90",
         outline:
-          "border border-white/55 bg-card/55 text-foreground shadow-sm hover:-translate-y-0.5 hover:bg-accent hover:text-accent-foreground dark:border-white/10",
-        ghost: "text-foreground hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+          "cursor-pointer border border-white/55 bg-card/55 text-foreground shadow-sm hover:-translate-y-0.5 hover:bg-accent hover:text-accent-foreground dark:border-white/10",
+        ghost: "cursor-pointer text-foreground hover:bg-accent hover:text-accent-foreground",
+        link: "cursor-pointer text-primary underline-offset-4 hover:underline",
       },
       size: {
         default: "h-10 px-4 py-2",

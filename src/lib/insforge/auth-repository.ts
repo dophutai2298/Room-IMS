@@ -17,6 +17,7 @@ type AppUserRow = {
   email: string;
   display_name: string;
   role: "landlord" | "staff";
+  status?: "active" | "disabled";
 };
 
 export function createInsForgeAuthRepository({
@@ -60,7 +61,7 @@ async function readCurrentAppUserFromInsForge({
     const readRole = async () =>
       (await client.database
         .from("app_users")
-        .select("id, auth_user_id, email, display_name, role")
+        .select("id, auth_user_id, email, display_name, role, status")
         .eq("auth_user_id", user.id)
         .limit(1)) as QueryResponse<AppUserRow[]>;
     const roleResult = timer
@@ -81,6 +82,14 @@ async function readCurrentAppUserFromInsForge({
       });
     }
 
+    if (row.status === "disabled") {
+      return appError({
+        message: "This account has been disabled by an Admin/Landlord.",
+        code: "APP_USER_DISABLED",
+        statusCode: 403,
+      });
+    }
+
     return ok({
       id: row.id,
       authUserId: row.auth_user_id,
@@ -89,6 +98,7 @@ async function readCurrentAppUserFromInsForge({
         row.display_name ||
         String(profile.displayName ?? profile.nickname ?? user.email),
       role: row.role,
+      status: row.status ?? "active",
     });
   } catch (error) {
     return { data: null, error: toAppBackendError(error) };

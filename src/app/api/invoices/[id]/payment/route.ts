@@ -2,12 +2,20 @@ import { validationApiError, type ApiError } from "@/lib/api/errors";
 import { createInsForgeInvoiceRepository } from "@/lib/insforge/invoice-repository";
 import type { InvoiceRecord } from "@/lib/insforge/types";
 import { recordInvoicePaymentForOperations } from "@/lib/invoices/service";
+import {
+  existingDataMutationForbiddenMessage,
+  landlordOnlyRoles,
+} from "@/lib/server/role-policy";
 import { withOperationalAuth } from "@/lib/server/operational-route";
 
 export const dynamic = "force-dynamic";
 
 export const PATCH = withOperationalAuth(
-  { operation: "invoices.payment.update" },
+  {
+    operation: "invoices.payment.update",
+    allowedRoles: landlordOnlyRoles,
+    forbiddenMessage: existingDataMutationForbiddenMessage,
+  },
   async ({ timer }, request: Request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
     const validation = await timer.measure("validation", async () =>
