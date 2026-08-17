@@ -155,6 +155,7 @@ async function readUtilityMetricsScreenFromInsForge({
 
 async function saveUtilityMetricsToInsForge({
   roomId,
+  allowUpdateExisting = true,
   billingPeriod,
   electricityNew,
   waterNew,
@@ -206,6 +207,10 @@ async function saveUtilityMetricsToInsForge({
       billingPeriod,
     });
 
+    if (baseline.currentMetric && !allowUpdateExisting) {
+      return existingUtilityMetricsMutationForbidden();
+    }
+
     if (electricityNew < baseline.electricityOld) {
       return appError({
         message: "Chỉ số điện mới không được thấp hơn chỉ số điện cũ.",
@@ -248,18 +253,27 @@ async function saveUtilityMetricsToInsForge({
 
     if (response.error) {
       if (!baseline.currentMetric) {
-        const retryResult = await updateUtilityMetricAfterInsertRace({
-          roomId,
-          billingPeriod,
-          values,
-        });
-
-        if (retryResult.data) {
-          return retryResult;
+        if (
+          !allowUpdateExisting &&
+          isUniqueConstraintError(response.error)
+        ) {
+          return existingUtilityMetricsMutationForbidden();
         }
 
-        if (retryResult.error.code !== "UTILITY_METRICS_INSERT_FAILED") {
-          return retryResult;
+        if (allowUpdateExisting) {
+          const retryResult = await updateUtilityMetricAfterInsertRace({
+            roomId,
+            billingPeriod,
+            values,
+          });
+
+          if (retryResult.data) {
+            return retryResult;
+          }
+
+          if (retryResult.error.code !== "UTILITY_METRICS_INSERT_FAILED") {
+            return retryResult;
+          }
         }
       }
 
@@ -279,6 +293,29 @@ async function saveUtilityMetricsToInsForge({
   } catch (error) {
     return { data: null, error: toAppBackendError(error) };
   }
+}
+
+function isUniqueConstraintError(error: unknown) {
+  const metadata =
+    typeof error === "object" && error !== null
+      ? (error as Record<string, unknown>)
+      : {};
+  const code = String(metadata.code ?? "");
+  const message = String(metadata.message ?? metadata.details ?? "");
+
+  return (
+    code === "23505" ||
+    message.toLowerCase().includes("duplicate key") ||
+    message.toLowerCase().includes("unique constraint")
+  );
+}
+
+function existingUtilityMetricsMutationForbidden() {
+  return appError({
+    message: "Only Admin/Landlord can update existing Utility Metrics.",
+    code: "STAFF_UPDATE_FORBIDDEN",
+    statusCode: 403,
+  });
 }
 
 async function updateUtilityMetricAfterInsertRace({

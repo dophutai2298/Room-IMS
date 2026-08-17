@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { DeleteConfirmationDialog } from "@/components/delete-confirmation-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -515,6 +516,7 @@ export function TenantDeleteButton({
   size?: "default" | "sm";
 }) {
   const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
   const mutation = useMutation<DeleteTenantResult, AppApiClientError>({
     mutationFn: () =>
       fetchAppApi<DeleteTenantResult>(`/api/tenants/${tenant.id}`, {
@@ -527,6 +529,7 @@ export function TenantDeleteButton({
         roomIds: [result.roomId, tenant.roomId].filter(isNonEmptyString),
       });
       toast.success("Đã xoá thành công.");
+      setOpen(false);
     },
     onError: (error) => {
       toast.error(error.message);
@@ -541,30 +544,39 @@ export function TenantDeleteButton({
       return;
     }
 
-    const confirmed = window.confirm(
-      `Xoá "${tenant.name}"? Hành động này không thể hoàn tác.`,
-    );
-
-    if (confirmed) {
-      mutation.mutate();
-    }
+    mutation.mutate();
   }
 
   return (
-    <Button
-      type="button"
-      variant="destructive"
-      size={size}
-      disabled={mutation.isPending || tenant.isKeyTenant}
-      onClick={handleDelete}
-      title={
-        tenant.isKeyTenant
-          ? "Không thể xoá Người thuê đại diện của Hợp đồng đang hiệu lực."
-          : undefined
+    <DeleteConfirmationDialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (nextOpen) {
+          mutation.reset();
+        }
+      }}
+      trigger={
+        <Button
+          type="button"
+          variant="destructive"
+          size={size}
+          disabled={mutation.isPending || tenant.isKeyTenant}
+          title={
+            tenant.isKeyTenant
+              ? "Không thể xoá Người thuê đại diện của Hợp đồng đang hiệu lực."
+              : undefined
+          }
+        >
+          {mutation.isPending ? "Đang xoá..." : "Xoá"}
+        </Button>
       }
-    >
-      {mutation.isPending ? "Đang xoá..." : "Xoá"}
-    </Button>
+      title={`Xoá "${tenant.name}"?`}
+      description="Hành động này không thể hoàn tác. Người này sẽ bị xoá khỏi danh sách và các màn hình liên quan sẽ được tải lại."
+      isPending={mutation.isPending}
+      errorMessage={mutation.isError ? mutation.error.message : undefined}
+      onConfirm={handleDelete}
+    />
   );
 }
 
@@ -597,8 +609,6 @@ export function TenantImageGallery({
    <div className={cn("grid gap-3 grid-cols-2", compact ? "grid-cols-2" : "md:grid-cols-3")}>
       {images.map((image, index) => {
         const canDelete = allowDelete && image.source !== "legacy" && onDeleteImage;
-        console.log("allowDelete::",allowDelete)
-          console.log("image.source::",image.source)
         return (
           <div
             key={image.id}
@@ -729,7 +739,9 @@ function validateTenantDraft({
   if (draft.status !== "Active" && draft.status !== "Moved Out") {
     return "Chọn trạng thái Người thuê hợp lệ.";
   }
-
+  if (draft.dateOfBirth && new Date(draft.dateOfBirth).getTime() > Date.now()) {
+    return "Ngày sinh không hợp lệ.";
+  }
   if (files.length > 4) {
     return "Chỉ upload tối đa 4 ảnh hồ sơ mỗi lần.";
   }

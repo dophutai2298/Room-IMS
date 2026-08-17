@@ -1,4 +1,5 @@
 export type AppRole = "landlord" | "staff";
+export type AppUserStatus = "active" | "disabled";
 export type RoomDbStatus = "Available" | "Occupied" | "Maintenance";
 export type TenantDbStatus = "Active" | "Moved Out";
 export type ContractDbStatus = "Active" | "Terminated";
@@ -10,6 +11,7 @@ export type AppUser = {
   email: string;
   displayName: string;
   role: AppRole;
+  status?: AppUserStatus;
 };
 
 export type RoomRecord = {

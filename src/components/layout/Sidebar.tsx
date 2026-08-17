@@ -28,72 +28,75 @@ export const Sidebar = () => {
   const visibleNavItems =
     currentUserQuery.data?.role === "landlord"
       ? [
-          ...navItems,
-          { name: "Staff", href: "/staff", icon: "staff" },
-        ]
+        ...navItems,
+        { name: "Nhân viên", href: "/staff", icon: "staff" },
+      ]
       : navItems;
 
   return (
     <header className="sticky top-0 z-40 px-3 pt-3 sm:px-5 sm:pt-4">
       {
         currentUserQuery.data && (
-    <div className="clay-surface mx-auto flex max-w-[1480px] items-center gap-3 rounded-[1.4rem] border border-white/60 bg-card/75 px-3 py-2.5 backdrop-blur-2xl dark:border-white/10 sm:px-4">
-        <Link
-          href="/"
-          className="flex shrink-0 items-center gap-2.5 rounded-xl pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <span className="flex size-9 items-center justify-center rounded-xl border border-white/30 bg-primary text-xs font-bold tracking-tight text-primary-foreground shadow-[inset_0_1px_0_rgb(255_255_255_/_0.28)]">
-            RR
-          </span>
-          <span className="hidden min-w-0 sm:block">
-            <span className="block text-sm font-semibold leading-5">
-              Rental Room 201 CV
-            </span>
-            <span className="block text-[0.68rem] text-muted-foreground">
-              Vận hành nhà trọ
-            </span>
-          </span>
-        </Link>
+          <div className="clay-surface mx-auto flex max-w-[1480px] items-center gap-3 rounded-[1.4rem] border border-white/60 bg-card/75 px-3 py-2.5 backdrop-blur-2xl dark:border-white/10 sm:px-4">
+            <Link
+              href="/"
+              className="flex shrink-0 items-center gap-2.5 rounded-xl pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span className="flex size-9 items-center justify-center rounded-xl border border-white/30 bg-primary text-xs font-bold tracking-tight text-primary-foreground shadow-[inset_0_1px_0_rgb(255_255_255_/_0.28)]">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Z" />
+                </svg>
 
-        <nav
-          aria-label="Điều hướng chính"
-          className="mx-auto flex min-w-0 items-center gap-1 overflow-x-auto rounded-xl bg-muted/45 p-1 clay-inset"
-        >
-          {visibleNavItems.map((item) => {
-            const isActive =
-              pathname === item.href ||
-              (item.href !== "/" && pathname?.startsWith(item.href));
+              </span>
+              <span className="hidden min-w-0 sm:block">
+                <span className="block text-sm font-semibold leading-5">
+                  Rental Room
+                </span>
+                <span className="block text-[0.68rem] text-muted-foreground">
+                  Vận hành nhà trọ
+                </span>
+              </span>
+            </Link>
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={isActive ? "page" : undefined}
-                className={cn(
-                  "flex h-9 items-center gap-2 whitespace-nowrap rounded-lg px-2.5 text-xs font-medium text-muted-foreground outline-none transition-[background-color,color,box-shadow,transform] duration-200 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring sm:px-3 sm:text-sm",
-                  isActive && "bg-card text-foreground shadow-sm",
-                )}
-              >
-                <NavIcon name={item.icon} />
-                {item.name}
-              </Link>
-            );
-          })}
-        </nav>
+            <nav
+              aria-label="Điều hướng chính"
+              className="mx-auto flex min-w-0 items-center gap-1 overflow-x-auto rounded-xl bg-muted/45 p-1 clay-inset"
+            >
+              {visibleNavItems.map((item) => {
+                const isActive =
+                  pathname === item.href ||
+                  (item.href !== "/" && pathname?.startsWith(item.href));
 
-        <div className="ml-auto flex shrink-0 items-center gap-2">
-          <ThemeSwitcher />
-          {pathname !== "/sign-in" && (
-            <AccountMenu
-              user={currentUserQuery.data}
-              isLoading={currentUserQuery.isPending}
-            />
-          )}
-        </div>
-      </div>
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    aria-current={isActive ? "page" : undefined}
+                    className={cn(
+                      "flex h-9 items-center gap-2 whitespace-nowrap rounded-lg px-2.5 text-xs font-medium text-muted-foreground outline-none transition-[background-color,color,box-shadow,transform] duration-200 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring sm:px-3 sm:text-sm",
+                      isActive && "bg-card text-foreground shadow-2xl border",
+                    )}
+                  >
+                    <NavIcon name={item.icon} />
+                    {item.name}
+                  </Link>
+                );
+              })}
+            </nav>
+
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              <ThemeSwitcher />
+              {pathname !== "/sign-in" && (
+                <AccountMenu
+                  user={currentUserQuery.data}
+                  isLoading={currentUserQuery.isPending}
+                />
+              )}
+            </div>
+          </div>
         )
       }
-  
+
     </header>
   );
 };

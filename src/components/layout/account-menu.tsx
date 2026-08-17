@@ -28,7 +28,7 @@ export function AccountMenu({
   });
   const initials = getInitials(user?.displayName);
   const accountLabel =
-    user?.role === "staff" ? "Tài khoản Staff" : "Tài khoản chủ nhà";
+    user?.role === "staff" ? "Tài khoản Nhân viên" : "Tài khoản Admin";
 
   return (
     <div className="group relative">
@@ -54,7 +54,7 @@ export function AccountMenu({
           </p>
           {user && (
             <p className="mt-1 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-primary">
-              {user.role === "landlord" ? "Landlord" : "Staff"}
+              {user.role === "landlord" ? "Admin" : "Nhân viên"}
             </p>
           )}
         </div>
@@ -65,14 +65,14 @@ export function AccountMenu({
             className="mt-1 w-full justify-start"
           >
             <Link href="/staff" role="menuitem">
-              Quản lý Staff
+              Quản lý Nhân viên
             </Link>
           </Button>
         )}
         <Button
           type="button"
           variant="ghost"
-          className="mt-1 w-full justify-start text-destructive hover:text-destructive"
+          className="mt-1 w-full justify-start text-destructive hover:text-destructive cursor-pointer"
           role="menuitem"
           disabled={signOutMutation.isPending}
           onClick={() => signOutMutation.mutate()}

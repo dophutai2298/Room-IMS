@@ -139,8 +139,8 @@ export function UtilityPricingClient() {
         <DataTable
           columns={columns}
           data={pricingQuery.data ?? []}
-          description="Không xóa giá cũ để hóa đơn tháng trước vẫn resolve đúng giá áp dụng."
-          emptyMessage="Thêm bảng giá đầu tiên để hóa đơn có thể tính điện/nước khi Contract không có override."
+          description="Không xóa giá cũ để hóa đơn tháng trước vẫn giải quyết đúng giá áp dụng."
+          emptyMessage="Thêm bảng giá đầu tiên để hóa đơn có thể tính điện/nước khi Hợp đồng không có."
           emptyTitle="Chưa có bảng giá"
           errorMessage={
             pricingQuery.isError ? pricingQuery.error.message : undefined

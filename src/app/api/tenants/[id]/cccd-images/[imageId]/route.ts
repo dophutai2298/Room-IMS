@@ -1,12 +1,20 @@
 import { validationApiError } from "@/lib/api/errors";
 import { createInsForgeTenantRepository } from "@/lib/insforge/tenant-repository";
+import {
+  existingDataMutationForbiddenMessage,
+  landlordOnlyRoles,
+} from "@/lib/server/role-policy";
 import { withOperationalAuth } from "@/lib/server/operational-route";
 import { deleteTenantCccdImageForOperations } from "@/lib/tenants/service";
 
 export const dynamic = "force-dynamic";
 
 export const DELETE = withOperationalAuth(
-  { operation: "tenants.cccd-images.delete" },
+  {
+    operation: "tenants.cccd-images.delete",
+    allowedRoles: landlordOnlyRoles,
+    forbiddenMessage: existingDataMutationForbiddenMessage,
+  },
   async (
     { timer },
     _request: Request,

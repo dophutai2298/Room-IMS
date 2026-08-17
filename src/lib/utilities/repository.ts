@@ -10,6 +10,7 @@ export type ReadUtilityMetricsScreenInput = {
 export type SaveUtilityMetricsInput = ReadUtilityMetricsScreenInput & {
   electricityNew: number;
   waterNew: number;
+  allowUpdateExisting?: boolean;
 };
 
 export type UtilityMetricsRepository = {
@@ -20,4 +21,3 @@ export type UtilityMetricsRepository = {
     input: SaveUtilityMetricsInput,
   ): Promise<AppResult<UtilityMetricRecord>>;
 };
-

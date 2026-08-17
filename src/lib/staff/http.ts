@@ -7,11 +7,21 @@ import {
 } from "@/lib/api/timing";
 import { withOperationalAuth } from "@/lib/server/operational-route";
 import type { OperationalAuthResult } from "@/lib/server/operational-auth-core";
-import { validateCreateStaffRequest } from "./api";
+import { validationApiError } from "@/lib/api/errors";
+import {
+  adminOnlyForbiddenMessage,
+  landlordOnlyRoles,
+} from "@/lib/server/role-policy";
+import {
+  validateCreateStaffRequest,
+  validateUpdateStaffRequest,
+} from "./api";
 import type { StaffRepository } from "./repository";
 import {
   createStaffForOperations,
+  deleteStaffForOperations,
   listStaffForOperations,
+  updateStaffForOperations,
 } from "./service";
 
 type StaffHttpDependencies = {
@@ -29,7 +39,8 @@ export function createStaffHttpHandlers({
     GET: withOperationalAuth(
       {
         operation: "staff.list",
-        allowedRoles: ["landlord"],
+        allowedRoles: landlordOnlyRoles,
+        forbiddenMessage: adminOnlyForbiddenMessage,
         resolveAuth,
         logTiming,
       },
@@ -44,7 +55,8 @@ export function createStaffHttpHandlers({
     POST: withOperationalAuth(
       {
         operation: "staff.create",
-        allowedRoles: ["landlord"],
+        allowedRoles: landlordOnlyRoles,
+        forbiddenMessage: adminOnlyForbiddenMessage,
         resolveAuth,
         logTiming,
       },
@@ -63,5 +75,79 @@ export function createStaffHttpHandlers({
         );
       },
     ),
+
+    PATCH: withOperationalAuth(
+      {
+        operation: "staff.update",
+        allowedRoles: landlordOnlyRoles,
+        forbiddenMessage: adminOnlyForbiddenMessage,
+        resolveAuth,
+        logTiming,
+      },
+      async (
+        { timer },
+        request: Request,
+        { params }: { params: Promise<{ id: string }> },
+      ) => {
+        const { id } = await params;
+
+        if (!id) {
+          return staffIdRequiredError();
+        }
+
+        const validation = await timer.measure("validation", () =>
+          validateUpdateStaffRequest(request),
+        );
+
+        if (validation.error) {
+          return validation.error;
+        }
+
+        const repository = createRepository({ timer });
+        return timer.measure("service", () =>
+          updateStaffForOperations({
+            repository,
+            staffId: id,
+            ...validation.data,
+          }),
+        );
+      },
+    ),
+
+    DELETE: withOperationalAuth(
+      {
+        operation: "staff.delete",
+        allowedRoles: landlordOnlyRoles,
+        forbiddenMessage: adminOnlyForbiddenMessage,
+        resolveAuth,
+        logTiming,
+      },
+      async (
+        { timer },
+        _request: Request,
+        { params }: { params: Promise<{ id: string }> },
+      ) => {
+        const { id } = await params;
+
+        if (!id) {
+          return staffIdRequiredError();
+        }
+
+        const repository = createRepository({ timer });
+        return timer.measure("service", () =>
+          deleteStaffForOperations({
+            repository,
+            staffId: id,
+          }),
+        );
+      },
+    ),
   };
+}
+
+function staffIdRequiredError() {
+  return validationApiError({
+    message: "Staff id is required.",
+    details: { fieldErrors: { staffId: "Staff id is required." } },
+  });
 }

@@ -1,5 +1,9 @@
 import { validationApiError } from "@/lib/api/errors";
 import { createInsForgeTenantRepository } from "@/lib/insforge/tenant-repository";
+import {
+  existingDataMutationForbiddenMessage,
+  landlordOnlyRoles,
+} from "@/lib/server/role-policy";
 import { withOperationalAuth } from "@/lib/server/operational-route";
 import { validateTenantWriteRequest } from "@/lib/tenants/api";
 import {
@@ -27,7 +31,11 @@ export const GET = withOperationalAuth(
 );
 
 export const PATCH = withOperationalAuth(
-  { operation: "tenants.update" },
+  {
+    operation: "tenants.update",
+    allowedRoles: landlordOnlyRoles,
+    forbiddenMessage: existingDataMutationForbiddenMessage,
+  },
   async ({ timer }, request: Request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
 
@@ -55,7 +63,11 @@ export const PATCH = withOperationalAuth(
 );
 
 export const DELETE = withOperationalAuth(
-  { operation: "tenants.delete" },
+  {
+    operation: "tenants.delete",
+    allowedRoles: landlordOnlyRoles,
+    forbiddenMessage: existingDataMutationForbiddenMessage,
+  },
   async ({ timer }, _request: Request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
 

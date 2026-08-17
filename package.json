@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "perf:api-baseline": "node --env-file=.env --import tsx scripts/api-performance-baseline.ts",
-    "test": "node --conditions=react-server --import tsx --test scripts/api-performance-report.behavior.test.ts src/lib/api/api-regression.behavior.test.ts src/lib/api/timing.behavior.test.ts src/lib/auth/auth.behavior.test.ts src/lib/contracts/contract.behavior.test.ts src/lib/dashboard/dashboard.behavior.test.ts src/lib/data-table/data-table-state.behavior.test.ts src/lib/data-table/tanstack.behavior.test.ts src/lib/insforge/tracing.behavior.test.ts src/lib/invoices/table-actions.behavior.test.ts src/lib/staff/staff.behavior.test.ts src/lib/server/operational-route.behavior.test.ts"
+    "test": "node --conditions=react-server --import tsx --test scripts/api-performance-report.behavior.test.ts src/lib/api/api-regression.behavior.test.ts src/lib/api/timing.behavior.test.ts src/lib/auth/auth.behavior.test.ts src/lib/contracts/contract.behavior.test.ts src/lib/dashboard/dashboard.behavior.test.ts src/lib/data-table/data-table-state.behavior.test.ts src/lib/data-table/tanstack.behavior.test.ts src/lib/insforge/tracing.behavior.test.ts src/lib/invoices/table-actions.behavior.test.ts src/lib/server/operational-route.behavior.test.ts src/lib/server/role-policy.behavior.test.ts src/lib/staff/create-staff-form.behavior.test.ts src/lib/staff/staff.behavior.test.ts"
   },
   "dependencies": {
     "@insforge/sdk": "^1.5.2",
@@ -24,7 +24,7 @@
     "@tanstack/table-core": "^9.1.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "dayjs": "^1.11.21",
+    "dayjs": "^1.11.23",
     "geist": "^1.7.2",
     "next": "16.2.12",
     "next-themes": "^0.4.6",

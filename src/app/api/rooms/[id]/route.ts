@@ -2,12 +2,20 @@ import { validationApiError } from "@/lib/api/errors";
 import { createInsForgeRoomRepository } from "@/lib/insforge/room-repository";
 import { validateRoomWriteRequest } from "@/lib/rooms/api";
 import { updateRoomForOperations } from "@/lib/rooms/service";
+import {
+  existingDataMutationForbiddenMessage,
+  landlordOnlyRoles,
+} from "@/lib/server/role-policy";
 import { withOperationalAuth } from "@/lib/server/operational-route";
 
 export const dynamic = "force-dynamic";
 
 export const PATCH = withOperationalAuth(
-  { operation: "rooms.update" },
+  {
+    operation: "rooms.update",
+    allowedRoles: landlordOnlyRoles,
+    forbiddenMessage: existingDataMutationForbiddenMessage,
+  },
   async ({ timer }, request: Request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
 

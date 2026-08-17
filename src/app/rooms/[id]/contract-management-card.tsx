@@ -459,14 +459,14 @@ function ContractEditorDialog(props: ContractEditorDialogProps) {
         <DialogHeader>
           <DialogTitle>{isEdit ? "Cập nhật Hợp đồng" : "Tạo Hợp đồng"}</DialogTitle>
           <DialogDescription>
-            {roomName}: chọn Người đại diện cùng phòng và cấu hình giá thuê, tiền cọc,
+            {roomName}: Chọn Người đại diện cùng phòng và điều chỉnh giá thuê, tiền cọc,
             thời hạn cùng giá tiện ích riêng nếu có.
           </DialogDescription>
         </DialogHeader>
 
         <form className="space-y-5" onSubmit={handleSubmit}>
           <div className="space-y-2">
-            <Label htmlFor={`${mode}-key-tenant`}>Key Tenant *</Label>
+            <Label htmlFor={`${mode}-key-tenant`}>Người thuê đại diện *</Label>
             <Select
               value={draft.keyTenantId || undefined}
               onValueChange={(value) =>
