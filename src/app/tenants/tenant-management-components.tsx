@@ -609,8 +609,6 @@ export function TenantImageGallery({
    <div className={cn("grid gap-3 grid-cols-2", compact ? "grid-cols-2" : "md:grid-cols-3")}>
       {images.map((image, index) => {
         const canDelete = allowDelete && image.source !== "legacy" && onDeleteImage;
-        console.log("allowDelete::",allowDelete)
-          console.log("image.source::",image.source)
         return (
           <div
             key={image.id}
@@ -741,7 +739,9 @@ function validateTenantDraft({
   if (draft.status !== "Active" && draft.status !== "Moved Out") {
     return "Chọn trạng thái Người thuê hợp lệ.";
   }
-
+  if (draft.dateOfBirth && new Date(draft.dateOfBirth).getTime() > Date.now()) {
+    return "Ngày sinh không hợp lệ.";
+  }
   if (files.length > 4) {
     return "Chỉ upload tối đa 4 ảnh hồ sơ mỗi lần.";
   }
