@@ -58,7 +58,7 @@ export function AccountMenu({
             </p>
           )}
         </div>
-        {user?.role === "landlord" && (
+        {/* {user?.role === "landlord" && (
           <Button
             asChild
             variant="ghost"
@@ -68,7 +68,7 @@ export function AccountMenu({
               Quản lý Nhân viên
             </Link>
           </Button>
-        )}
+        )} */}
         <Button
           type="button"
           variant="ghost"
