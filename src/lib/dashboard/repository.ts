@@ -5,10 +5,12 @@ import type {
   DashboardRevenueView,
   DashboardUnpaidInvoicesView,
 } from "./presenter";
+import type { DashboardRevenueRange } from "./revenue-range";
 
 export type DashboardRepository = {
   readRevenueSummary(
     billingPeriod: BillingPeriod,
+    chartRange: DashboardRevenueRange,
   ): Promise<AppResult<DashboardRevenueView>>;
   readMissingUtilityMetrics(
     billingPeriod: BillingPeriod,

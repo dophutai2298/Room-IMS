@@ -7,6 +7,7 @@ import {
   buildDashboardUnpaidInvoices,
 } from "@/lib/dashboard/presenter";
 import type { DashboardRepository } from "@/lib/dashboard/repository";
+import type { DashboardRevenueRange } from "@/lib/dashboard/revenue-range";
 import type { BillingPeriod } from "@/lib/utilities/presenter";
 import { fail, ok, toAppBackendError } from "./errors";
 import { createInsForgeServerClient } from "./server";
@@ -31,8 +32,13 @@ export function createInsForgeDashboardRepository({
     return clientPromise;
   };
   return {
-    async readRevenueSummary(billingPeriod) {
-      const query = () => readRevenueSummaryFromInsForge({ getClient, billingPeriod });
+    async readRevenueSummary(billingPeriod, chartRange) {
+      const query = () =>
+        readRevenueSummaryFromInsForge({
+          getClient,
+          billingPeriod,
+          chartRange,
+        });
 
       return timer
         ? timer.measure("repository.insforge.dashboard-revenue", query)
@@ -62,9 +68,11 @@ export function createInsForgeDashboardRepository({
 async function readRevenueSummaryFromInsForge({
   getClient,
   billingPeriod,
+  chartRange,
 }: {
   getClient: () => Promise<InsForgeServerClient>;
   billingPeriod: BillingPeriod;
+  chartRange: DashboardRevenueRange;
 }) {
   try {
     const client = await getClient();
@@ -82,6 +90,7 @@ async function readRevenueSummaryFromInsForge({
       buildDashboardRevenue({
         invoices: (response.data ?? []) as unknown as InvoiceRecord[],
         billingPeriod,
+        chartRange,
       }),
     );
   } catch (error) {

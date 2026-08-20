@@ -1,16 +1,24 @@
 import type { BillingPeriod } from "@/lib/utilities/presenter";
+import {
+  DEFAULT_DASHBOARD_REVENUE_RANGE,
+  type DashboardRevenueRange,
+} from "./revenue-range";
 
 export const dashboardQueryKeys = {
   all: ["dashboard"] as const,
-  revenue: (billingPeriod?: BillingPeriod) =>
+  revenue: (
+    billingPeriod?: BillingPeriod,
+    chartRange: DashboardRevenueRange = DEFAULT_DASHBOARD_REVENUE_RANGE,
+  ) =>
     billingPeriod
       ? ([
           ...dashboardQueryKeys.all,
           "revenue",
           billingPeriod.year,
           billingPeriod.month,
+          chartRange,
         ] as const)
-      : ([...dashboardQueryKeys.all, "revenue"] as const),
+      : ([...dashboardQueryKeys.all, "revenue", chartRange] as const),
   missingUtilityMetrics: (billingPeriod?: BillingPeriod) =>
     billingPeriod
       ? ([

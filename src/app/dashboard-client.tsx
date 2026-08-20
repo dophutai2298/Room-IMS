@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { useState } from "react";
 
 import { RevenueChart } from "@/components/dashboard/RevenueChart";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchAppApi } from "@/lib/api/client";
 import {
@@ -26,6 +34,13 @@ import {
   type DashboardUnpaidInvoicesView,
 } from "@/lib/dashboard/presenter";
 import { dashboardQueryKeys } from "@/lib/dashboard/query-keys";
+import {
+  DASHBOARD_REVENUE_RANGE_OPTIONS,
+  DEFAULT_DASHBOARD_REVENUE_RANGE,
+  getDashboardRevenueRangeDetails,
+  normalizeDashboardRevenueRange,
+  type DashboardRevenueRange,
+} from "@/lib/dashboard/revenue-range";
 import { formatCurrency } from "@/lib/formatters";
 import { invoiceStatusLabel } from "@/lib/invoices/presenter";
 import {
@@ -47,14 +62,16 @@ export function DashboardClient({
 }: {
   billingPeriod: BillingPeriod;
 }) {
-  const revenueQuery = useQuery({
-    queryKey: dashboardQueryKeys.revenue(billingPeriod),
-    queryFn: () =>
-      fetchAppApi<DashboardRevenueView>(
-        `/api/dashboard/revenue?${periodSearchParams(billingPeriod)}`,
-        { cache: "no-store" },
-      ),
-    ...dashboardQueryOptions,
+  const [chartRange, setChartRange] = useState<DashboardRevenueRange>(
+    DEFAULT_DASHBOARD_REVENUE_RANGE,
+  );
+  const revenueSummaryQuery = useDashboardRevenueQuery({
+    billingPeriod,
+    chartRange: DEFAULT_DASHBOARD_REVENUE_RANGE,
+  });
+  const revenueChartQuery = useDashboardRevenueQuery({
+    billingPeriod,
+    chartRange,
   });
   const availabilityQuery = useQuery({
     queryKey: roomQueryKeys.list(),
@@ -118,33 +135,33 @@ export function DashboardClient({
           className="xl:col-span-4"
           label="Đã thu trong kỳ"
           value={
-            revenueQuery.data
-              ? formatCurrency(revenueQuery.data.collectedRevenue)
+            revenueSummaryQuery.data
+              ? formatCurrency(revenueSummaryQuery.data.collectedRevenue)
               : undefined
           }
           note={
-            revenueQuery.data
-              ? `${revenueQuery.data.invoiceCount} hóa đơn kỳ ${revenueQuery.data.periodLabel}`
+            revenueSummaryQuery.data
+              ? `${revenueSummaryQuery.data.invoiceCount} hóa đơn kỳ ${revenueSummaryQuery.data.periodLabel}`
               : "Đang đọc doanh thu"
           }
           tone="success"
-          isLoading={revenueQuery.isPending}
-          error={revenueQuery.error?.message}
-          onRetry={() => void revenueQuery.refetch()}
+          isLoading={revenueSummaryQuery.isPending}
+          error={revenueSummaryQuery.error?.message}
+          onRetry={() => void revenueSummaryQuery.refetch()}
         />
         <MetricCard
           className="xl:col-span-3"
           label="Công nợ"
           value={
-            revenueQuery.data
-              ? formatCurrency(revenueQuery.data.outstandingDebt)
+            revenueSummaryQuery.data
+              ? formatCurrency(revenueSummaryQuery.data.outstandingDebt)
               : undefined
           }
           note="Chưa thu hoặc thu một phần"
           tone="warning"
-          isLoading={revenueQuery.isPending}
-          error={revenueQuery.error?.message}
-          onRetry={() => void revenueQuery.refetch()}
+          isLoading={revenueSummaryQuery.isPending}
+          error={revenueSummaryQuery.error?.message}
+          onRetry={() => void revenueSummaryQuery.refetch()}
         />
         <MetricCard
           className="xl:col-span-3"
@@ -180,10 +197,12 @@ export function DashboardClient({
 
       <section className="grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(20rem,0.7fr)]">
         <RevenueSection
-          revenue={revenueQuery.data}
-          isLoading={revenueQuery.isPending}
-          error={revenueQuery.error?.message}
-          onRetry={() => void revenueQuery.refetch()}
+          revenue={revenueChartQuery.data}
+          isLoading={revenueChartQuery.isPending}
+          error={revenueChartQuery.error?.message}
+          onRetry={() => void revenueChartQuery.refetch()}
+          range={chartRange}
+          onRangeChange={setChartRange}
         />
         <MissingMetricsSection
           data={missingMetricsQuery.data}
@@ -209,6 +228,24 @@ export function DashboardClient({
       </section>
     </>
   );
+}
+
+function useDashboardRevenueQuery({
+  billingPeriod,
+  chartRange,
+}: {
+  billingPeriod: BillingPeriod;
+  chartRange: DashboardRevenueRange;
+}) {
+  return useQuery({
+    queryKey: dashboardQueryKeys.revenue(billingPeriod, chartRange),
+    queryFn: () =>
+      fetchAppApi<DashboardRevenueView>(
+        `/api/dashboard/revenue?${revenueSearchParams(billingPeriod, chartRange)}`,
+        { cache: "no-store" },
+      ),
+    ...dashboardQueryOptions,
+  });
 }
 
 function MetricCard({
@@ -276,22 +313,57 @@ function RevenueSection({
   isLoading,
   error,
   onRetry,
+  range,
+  onRangeChange,
 }: {
   revenue?: DashboardRevenueView;
   isLoading: boolean;
   error?: string;
   onRetry: () => void;
+  range: DashboardRevenueRange;
+  onRangeChange: (range: DashboardRevenueRange) => void;
 }) {
+  const rangeDetails = getDashboardRevenueRangeDetails(range);
+  const title = `Dòng tiền ${rangeDetails.label}`;
+  const description =
+    range === "all"
+      ? "So sánh số đã lập hóa đơn và thực thu theo toàn bộ lịch sử hóa đơn."
+      : `So sánh số đã lập hóa đơn và thực thu theo tháng trong ${rangeDetails.label.toLowerCase()}.`;
+  const emptyTitle =
+    range === "all"
+      ? "Chưa có lịch sử hóa đơn"
+      : `Chưa có hóa đơn trong ${rangeDetails.label.toLowerCase()}`;
+
   return (
     <Card className="overflow-hidden">
-      <CardHeader className="flex-row items-start justify-between gap-4">
-        <div>
-          <CardTitle className="text-lg">Dòng tiền 6 tháng</CardTitle>
-          <CardDescription className="mt-1.5">
-            So sánh số đã lập hóa đơn và thực thu theo tháng.
-          </CardDescription>
+      <CardHeader className="gap-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <CardTitle className="text-lg">{title}</CardTitle>
+            <CardDescription className="mt-1.5">{description}</CardDescription>
+          </div>
+          <Select
+            value={range}
+            onValueChange={(value) =>
+              onRangeChange(normalizeDashboardRevenueRange(value))
+            }
+          >
+            <SelectTrigger
+              aria-label="Khoảng thời gian biểu đồ doanh thu"
+              className="w-full sm:w-44"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {DASHBOARD_REVENUE_RANGE_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <div className="hidden items-center gap-4 text-xs text-muted-foreground sm:flex">
+        <div className="flex items-center gap-4 text-xs text-muted-foreground">
           <ChartLegend color="bg-chart-primary" label="Đã thu" />
           <ChartLegend color="bg-chart-secondary" label="Đã lập HĐ" />
         </div>
@@ -301,8 +373,13 @@ function RevenueSection({
           <Skeleton className="h-72 w-full sm:h-80" />
         ) : error || !revenue ? (
           <InlineError message={error ?? "Không có dữ liệu doanh thu."} onRetry={onRetry} />
+        ) : revenue.chartInvoiceCount === 0 ? (
+          <EmptyState
+            title={emptyTitle}
+            body="Hãy tạo hóa đơn cho các kỳ phù hợp để theo dõi dòng tiền tại đây."
+          />
         ) : (
-          <RevenueChart data={revenue.chart} />
+          <RevenueChart data={revenue.chart} title={title} description={description} />
         )}
       </CardContent>
     </Card>
@@ -644,5 +721,16 @@ function periodSearchParams(period: BillingPeriod) {
   return new URLSearchParams({
     month: String(period.month),
     year: String(period.year),
+  }).toString();
+}
+
+function revenueSearchParams(
+  period: BillingPeriod,
+  chartRange: DashboardRevenueRange,
+) {
+  return new URLSearchParams({
+    month: String(period.month),
+    year: String(period.year),
+    range: chartRange,
   }).toString();
 }

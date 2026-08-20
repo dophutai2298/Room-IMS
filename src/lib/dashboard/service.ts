@@ -2,15 +2,18 @@ import "server-only";
 
 import type { BillingPeriod } from "@/lib/utilities/presenter";
 import type { DashboardRepository } from "./repository";
+import type { DashboardRevenueRange } from "./revenue-range";
 
 export async function getDashboardRevenueForOperations({
   repository,
   billingPeriod,
+  chartRange,
 }: {
   repository: DashboardRepository;
   billingPeriod: BillingPeriod;
+  chartRange: DashboardRevenueRange;
 }) {
-  return repository.readRevenueSummary(billingPeriod);
+  return repository.readRevenueSummary(billingPeriod, chartRange);
 }
 
 export async function getDashboardMissingUtilityMetricsForOperations({
