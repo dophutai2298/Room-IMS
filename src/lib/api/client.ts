@@ -51,6 +51,33 @@ export async function fetchAppApi<T>(
   return payload.data;
 }
 
+export async function fetchAppFile(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  const response = await fetch(input, init);
+
+  if (response.ok) {
+    return response;
+  }
+
+  const payload = (await response.json().catch(() => null)) as
+    | ApiResponse<never>
+    | null;
+
+  if (payload && typeof payload === "object" && "ok" in payload && !payload.ok) {
+    redirectExpiredSession(payload.error);
+    throw new AppApiClientError(payload.error);
+  }
+
+  throw new AppApiClientError({
+    kind: "internal",
+    code: "INVALID_FILE_RESPONSE",
+    message: "Không thể tải file từ hệ thống.",
+    status: response.status || 500,
+  });
+}
+
 function redirectExpiredSession(error: ApiError) {
   if (
     error.status !== 401 ||
