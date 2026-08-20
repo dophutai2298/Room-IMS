@@ -15,7 +15,10 @@ import {
 import { table_setOptions } from "@tanstack/table-core/static-functions";
 import { storeReactivityBindings } from "@tanstack/table-core/store-reactivity-bindings";
 
-import { managementDataTableFeatures } from "./tanstack";
+import {
+  getDataTableCurrentViewRows,
+  managementDataTableFeatures,
+} from "./tanstack";
 
 type FixtureRow = {
   id: string;
@@ -68,6 +71,11 @@ describe("management DataTable TanStack feature model", () => {
     harness.table.setGlobalFilter("");
     harness.table.getColumn("status")?.setFilterValue("Active");
     assert.deepEqual(harness.visibleNames(), ["Binh", "Cuong"]);
+    harness.table.setSorting([{ desc: true, id: "name" }]);
+    assert.deepEqual(
+      getDataTableCurrentViewRows(harness.table).map((row) => row.name),
+      ["Cuong", "Binh"],
+    );
 
     harness.table.setColumnFilters([]);
     harness.table.setSorting([{ desc: false, id: "name" }]);
@@ -75,6 +83,10 @@ describe("management DataTable TanStack feature model", () => {
 
     harness.table.setPageSize(1);
     assert.deepEqual(harness.visibleNames(), ["An"]);
+    assert.deepEqual(
+      getDataTableCurrentViewRows(harness.table).map((row) => row.name),
+      ["An", "Binh", "Cuong"],
+    );
     assert.equal(harness.table.getCanNextPage(), true);
 
     harness.table.nextPage();

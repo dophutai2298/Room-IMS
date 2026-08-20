@@ -20,6 +20,12 @@ import {
   type TableFeatures,
 } from "@tanstack/table-core";
 
+type PrePaginatedRowModelReader<TData extends RowData> = {
+  getPrePaginatedRowModel: () => {
+    rows: Array<{ original: TData }>;
+  };
+};
+
 const filterFn_equalsString: FilterFn<TableFeatures, RowData> = (
   row,
   columnId,
@@ -65,4 +71,10 @@ export type DataTableColumnDef<TData extends RowData> = ColumnDef<
 
 export function createDataTableColumnHelper<TData extends RowData>() {
   return createColumnHelper<ManagementDataTableFeatures, TData>();
+}
+
+export function getDataTableCurrentViewRows<TData extends RowData>(
+  table: PrePaginatedRowModelReader<TData>,
+) {
+  return table.getPrePaginatedRowModel().rows.map((row) => row.original);
 }
