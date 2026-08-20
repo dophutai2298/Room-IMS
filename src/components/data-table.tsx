@@ -38,6 +38,7 @@ import {
   normalizeDataTablePageSize,
 } from "@/lib/data-table/state";
 import {
+  getDataTableCurrentViewRows,
   managementDataTableFeatures,
   type DataTableColumnDef,
   type ManagementDataTableFeatures,
@@ -70,6 +71,13 @@ export type DataTableStatusFilter = {
   options: DataTableFilterOption[];
 };
 
+export type DataTableCurrentView<TData extends RowData> = {
+  rows: TData[];
+  globalFilter: string;
+  columnFilters: ColumnFiltersState;
+  sorting: SortingState;
+};
+
 export type DataTableProps<TData extends RowData> = {
   columns: DataTableColumnDef<TData>[];
   data: TData[];
@@ -77,6 +85,7 @@ export type DataTableProps<TData extends RowData> = {
   description?: string;
   toolbarStart?: ReactNode;
   toolbarEnd?: ReactNode;
+  renderToolbarEnd?: (view: DataTableCurrentView<TData>) => ReactNode;
   searchPlaceholder?: string;
   statusFilter?: DataTableStatusFilter;
   isLoading?: boolean;
@@ -103,6 +112,7 @@ export function DataTable<TData extends RowData>({
   description,
   toolbarStart,
   toolbarEnd,
+  renderToolbarEnd,
   searchPlaceholder = "Tìm kiếm...",
   statusFilter,
   isLoading = false,
@@ -191,6 +201,12 @@ export function DataTable<TData extends RowData>({
   const hideableColumns = table
     .getAllLeafColumns()
     .filter((column) => column.getCanHide());
+  const currentView = {
+    rows: getDataTableCurrentViewRows(table),
+    globalFilter,
+    columnFilters,
+    sorting,
+  } satisfies DataTableCurrentView<TData>;
 
   const content = (
     <div className={cn(variant === "plain" && "space-y-4")}>
@@ -205,7 +221,12 @@ export function DataTable<TData extends RowData>({
         statusFilter={statusFilter}
         table={table}
         title={title}
-        toolbarEnd={toolbarEnd}
+        toolbarEnd={
+          <>
+            {toolbarEnd}
+            {renderToolbarEnd?.(currentView)}
+          </>
+        }
         toolbarStart={toolbarStart}
       />
 

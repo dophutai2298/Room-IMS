@@ -12,7 +12,7 @@ import type {
 } from "./password-reset-repository";
 
 const passwordResetCooldownMs = 60_000;
-const productResetTokenTtlMs = 5 * 60_000;
+const productResetTokenTtlMs = 10 * 60_000;
 const resetRequestCooldowns = new Map<string, number>();
 const resetTokenStates = new Map<
   string,

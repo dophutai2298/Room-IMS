@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +30,8 @@ import { AppApiClientError, fetchAppApi } from "@/lib/api/client";
 import { createDataTableColumnHelper } from "@/lib/data-table/tanstack";
 import { dashboardQueryKeys } from "@/lib/dashboard/query-keys";
 import { formatCurrency } from "@/lib/formatters";
+import { downloadInvoiceExcel } from "@/lib/invoices/excel-export-client";
+import { buildInvoiceExcelFilename } from "@/lib/invoices/excel-export";
 import {
   invoiceStatusLabel,
   type InvoiceListItem,
@@ -255,6 +258,15 @@ function InvoiceTable({
       isFetching={isFetching}
       isLoading={isLoading}
       onRetry={onRetry}
+      renderToolbarEnd={({ columnFilters, globalFilter, rows }) => (
+        <InvoiceExcelExportAction
+          invoices={rows}
+          isTableUnavailable={isLoading || Boolean(errorMessage)}
+          paymentStatus={readPaymentStatusFilter(columnFilters)}
+          periodKey={activePeriodKey}
+          searchText={globalFilter}
+        />
+      )}
       searchPlaceholder="Tìm mã hóa đơn hoặc phòng..."
       statusFilter={{
         columnId: "status",
@@ -284,6 +296,69 @@ function InvoiceTable({
         </div>
       }
     />
+  );
+}
+
+function InvoiceExcelExportAction({
+  invoices,
+  isTableUnavailable,
+  paymentStatus,
+  periodKey,
+  searchText,
+}: {
+  invoices: InvoiceListItem[];
+  isTableUnavailable: boolean;
+  paymentStatus: InvoicePaymentStatus | null;
+  periodKey: string;
+  searchText: string;
+}) {
+  const exportMutation = useMutation<
+    void,
+    Error,
+    { filename: string; invoices: InvoiceListItem[] }
+  >({
+    mutationFn: downloadInvoiceExcel,
+    onSuccess: (_result, request) => {
+      toast.success(`Đã xuất ${request.invoices.length} hóa đơn ra Excel.`);
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Không thể xuất danh sách hóa đơn ra Excel.",
+      );
+    },
+  });
+  const hasNoMatchingRows = invoices.length === 0;
+  const disabled =
+    hasNoMatchingRows || isTableUnavailable || exportMutation.isPending;
+  const unavailableReason = hasNoMatchingRows
+    ? "Không có hóa đơn phù hợp với bộ lọc hiện tại để xuất."
+    : isTableUnavailable
+      ? "Dữ liệu hóa đơn chưa sẵn sàng để xuất."
+      : undefined;
+
+  return (
+    <span title={unavailableReason}>
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        disabled={disabled}
+        onClick={() =>
+          exportMutation.mutate({
+            filename: buildInvoiceExcelFilename({
+              periodKey,
+              paymentStatus,
+              searchText,
+            }),
+            invoices,
+          })
+        }
+      >
+        {exportMutation.isPending ? "Đang xuất..." : "Xuất Excel"}
+      </Button>
+    </span>
   );
 }
 
@@ -554,6 +629,16 @@ function parseMoneyInput(value: string) {
   }
 
   return Math.round(parsed * 100) / 100;
+}
+
+function readPaymentStatusFilter(
+  columnFilters: Array<{ id: string; value: unknown }>,
+): InvoicePaymentStatus | null {
+  const value = columnFilters.find((filter) => filter.id === "status")?.value;
+
+  return paymentStatusOptions.some((option) => option.value === value)
+    ? (value as InvoicePaymentStatus)
+    : null;
 }
 
 function buildPeriodOptions({

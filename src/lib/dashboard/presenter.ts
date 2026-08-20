@@ -11,6 +11,11 @@ import {
   type RoomListItem,
   type RoomUiStatus,
 } from "@/lib/rooms/presenter";
+import {
+  getDashboardRevenueRangeDetails,
+  normalizeDashboardRevenueRange,
+  type DashboardRevenueRange,
+} from "./revenue-range";
 
 export type DashboardRevenuePoint = {
   period: string;
@@ -26,6 +31,8 @@ export type DashboardRevenueView = {
   collectedRevenue: number;
   outstandingDebt: number;
   invoiceCount: number;
+  chartRange: DashboardRevenueRange;
+  chartInvoiceCount: number;
   chart: DashboardRevenuePoint[];
 };
 
@@ -80,13 +87,21 @@ export type DashboardUnpaidInvoice = {
 export function buildDashboardRevenue({
   invoices,
   billingPeriod,
+  chartRange,
 }: {
   invoices: InvoiceRecord[];
   billingPeriod: BillingPeriod;
+  chartRange?: unknown;
 }): DashboardRevenueView {
   const currentInvoices = invoices.filter((invoice) =>
     isSamePeriod(invoice, billingPeriod),
   );
+  const normalizedChartRange = normalizeDashboardRevenueRange(chartRange);
+  const revenueTrend = buildRevenueTrend({
+    invoices,
+    billingPeriod,
+    chartRange: normalizedChartRange,
+  });
 
   return {
     billingPeriod,
@@ -100,7 +115,9 @@ export function buildDashboardRevenue({
       0,
     ),
     invoiceCount: currentInvoices.length,
-    chart: buildRevenueTrend({ invoices, billingPeriod }),
+    chartRange: normalizedChartRange,
+    chartInvoiceCount: revenueTrend.invoiceCount,
+    chart: revenueTrend.points,
   };
 }
 
@@ -310,14 +327,40 @@ function toDashboardRoomStatusItem(room: RoomListItem): DashboardRoomStatusItem 
 function buildRevenueTrend({
   invoices,
   billingPeriod,
+  chartRange,
 }: {
   invoices: InvoiceRecord[];
   billingPeriod: BillingPeriod;
+  chartRange: DashboardRevenueRange;
 }) {
-  return getRecentBillingPeriods({ billingPeriod, count: 6 }).map((period) => {
-    const periodInvoices = invoices.filter((invoice) =>
-      isSamePeriod(invoice, period),
-    );
+  const invoicesByPeriod = new Map<number, InvoiceRecord[]>();
+
+  for (const invoice of invoices) {
+    const period = toInvoiceBillingPeriod(invoice);
+
+    if (!period || compareBillingPeriods(period, billingPeriod) > 0) {
+      continue;
+    }
+
+    const periodIndex = toBillingPeriodIndex(period);
+    const periodInvoices = invoicesByPeriod.get(periodIndex) ?? [];
+    periodInvoices.push(invoice);
+    invoicesByPeriod.set(periodIndex, periodInvoices);
+  }
+
+  const rangeDetails = getDashboardRevenueRangeDetails(chartRange);
+  const periods =
+    rangeDetails.monthCount === null
+      ? getAllInvoiceBillingPeriods({ invoicesByPeriod, billingPeriod })
+      : getRecentBillingPeriods({
+          billingPeriod,
+          count: rangeDetails.monthCount,
+        });
+  let invoiceCount = 0;
+  const points = periods.map((period) => {
+    const periodInvoices =
+      invoicesByPeriod.get(toBillingPeriodIndex(period)) ?? [];
+    invoiceCount += periodInvoices.length;
 
     return {
       period: formatBillingPeriod(period),
@@ -326,6 +369,8 @@ function buildRevenueTrend({
       collected: sumMoney(periodInvoices, "amount_paid"),
     };
   });
+
+  return { invoiceCount, points };
 }
 
 function getRecentBillingPeriods({
@@ -345,6 +390,73 @@ function getRecentBillingPeriods({
       year: date.getUTCFullYear(),
     };
   });
+}
+
+function getAllInvoiceBillingPeriods({
+  invoicesByPeriod,
+  billingPeriod,
+}: {
+  invoicesByPeriod: Map<number, InvoiceRecord[]>;
+  billingPeriod: BillingPeriod;
+}) {
+  let earliestPeriodIndex: number | null = null;
+
+  for (const periodIndex of invoicesByPeriod.keys()) {
+    if (earliestPeriodIndex === null || periodIndex < earliestPeriodIndex) {
+      earliestPeriodIndex = periodIndex;
+    }
+  }
+
+  if (earliestPeriodIndex === null) {
+    return [];
+  }
+
+  return getBillingPeriodsBetween({
+    startPeriodIndex: earliestPeriodIndex,
+    endPeriodIndex: toBillingPeriodIndex(billingPeriod),
+  });
+}
+
+function getBillingPeriodsBetween({
+  startPeriodIndex,
+  endPeriodIndex,
+}: {
+  startPeriodIndex: number;
+  endPeriodIndex: number;
+}) {
+  return Array.from(
+    { length: endPeriodIndex - startPeriodIndex + 1 },
+    (_, offset) => fromBillingPeriodIndex(startPeriodIndex + offset),
+  );
+}
+
+function toInvoiceBillingPeriod(invoice: InvoiceRecord): BillingPeriod | null {
+  const month = Number(invoice.month);
+  const year = Number(invoice.year);
+
+  return Number.isInteger(month) &&
+    month >= 1 &&
+    month <= 12 &&
+    Number.isInteger(year) &&
+    year >= 2000 &&
+    year <= 2100
+    ? { month, year }
+    : null;
+}
+
+function toBillingPeriodIndex({ month, year }: BillingPeriod) {
+  return year * 12 + month - 1;
+}
+
+function fromBillingPeriodIndex(periodIndex: number): BillingPeriod {
+  return {
+    month: (periodIndex % 12) + 1,
+    year: Math.floor(periodIndex / 12),
+  };
+}
+
+function compareBillingPeriods(left: BillingPeriod, right: BillingPeriod) {
+  return toBillingPeriodIndex(left) - toBillingPeriodIndex(right);
 }
 
 function isSamePeriod(

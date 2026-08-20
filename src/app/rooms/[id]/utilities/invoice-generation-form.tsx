@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { generateMonthlyInvoice } from "./actions";
 import { initialInvoiceGenerationActionState } from "./invoice-generation-state";
+import { InvoicePdfExportButton } from "./invoice-pdf-export-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -162,6 +163,12 @@ export function InvoiceGenerationForm({ view }: { view: UtilityMetricsView }) {
               Cần lưu chỉ số Điện - Nước và đã có Hợp đồng trước khi tạo hoá đơn.
             </p>
           )}
+
+          <InvoicePdfExportButton
+            roomId={view.room.id}
+            billingPeriod={view.billingPeriod}
+            hasInvoice={Boolean(view.invoice)}
+          />
 
           {state.message && (
             <p

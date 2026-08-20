@@ -1,4 +1,7 @@
-import { getDashboardBillingPeriodFromRequest } from "@/lib/dashboard/api";
+import {
+  getDashboardBillingPeriodFromRequest,
+  getDashboardRevenueRangeFromRequest,
+} from "@/lib/dashboard/api";
 import { getDashboardRevenueForOperations } from "@/lib/dashboard/service";
 import { createInsForgeDashboardRepository } from "@/lib/insforge/dashboard-repository";
 import { withOperationalAuth } from "@/lib/server/operational-route";
@@ -9,9 +12,14 @@ export const GET = withOperationalAuth(
   { operation: "dashboard.revenue" },
   async ({ timer }, request: Request) => {
     const billingPeriod = getDashboardBillingPeriodFromRequest(request);
+    const chartRange = getDashboardRevenueRangeFromRequest(request);
     const repository = createInsForgeDashboardRepository({ timer });
     return timer.measure("service", () =>
-      getDashboardRevenueForOperations({ repository, billingPeriod }),
+      getDashboardRevenueForOperations({
+        repository,
+        billingPeriod,
+        chartRange,
+      }),
     );
   },
 );

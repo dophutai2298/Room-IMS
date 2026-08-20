@@ -63,17 +63,27 @@ function RevenueTooltip({
   );
 }
 
-export function RevenueChart({ data }: { data: DashboardRevenuePoint[] }) {
+export function RevenueChart({
+  data,
+  title,
+  description,
+}: {
+  data: DashboardRevenuePoint[];
+  title: string;
+  description: string;
+}) {
   return (
     <div
       className="h-72 w-full sm:h-80"
       role="img"
-      aria-label="Biểu đồ doanh thu đã lập hóa đơn và đã thu trong sáu tháng gần nhất"
+      aria-label={`${title}. ${description}`}
     >
       <ResponsiveContainer width="100%" height="100%" debounce={120}>
         <AreaChart
           accessibilityLayer
           data={data}
+          title={title}
+          desc={description}
           margin={{ top: 16, right: 8, bottom: 0, left: -12 }}
         >
           <defs>

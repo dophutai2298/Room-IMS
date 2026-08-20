@@ -22,6 +22,8 @@ const authenticatedRevenueApiSmoke = {
     collectedRevenue: 3_020_000,
     outstandingDebt: 3_020_000,
     invoiceCount: 2,
+    chartRange: "6m",
+    chartInvoiceCount: 2,
     chart: [
       { period: "03/2026", billingPeriod: { month: 3, year: 2026 }, billed: 0, collected: 0 },
       { period: "04/2026", billingPeriod: { month: 4, year: 2026 }, billed: 0, collected: 0 },

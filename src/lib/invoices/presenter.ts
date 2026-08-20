@@ -28,6 +28,10 @@ export const invoiceStatusLabel: Record<InvoicePaymentStatus, string> = {
   Paid: "Đã thanh toán",
 };
 
+export function buildInvoiceCode(invoice: Pick<InvoiceRecord, "id" | "month" | "year">) {
+  return `INV-${String(invoice.year).slice(-2)}${String(invoice.month).padStart(2, "0")}-${invoice.id.slice(0, 8).toUpperCase()}`;
+}
+
 export function buildInvoiceList({
   invoices,
   rooms,
@@ -45,7 +49,7 @@ export function buildInvoiceList({
 
       return {
         id: invoice.id,
-        shortId: `INV-${String(invoice.year).slice(-2)}${String(invoice.month).padStart(2, "0")}-${invoice.id.slice(0, 8).toUpperCase()}`,
+        shortId: buildInvoiceCode(invoice),
         roomId: invoice.room_id,
         roomName: room?.name ?? "Unknown room",
         billingPeriod: {
