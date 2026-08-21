@@ -138,7 +138,7 @@ export function TenantsDirectoryClient() {
 
   return (
     <>
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-7">
         <div>
           <p className="text-sm font-semibold text-primary">Quản lý Người thuê</p>
           <h1 className="mt-2 text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
@@ -148,7 +148,7 @@ export function TenantsDirectoryClient() {
         <TenantEditorDialog
           mode="create"
           rooms={roomOptions}
-          triggerLabel="Thêm Tenant"
+          triggerLabel="Thêm người thuê mới"
         />
       </header>
 
@@ -176,7 +176,7 @@ export function TenantsDirectoryClient() {
             { value: "Moved Out", label: tenantStatusLabel["Moved Out"] },
           ],
         }}
-        title="Danh sách Tenant"
+        // title="Danh sách"
       />
     </>
   );

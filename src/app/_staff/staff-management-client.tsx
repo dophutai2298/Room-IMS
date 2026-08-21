@@ -163,7 +163,7 @@ export function StaffManagementClient() {
           ],
         }}
         searchPlaceholder="Tìm Nhân viên hoặc email..."
-        title="Danh sách Nhân viên"
+        // title="Danh sách Nhân viên"
       />
     </>
   );

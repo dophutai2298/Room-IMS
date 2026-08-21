@@ -13,9 +13,10 @@ export default function InvoicesPage() {
             Hóa đơn & Thu tiền
           </h1>
           {/* <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+           
           </p> */}
         </div>
-        <Button asChild variant="secondary">
+        <Button variant="default">
           <Link href="/rooms">Chọn phòng để tạo hóa đơn</Link>
         </Button>
       </header>
