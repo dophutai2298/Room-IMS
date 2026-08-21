@@ -1,7 +1,12 @@
 import "server-only";
 
 import type { ApiTimer } from "@/lib/api/timing";
-import { buildInvoiceList, type InvoiceListItem } from "@/lib/invoices/presenter";
+import {
+  buildInvoiceList,
+  buildInvoiceListFromJoinedRows,
+  type InvoiceListItem,
+  type InvoiceListJoinedRow,
+} from "@/lib/invoices/presenter";
 import type {
   InvoiceRepository,
   InvoicePaymentTarget,
@@ -25,7 +30,7 @@ export function createInsForgeInvoiceRepository({
 } = {}): InvoiceRepository {
   let clientPromise: Promise<InsForgeServerClient> | null = null;
   const getClient = () => {
-    clientPromise ??= createInsForgeServerClient();
+    clientPromise ??= createInsForgeServerClient({ timer });
     return clientPromise;
   };
 
@@ -61,26 +66,22 @@ async function readInvoiceItemsFromInsForge({
 }): Promise<AppResult<InvoiceListItem[]>> {
   try {
     const client = await getClient();
-    const [rooms, invoices] = await Promise.all([
-      client.database.from("rooms").select("id, name").order("name"),
-      client.database
-        .from("invoices")
-        .select(invoiceListSelect)
-        .order("year")
-        .order("month"),
-    ]);
+    const response = await client.database
+      .from("invoices")
+      .select(
+        `${invoiceListSelect}, room:rooms!invoices_room_id_fkey(name)`,
+      )
+      .order("year")
+      .order("month");
 
-    for (const response of [rooms, invoices]) {
-      if (response.error) {
-        return fail(response.error);
-      }
+    if (response.error) {
+      return fail(response.error);
     }
 
     return ok(
-      buildInvoiceList({
-        rooms: (rooms.data ?? []) as RoomRecord[],
-        invoices: (invoices.data ?? []) as unknown as InvoiceRecord[],
-      }),
+      buildInvoiceListFromJoinedRows(
+        (response.data ?? []) as unknown as InvoiceListJoinedRow[],
+      ),
     );
   } catch (error) {
     return { data: null, error: toAppBackendError(error) };

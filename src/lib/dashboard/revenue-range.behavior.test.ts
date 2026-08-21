@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   DEFAULT_DASHBOARD_REVENUE_RANGE,
+  getDashboardRevenuePeriodBounds,
+  getDashboardRevenueQuerySegments,
   normalizeDashboardRevenueRange,
 } from "./revenue-range";
 import { getDashboardRevenueRangeFromRequest } from "./api";
@@ -32,6 +34,12 @@ test("dashboard revenue range normalizes supported values and safely falls back 
 });
 
 test("dashboard revenue range keeps separate React Query cache keys", () => {
+  assert.deepEqual(dashboardQueryKeys.operationsSummary(billingPeriod), [
+    "dashboard",
+    "operations-summary",
+    2026,
+    8,
+  ]);
   assert.notDeepEqual(
     dashboardQueryKeys.revenue(billingPeriod, "3m"),
     dashboardQueryKeys.revenue(billingPeriod, "6m"),
@@ -40,6 +48,28 @@ test("dashboard revenue range keeps separate React Query cache keys", () => {
     dashboardQueryKeys.revenue(billingPeriod),
     dashboardQueryKeys.revenue(billingPeriod, "6m"),
   );
+});
+
+test("fixed Dashboard revenue ranges expose exact query bounds while all remains unbounded", () => {
+  assert.deepEqual(getDashboardRevenuePeriodBounds(billingPeriod, "3m"), {
+    start: { month: 6, year: 2026 },
+    end: billingPeriod,
+  });
+  assert.deepEqual(getDashboardRevenuePeriodBounds(billingPeriod, "1y"), {
+    start: { month: 9, year: 2025 },
+    end: billingPeriod,
+  });
+  assert.equal(getDashboardRevenuePeriodBounds(billingPeriod, "all"), null);
+  assert.deepEqual(getDashboardRevenueQuerySegments(billingPeriod, "1y"), [
+    { year: 2025, startMonth: 9, endMonth: 12 },
+    { year: 2026, startMonth: 1, endMonth: 8 },
+  ]);
+  assert.deepEqual(getDashboardRevenueQuerySegments(billingPeriod, "2y"), [
+    { year: 2024, startMonth: 9, endMonth: 12 },
+    { year: 2025, startMonth: 1, endMonth: 12 },
+    { year: 2026, startMonth: 1, endMonth: 8 },
+  ]);
+  assert.equal(getDashboardRevenueQuerySegments(billingPeriod, "all"), null);
 });
 
 test("all dashboard revenue range retains a no-data state when no invoice history exists", () => {

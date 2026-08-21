@@ -41,6 +41,7 @@ test("performance summary reports status, sample count, and latency distribution
     samples: 5,
     p50PayloadBytes: 1000,
     largestSpan: "n/a",
+    slowestSample: "client:500ms; server:n/a",
   });
 });
 
@@ -119,6 +120,7 @@ function reportWithSummary(
         coldMs: 1400,
         p50PayloadBytes: 1000,
         largestSpan: "auth.session:800ms",
+        slowestSample: "client:800ms; server:n/a",
         ...values,
       },
     ],

@@ -1,12 +1,14 @@
 import type { ApiResponse } from "@/lib/api/response";
 import type {
   DashboardMissingUtilityMetricsView,
+  DashboardOperationsSummaryView,
   DashboardRevenueView,
   DashboardUnpaidInvoicesView,
 } from "./presenter";
 
 export function getAuthenticatedDashboardApiSmokeResponses() {
   return {
+    operationsSummary: authenticatedOperationsSummaryApiSmoke,
     revenue: authenticatedRevenueApiSmoke,
     missingUtilityMetrics: authenticatedMissingUtilityMetricsApiSmoke,
     unpaidInvoices: authenticatedUnpaidInvoicesApiSmoke,
@@ -104,3 +106,26 @@ const authenticatedUnpaidInvoicesApiSmoke = {
     },
   },
 } satisfies ApiResponse<DashboardUnpaidInvoicesView>;
+
+const authenticatedOperationsSummaryApiSmoke = {
+  ok: true,
+  data: {
+    revenue: authenticatedRevenueApiSmoke.data,
+    missingUtilityMetrics: authenticatedMissingUtilityMetricsApiSmoke.data,
+    unpaidInvoices: authenticatedUnpaidInvoicesApiSmoke.data,
+  },
+  meta: {
+    timing: {
+      operation: "dashboard.operations-summary",
+      totalMs: 1,
+      spans: [
+        { name: "auth", durationMs: 1 },
+        { name: "service", durationMs: 1 },
+        {
+          name: "repository.insforge.dashboard-operations-summary",
+          durationMs: 1,
+        },
+      ],
+    },
+  },
+} satisfies ApiResponse<DashboardOperationsSummaryView>;
