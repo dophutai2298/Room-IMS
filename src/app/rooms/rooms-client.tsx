@@ -154,10 +154,10 @@ export function RoomsClient() {
           <h1 className="mt-2 text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
             Danh sách phòng trọ
           </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+          {/* <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
             Rooms được tải qua API nội bộ đã xác thực. Trạng thái phòng vẫn được
             tính từ active Contract, trừ khi phòng đang bảo trì.
-          </p>
+          </p> */}
         </div>
         <RoomEditorDialog mode="create" />
       </header>
@@ -184,7 +184,7 @@ export function RoomsClient() {
             { value: "maintenance", label: roomStatusLabel.maintenance },
           ],
         }}
-        title="Danh sách phòng"
+        // title="Danh sách phòng"
       />
     </>
   );

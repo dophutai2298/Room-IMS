@@ -112,12 +112,13 @@ export function DashboardClient({
       <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-semibold text-primary">{periodLabel}</p>
             <span className="size-1 rounded-full bg-muted-foreground/50" />
-            <p className="text-sm text-muted-foreground">Hệ thống quản lý phòng trọ Xin chào</p>
+            <p className="text-sm font-semibold text-primary">{periodLabel}</p>
+            {/* <p className="text-sm text-muted-foreground">Hệ thống quản lý phòng trọ </p> */}
           </div>
           <h1 className="mt-3 max-w-3xl text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
-            Mọi việc bạn cần quản lý, gom lại vào một hệ thống.
+            {/* Mọi việc bạn cần quản lý, gom lại vào một hệ thống. */}
+            Hệ thống quản lý phòng trọ
           </h1>
           <p className="mt-3 max-w-2xl text-pretty text-sm leading-6 text-muted-foreground sm:text-base">
             Dashboard tự đọc hóa đơn, chỉ số điện nước và trạng thái phòng
@@ -128,7 +129,7 @@ export function DashboardClient({
           <Button asChild variant="secondary">
             <Link href="/invoices">Hóa đơn</Link>
           </Button>
-          <Button asChild>
+          <Button variant="default">
             <Link href="/rooms">Quản lý phòng</Link>
           </Button>
         </div>
@@ -432,18 +433,18 @@ function MissingMetricsSection({
           data.rooms.map((room) => (
             <div
               key={room.id}
-              className="rounded-2xl border border-white/15 bg-white/10 p-4 shadow-[inset_0_1px_0_rgb(255_255_255_/_0.12)]"
+              className="rounded-2xl border border-white/15 bg-white/30 p-4 shadow-[inset_0_1px_0_rgb(255_255_255_/_0.12)]"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold">{room.name}</p>
-                  <p className="mt-1 text-sm text-primary-foreground/70">
+                  <p className="mt-1 text-sm font-semibold text-primary-foreground/70">
                     {room.keyTenantName ?? "Chưa có Key Tenant"}
                   </p>
                 </div>
                 <span aria-hidden="true" className="text-xl">↗</span>
               </div>
-              <Button asChild size="sm" variant="secondary" className="mt-4 w-full">
+              <Button variant="default" className="mt-4 w-full">
                 <Link href={`/rooms/${room.id}/utilities`}>Nhập chỉ số</Link>
               </Button>
             </div>

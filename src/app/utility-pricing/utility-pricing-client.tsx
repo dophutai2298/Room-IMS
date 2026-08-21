@@ -126,9 +126,9 @@ export function UtilityPricingClient() {
             Bảng giá điện nước
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Quản lý timeline giá điện/nước toàn nhà. Hóa đơn vẫn ưu tiên giá
-            override trong Contract; nếu không có override thì dùng bảng giá
-            phù hợp với kỳ thu.
+            Quản lý giá điện/nước theo thời gian. Hóa đơn vẫn ưu tiên giá
+            cụ thể trong Hợp đồng; nếu không có giá cụ thể riêng cho từng phòng thì dùng bảng giá chung
+            phù hợp này với kỳ thu.
           </p>
         </div>
       </header>
@@ -239,7 +239,7 @@ function CreatePricingCard() {
       <CardHeader>
         <CardTitle>Thêm bảng giá mới</CardTitle>
         <CardDescription>
-          Dòng mới sẽ được đánh dấu đang áp dụng; các dòng active cũ chuyển về
+          Dòng mới sẽ được đánh dấu đang áp dụng; các dòng đang hoạt động cũ chuyển về
           lịch sử để không mất dữ liệu kỳ trước.
         </CardDescription>
       </CardHeader>
