@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildDashboardOperationsSummaryFromCompactRows,
   buildDashboardMissingUtilityMetricsFromCompactRows,
   buildDashboardMissingUtilityMetricsFromItems,
 } from "./presenter";
@@ -11,6 +12,7 @@ import type {
   RoomRecord,
   TenantRecord,
   UtilityMetricRecord,
+  InvoiceRecord,
 } from "@/lib/insforge/types";
 
 const billingPeriod = { month: 8, year: 2026 };
@@ -84,6 +86,60 @@ test("compact Dashboard missing Utility Metrics rows preserve Room-list semantic
   ]);
 });
 
+test("Dashboard operations summary reuses one compact dataset for current-period operations", () => {
+  const rooms: RoomRecord[] = [
+    createRoom({ id: "room-1", name: "A101", status: "Occupied", base_price: 2_500_000 }),
+    createRoom({ id: "room-2", name: "A102", status: "Occupied", base_price: 2_700_000 }),
+  ];
+  const tenants: TenantRecord[] = [
+    createTenant({ id: "tenant-1", room_id: "room-1", full_name: "Nguyen Van A" }),
+    createTenant({ id: "tenant-2", room_id: "room-2", full_name: "Tran Thi B" }),
+  ];
+  const activeContracts: ContractRecord[] = [
+    createContract({
+      id: "contract-1",
+      room_id: "room-1",
+      key_tenant_id: "tenant-1",
+      rent_amount: 2_600_000,
+    }),
+    createContract({
+      id: "contract-2",
+      room_id: "room-2",
+      key_tenant_id: "tenant-2",
+      rent_amount: 2_800_000,
+    }),
+  ];
+  const metrics = [
+    createMetric({ id: "metric-2", room_id: "room-2", month: 8, year: 2026 }),
+  ];
+  const invoices = [
+    createInvoice({
+      id: "invoice-1",
+      room_id: "room-1",
+      total_amount: 3_000_000,
+      amount_paid: 1_000_000,
+      status: "Partially Paid",
+    }),
+  ];
+
+  const summary = buildDashboardOperationsSummaryFromCompactRows({
+    rooms,
+    tenants,
+    activeContracts,
+    metrics,
+    invoices,
+    billingPeriod,
+  });
+
+  assert.equal(summary.revenue.billedRevenue, 3_000_000);
+  assert.equal(summary.revenue.collectedRevenue, 1_000_000);
+  assert.deepEqual(summary.missingUtilityMetrics.rooms.map((room) => room.id), [
+    "room-1",
+  ]);
+  assert.equal(summary.unpaidInvoices.totalBalanceDue, 2_000_000);
+  assert.equal(summary.unpaidInvoices.invoices[0]?.roomName, "A101");
+});
+
 function createRoom(input: {
   id: string;
   name: string;
@@ -139,5 +195,23 @@ function createMetric(input: {
     electricity_new: 120,
     water_old: 10,
     water_new: 12,
+  };
+}
+
+function createInvoice(overrides: Partial<InvoiceRecord>): InvoiceRecord {
+  return {
+    id: "invoice-1",
+    room_id: "room-1",
+    month: 8,
+    year: 2026,
+    room_fee: 0,
+    electricity_fee: 0,
+    water_fee: 0,
+    other_fee: 0,
+    other_fee_note: null,
+    total_amount: 0,
+    amount_paid: 0,
+    status: "Unpaid",
+    ...overrides,
   };
 }

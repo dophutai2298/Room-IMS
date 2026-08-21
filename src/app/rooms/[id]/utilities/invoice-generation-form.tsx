@@ -1,12 +1,9 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
-import { useFormStatus } from "react-dom";
-import { useQueryClient } from "@tanstack/react-query";
+import { useState, type FormEvent } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { generateMonthlyInvoice } from "./actions";
-import { initialInvoiceGenerationActionState } from "./invoice-generation-state";
 import { InvoicePdfExportButton } from "./invoice-pdf-export-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,8 +17,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { AppApiClientError, fetchAppApi } from "@/lib/api/client";
 import { formatCurrency } from "@/lib/formatters";
 import { dashboardQueryKeys } from "@/lib/dashboard/query-keys";
+import type { InvoiceRecord } from "@/lib/insforge/types";
 import type { UtilityMetricsView } from "@/lib/utilities/presenter";
 import { invoiceStatusLabel } from "@/lib/invoices/presenter";
 import { invoiceQueryKeys } from "@/lib/invoices/query-keys";
@@ -30,24 +29,35 @@ import { utilityMetricsQueryKeys } from "@/lib/utilities/query-keys";
 
 export function InvoiceGenerationForm({ view }: { view: UtilityMetricsView }) {
   const queryClient = useQueryClient();
-  const [state, formAction] = useActionState(
-    generateMonthlyInvoice,
-    initialInvoiceGenerationActionState,
+  const [otherFee, setOtherFee] = useState(String(view.invoice?.otherFee ?? 0));
+  const [otherFeeNote, setOtherFeeNote] = useState(
+    view.invoice?.otherFeeNote ?? "",
   );
+  const [message, setMessage] = useState<{
+    status: "success" | "error";
+    text: string;
+  } | null>(null);
   const canGenerate = Boolean(view.persistedMetricId && view.activeContractId);
-  const defaultOtherFee =
-    state.fields.otherFee || String(view.invoice?.otherFee ?? 0);
-  const defaultOtherFeeNote =
-    state.fields.otherFeeNote ?? view.invoice?.otherFeeNote ?? "";
+  const generateMutation = useMutation({
+    mutationFn: () =>
+      fetchAppApi<InvoiceRecord>(`/api/rooms/${view.room.id}/invoices`, {
+        method: "POST",
+        cache: "no-store",
+        body: JSON.stringify({
+          month: view.billingPeriod.month,
+          year: view.billingPeriod.year,
+          otherFee,
+          otherFeeNote,
+        }),
+      }),
+    onSuccess: async (invoice) => {
+      setOtherFee(String(invoice.other_fee));
+      setOtherFeeNote(invoice.other_fee_note ?? "");
+      const successMessage = `Đã tạo/cập nhật hóa đơn kỳ ${view.periodLabel}.`;
+      setMessage({ status: "success", text: successMessage });
+      toast.success(successMessage);
 
-  useEffect(() => {
-    if (!state.message) {
-      return;
-    }
-
-    if (state.status === "success") {
-      toast.success(state.message);
-      void Promise.all([
+      await Promise.all([
         queryClient.invalidateQueries({
           queryKey: utilityMetricsQueryKeys.room(view.room.id),
         }),
@@ -61,13 +71,38 @@ export function InvoiceGenerationForm({ view }: { view: UtilityMetricsView }) {
           queryKey: dashboardQueryKeys.all,
         }),
       ]);
+    },
+    onError: (error) => {
+      const text =
+        error instanceof Error
+          ? error.message
+          : "Không tạo/cập nhật được hóa đơn.";
+      setMessage({ status: "error", text });
+      toast.error(text);
+    },
+  });
+  const fieldErrors = getInvoiceGenerationFieldErrors(generateMutation.error);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!canGenerate || generateMutation.isPending) {
       return;
     }
 
-    if (state.status === "error") {
-      toast.error(state.message);
+    setMessage(null);
+    generateMutation.mutate();
+  }
+
+  function clearServerFeedback() {
+    if (generateMutation.isError) {
+      generateMutation.reset();
     }
-  }, [queryClient, state.message, state.status, view.room.id]);
+
+    if (message?.status === "error") {
+      setMessage(null);
+    }
+  }
 
   return (
     <Card>
@@ -85,32 +120,32 @@ export function InvoiceGenerationForm({ view }: { view: UtilityMetricsView }) {
         </div>
       </CardHeader>
       <CardContent>
-        <form action={formAction} className="space-y-4">
-          <input type="hidden" name="roomId" value={view.room.id} />
-          <input type="hidden" name="month" value={view.billingPeriod.month} />
-          <input type="hidden" name="year" value={view.billingPeriod.year} />
+        <form onSubmit={handleSubmit} className="space-y-4">
 
           <div className="grid gap-2">
             <Label htmlFor="invoice-other-fee">Phí khác</Label>
             <Input
               id="invoice-other-fee"
-              name="otherFee"
               type="number"
               inputMode="decimal"
               min={0}
               step="1000"
-              defaultValue={defaultOtherFee}
-              aria-invalid={Boolean(state.fieldErrors.otherFee)}
-              disabled={!canGenerate}
+              value={otherFee}
+              aria-invalid={Boolean(fieldErrors.otherFee)}
+              disabled={!canGenerate || generateMutation.isPending}
+              onChange={(event) => {
+                clearServerFeedback();
+                setOtherFee(event.target.value);
+              }}
             />
             <p
               className={
-                state.fieldErrors.otherFee
+                fieldErrors.otherFee
                   ? "text-xs text-destructive"
                   : "text-xs text-muted-foreground"
               }
             >
-              {state.fieldErrors.otherFee ??
+              {fieldErrors.otherFee ??
                 "Mặc định 0 nếu kỳ này không có phụ thu."}
             </p>
           </div>
@@ -119,21 +154,24 @@ export function InvoiceGenerationForm({ view }: { view: UtilityMetricsView }) {
             <Label htmlFor="invoice-other-fee-note">Ghi chú phí khác</Label>
             <Textarea
               id="invoice-other-fee-note"
-              name="otherFeeNote"
-              defaultValue={defaultOtherFeeNote}
+              value={otherFeeNote}
               placeholder="Ví dụ: phụ thu vệ sinh, sửa khóa, gửi xe..."
-              aria-invalid={Boolean(state.fieldErrors.otherFeeNote)}
-              disabled={!canGenerate}
+              aria-invalid={Boolean(fieldErrors.otherFeeNote)}
+              disabled={!canGenerate || generateMutation.isPending}
               rows={3}
+              onChange={(event) => {
+                clearServerFeedback();
+                setOtherFeeNote(event.target.value);
+              }}
             />
             <p
               className={
-                state.fieldErrors.otherFeeNote
+                fieldErrors.otherFeeNote
                   ? "text-xs text-destructive"
                   : "text-xs text-muted-foreground"
               }
             >
-              {state.fieldErrors.otherFeeNote ??
+              {fieldErrors.otherFeeNote ??
                 "Bắt buộc khi phí khác lớn hơn 0 để hóa đơn có thể audit lại."}
             </p>
           </div>
@@ -170,20 +208,21 @@ export function InvoiceGenerationForm({ view }: { view: UtilityMetricsView }) {
             hasInvoice={Boolean(view.invoice)}
           />
 
-          {state.message && (
+          {message && (
             <p
               className={
-                state.status === "success"
+                message.status === "success"
                   ? "rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
                   : "rounded-2xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive"
               }
             >
-              {state.message}
+              {message.text}
             </p>
           )}
 
           <GenerateButton
             disabled={!canGenerate}
+            pending={generateMutation.isPending}
             label={view.invoice ? "Cập nhật hóa đơn" : "Tạo hoá đơn"}
           />
         </form>
@@ -194,18 +233,38 @@ export function InvoiceGenerationForm({ view }: { view: UtilityMetricsView }) {
 
 function GenerateButton({
   disabled,
+  pending,
   label,
 }: {
   disabled: boolean;
+  pending: boolean;
   label: string;
 }) {
-  const { pending } = useFormStatus();
-
   return (
     <Button type="submit" className="w-full" disabled={disabled || pending}>
       {pending ? "Dang tao..." : label}
     </Button>
   );
+}
+
+function getInvoiceGenerationFieldErrors(error: Error | null) {
+  if (!(error instanceof AppApiClientError)) {
+    return {} as Record<string, string>;
+  }
+
+  const details = error.details;
+
+  if (
+    typeof details !== "object" ||
+    details === null ||
+    !("fieldErrors" in details) ||
+    typeof details.fieldErrors !== "object" ||
+    details.fieldErrors === null
+  ) {
+    return {} as Record<string, string>;
+  }
+
+  return details.fieldErrors as Record<string, string>;
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {

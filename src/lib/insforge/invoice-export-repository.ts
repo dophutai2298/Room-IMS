@@ -34,7 +34,7 @@ export function createInsForgeInvoiceExportRepository({
 } = {}): InvoiceExportRepository {
   let clientPromise: Promise<InsForgeServerClient> | null = null;
   const getClient = () => {
-    clientPromise ??= createInsForgeServerClient();
+    clientPromise ??= createInsForgeServerClient({ timer });
     return clientPromise;
   };
 

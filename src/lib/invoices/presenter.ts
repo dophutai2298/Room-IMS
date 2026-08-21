@@ -22,6 +22,10 @@ export type InvoiceListItem = {
   status: InvoicePaymentStatus;
 };
 
+export type InvoiceListJoinedRow = InvoiceRecord & {
+  room: { name: string } | Array<{ name: string }> | null;
+};
+
 export const invoiceStatusLabel: Record<InvoicePaymentStatus, string> = {
   Unpaid: "Chưa thanh toán",
   "Partially Paid": "Thanh toán một phần",
@@ -37,42 +41,63 @@ export function buildInvoiceList({
   rooms,
 }: {
   invoices: InvoiceRecord[];
-  rooms: RoomRecord[];
+  rooms: Array<Pick<RoomRecord, "id" | "name">>;
 }): InvoiceListItem[] {
-  return invoices
-    .map((invoice) => {
-      const room = rooms.find((item) => item.id === invoice.room_id);
-      const electricityFee = toMoney(invoice.electricity_fee);
-      const waterFee = toMoney(invoice.water_fee);
-      const totalAmount = toMoney(invoice.total_amount);
-      const amountPaid = toMoney(invoice.amount_paid);
+  const roomNameById = new Map(rooms.map((room) => [room.id, room.name]));
 
-      return {
-        id: invoice.id,
-        shortId: buildInvoiceCode(invoice),
-        roomId: invoice.room_id,
-        roomName: room?.name ?? "Unknown room",
-        billingPeriod: {
-          month: toNumber(invoice.month),
-          year: toNumber(invoice.year),
-        },
-        periodLabel: formatBillingPeriod({
-          month: toNumber(invoice.month),
-          year: toNumber(invoice.year),
-        }),
-        roomFee: toMoney(invoice.room_fee),
-        electricityFee,
-        waterFee,
-        otherFee: toMoney(invoice.other_fee),
-        otherFeeNote: normalizeOptionalText(invoice.other_fee_note),
-        utilityFee: electricityFee + waterFee,
-        totalAmount,
-        amountPaid,
-        balanceDue: Math.max(totalAmount - amountPaid, 0),
-        status: invoice.status,
-      };
+  return invoices
+    .map((invoice) =>
+      buildInvoiceListItem(
+        invoice,
+        roomNameById.get(invoice.room_id) ?? "Unknown room",
+      ),
+    )
+    .sort(compareInvoiceListItems);
+}
+
+export function buildInvoiceListFromJoinedRows(
+  rows: InvoiceListJoinedRow[],
+): InvoiceListItem[] {
+  return rows
+    .map(({ room: joinedRoom, ...invoice }) => {
+      const room = Array.isArray(joinedRoom) ? joinedRoom[0] : joinedRoom;
+
+      return buildInvoiceListItem(invoice, room?.name ?? "Unknown room");
     })
     .sort(compareInvoiceListItems);
+}
+
+function buildInvoiceListItem(
+  invoice: InvoiceRecord,
+  roomName: string,
+): InvoiceListItem {
+  const electricityFee = toMoney(invoice.electricity_fee);
+  const waterFee = toMoney(invoice.water_fee);
+  const totalAmount = toMoney(invoice.total_amount);
+  const amountPaid = toMoney(invoice.amount_paid);
+  const billingPeriod = {
+    month: toNumber(invoice.month),
+    year: toNumber(invoice.year),
+  };
+
+  return {
+    id: invoice.id,
+    shortId: buildInvoiceCode(invoice),
+    roomId: invoice.room_id,
+    roomName,
+    billingPeriod,
+    periodLabel: formatBillingPeriod(billingPeriod),
+    roomFee: toMoney(invoice.room_fee),
+    electricityFee,
+    waterFee,
+    otherFee: toMoney(invoice.other_fee),
+    otherFeeNote: normalizeOptionalText(invoice.other_fee_note),
+    utilityFee: electricityFee + waterFee,
+    totalAmount,
+    amountPaid,
+    balanceDue: Math.max(totalAmount - amountPaid, 0),
+    status: invoice.status,
+  };
 }
 
 function compareInvoiceListItems(left: InvoiceListItem, right: InvoiceListItem) {

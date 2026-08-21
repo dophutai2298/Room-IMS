@@ -73,6 +73,12 @@ export type DashboardUnpaidInvoicesView = {
   invoices: DashboardUnpaidInvoice[];
 };
 
+export type DashboardOperationsSummaryView = {
+  revenue: DashboardRevenueView;
+  missingUtilityMetrics: DashboardMissingUtilityMetricsView;
+  unpaidInvoices: DashboardUnpaidInvoicesView;
+};
+
 export type DashboardUnpaidInvoice = {
   id: string;
   shortId: string;
@@ -273,13 +279,49 @@ export function buildDashboardMissingUtilityMetricsFromCompactRows({
   };
 }
 
+export function buildDashboardOperationsSummaryFromCompactRows({
+  rooms,
+  activeContracts,
+  tenants,
+  metrics,
+  invoices,
+  billingPeriod,
+}: {
+  rooms: DashboardMissingUtilityMetricsRoomInput[];
+  activeContracts: DashboardMissingUtilityMetricsContractInput[];
+  tenants: DashboardMissingUtilityMetricsTenantInput[];
+  metrics: UtilityMetricRecord[];
+  invoices: InvoiceRecord[];
+  billingPeriod: BillingPeriod;
+}): DashboardOperationsSummaryView {
+  return {
+    revenue: buildDashboardRevenue({
+      invoices,
+      billingPeriod,
+      chartRange: "6m",
+    }),
+    missingUtilityMetrics: buildDashboardMissingUtilityMetricsFromCompactRows({
+      rooms,
+      activeContracts,
+      tenants,
+      metrics,
+      billingPeriod,
+    }),
+    unpaidInvoices: buildDashboardUnpaidInvoices({
+      rooms,
+      invoices,
+      billingPeriod,
+    }),
+  };
+}
+
 export function buildDashboardUnpaidInvoices({
   invoices,
   rooms,
   billingPeriod,
 }: {
   invoices: InvoiceRecord[];
-  rooms: RoomRecord[];
+  rooms: Array<Pick<RoomRecord, "id" | "name">>;
   billingPeriod: BillingPeriod;
 }): DashboardUnpaidInvoicesView {
   const roomNameById = new Map(rooms.map((room) => [room.id, room.name]));

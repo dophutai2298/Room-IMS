@@ -28,7 +28,7 @@ export function createInsForgeFoundationRepository({
 } = {}): FoundationRepository {
   let clientPromise: Promise<InsForgeServerClient> | null = null;
   const getClient = () => {
-    clientPromise ??= createInsForgeServerClient();
+    clientPromise ??= createInsForgeServerClient({ timer });
     return clientPromise;
   };
 
@@ -57,20 +57,24 @@ async function readSeededDataFromInsForge(
     const client = await getClient();
     const [rooms, tenants, contracts, utilityMetrics, utilityPricing, invoices] =
       await Promise.all([
-        client.database.from("rooms").select("*").order("name"),
-        client.database.from("tenants").select("*").order("full_name"),
-        client.database.from("contracts").select("*").order("start_date"),
+        client.database.from("rooms").select(roomSelect).order("name"),
+        client.database.from("tenants").select(tenantSelect).order("full_name"),
+        client.database.from("contracts").select(contractSelect).order("start_date"),
         client.database
           .from("utility_metrics")
-          .select("*")
+          .select(utilityMetricSelect)
           .order("year")
           .order("month"),
         client.database
           .from("utility_pricing")
-          .select("*")
+          .select(utilityPricingSelect)
           .eq("is_active", true)
           .order("effective_from"),
-        client.database.from("invoices").select("*").order("year").order("month"),
+        client.database
+          .from("invoices")
+          .select(invoiceSelect)
+          .order("year")
+          .order("month"),
       ]);
 
     for (const response of [
@@ -87,12 +91,12 @@ async function readSeededDataFromInsForge(
     }
 
     return ok({
-      rooms: (rooms.data ?? []) as RoomRecord[],
-      tenants: (tenants.data ?? []) as TenantRecord[],
-      contracts: (contracts.data ?? []) as ContractRecord[],
-      utilityMetrics: (utilityMetrics.data ?? []) as UtilityMetricRecord[],
-      utilityPricing: (utilityPricing.data ?? []) as UtilityPricingRecord[],
-      invoices: (invoices.data ?? []) as InvoiceRecord[],
+      rooms: (rooms.data ?? []) as unknown as RoomRecord[],
+      tenants: (tenants.data ?? []) as unknown as TenantRecord[],
+      contracts: (contracts.data ?? []) as unknown as ContractRecord[],
+      utilityMetrics: (utilityMetrics.data ?? []) as unknown as UtilityMetricRecord[],
+      utilityPricing: (utilityPricing.data ?? []) as unknown as UtilityPricingRecord[],
+      invoices: (invoices.data ?? []) as unknown as InvoiceRecord[],
     });
   } catch (error) {
     return { data: null, error: toAppBackendError(error) };
@@ -112,7 +116,7 @@ async function touchRoomInInsForge({
       .from("rooms")
       .update({ updated_at: new Date().toISOString() })
       .eq("id", roomId)
-      .select()
+      .select(roomSelect)
       .limit(1)) as QueryResponse<RoomRecord[]>;
 
     if (response.error) {
@@ -132,3 +136,66 @@ async function touchRoomInInsForge({
     return { data: null, error: toAppBackendError(error) };
   }
 }
+
+const roomSelect = "id, name, status, base_price, created_at, updated_at";
+
+const tenantSelect = [
+  "id",
+  "room_id",
+  "full_name",
+  "phone",
+  "date_of_birth",
+  "permanent_address",
+  "cccd_number",
+  "is_key_tenant",
+  "cccd_front_url",
+  "cccd_back_url",
+  "status",
+].join(", ");
+
+const contractSelect = [
+  "id",
+  "room_id",
+  "key_tenant_id",
+  "deposit_amount",
+  "start_date",
+  "end_date",
+  "status",
+  "rent_amount",
+  "electricity_price_override",
+  "water_price_override",
+].join(", ");
+
+const utilityMetricSelect = [
+  "id",
+  "room_id",
+  "month",
+  "year",
+  "electricity_old",
+  "electricity_new",
+  "water_old",
+  "water_new",
+].join(", ");
+
+const utilityPricingSelect = [
+  "id",
+  "effective_from",
+  "electricity_unit_price",
+  "water_unit_price",
+  "is_active",
+].join(", ");
+
+const invoiceSelect = [
+  "id",
+  "room_id",
+  "month",
+  "year",
+  "room_fee",
+  "electricity_fee",
+  "water_fee",
+  "other_fee",
+  "other_fee_note",
+  "total_amount",
+  "amount_paid",
+  "status",
+].join(", ");

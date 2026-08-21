@@ -6,6 +6,7 @@ import { fetchAppApi, AppApiClientError } from "./client";
 import { createAppQueryClient } from "@/lib/query-client";
 import { getAuthenticatedDashboardApiSmokeResponses } from "@/lib/dashboard/api-contract-smoke";
 import {
+  getAuthenticatedInvoiceGenerationApiSmokeResponse,
   getAuthenticatedInvoiceListApiSmokeResponse,
   getRejectedInvoicePaymentApiSmokeResponses,
 } from "@/lib/invoices/api-contract-smoke";
@@ -15,8 +16,10 @@ import { getAuthenticatedUtilityMetricsApiSmokeResponses } from "@/lib/utilities
 
 test("representative API contracts retain success, error, and timing semantics", () => {
   const responses = [
+    getAuthenticatedInvoiceGenerationApiSmokeResponse(),
     getAuthenticatedInvoiceListApiSmokeResponse(),
     getAuthenticatedRoomApiSmokeResponses().detail,
+    getAuthenticatedDashboardApiSmokeResponses().operationsSummary,
     getAuthenticatedDashboardApiSmokeResponses().revenue,
     getAuthenticatedTenantApiSmokeResponses().directory,
     getAuthenticatedTenantApiSmokeResponses().detail,

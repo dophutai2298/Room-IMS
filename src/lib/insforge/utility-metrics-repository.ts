@@ -6,6 +6,7 @@ import {
   buildUtilityMetricsView,
   getUtilityMetricBaseline,
 } from "@/lib/utilities/presenter";
+import { getUtilityMetricReadPlan } from "@/lib/utilities/query-plan";
 import { appError, fail, ok, type AppResult, toAppBackendError } from "./errors";
 import { createInsForgeServerClient } from "./server";
 import type {
@@ -21,21 +22,32 @@ type QueryResponse<T> = {
   error: unknown;
 };
 
+type InsForgeServerClient = Awaited<
+  ReturnType<typeof createInsForgeServerClient>
+>;
+
 export function createInsForgeUtilityMetricsRepository({
   timer,
 }: {
   timer?: ApiTimer;
 } = {}): UtilityMetricsRepository {
+  let clientPromise: Promise<InsForgeServerClient> | null = null;
+  const getClient = () => {
+    clientPromise ??= createInsForgeServerClient({ timer });
+    return clientPromise;
+  };
+
   return {
     readUtilityMetricsScreen(input) {
-      const query = () => readUtilityMetricsScreenFromInsForge(input);
+      const query = () =>
+        readUtilityMetricsScreenFromInsForge({ ...input, getClient });
 
       return timer
         ? timer.measure("repository.insforge.utility-metrics-read", query)
         : query();
     },
     saveUtilityMetrics(input) {
-      const query = () => saveUtilityMetricsToInsForge(input);
+      const query = () => saveUtilityMetricsToInsForge({ ...input, getClient });
 
       return timer
         ? timer.measure("repository.insforge.utility-metrics-write", query)
@@ -47,9 +59,12 @@ export function createInsForgeUtilityMetricsRepository({
 async function readUtilityMetricsScreenFromInsForge({
   roomId,
   billingPeriod,
-}: Parameters<UtilityMetricsRepository["readUtilityMetricsScreen"]>[0]) {
+  getClient,
+}: Parameters<UtilityMetricsRepository["readUtilityMetricsScreen"]>[0] & {
+  getClient: () => Promise<InsForgeServerClient>;
+}) {
   try {
-    const client = await createInsForgeServerClient();
+    const client = await getClient();
     const [rooms, tenants, activeContracts, metrics, invoices] = await Promise.all([
       client.database
         .from("rooms")
@@ -58,7 +73,7 @@ async function readUtilityMetricsScreenFromInsForge({
         .limit(1),
       client.database
         .from("tenants")
-        .select("id, room_id, full_name, phone, is_key_tenant, status")
+        .select("id, full_name")
         .eq("room_id", roomId)
         .order("full_name"),
       client.database
@@ -80,44 +95,14 @@ async function readUtilityMetricsScreenFromInsForge({
         .eq("room_id", roomId)
         .eq("status", "Active")
         .order("start_date"),
-      client.database
-        .from("utility_metrics")
-        .select(
-          [
-            "id",
-            "room_id",
-            "month",
-            "year",
-            "electricity_old",
-            "electricity_new",
-            "water_old",
-            "water_new",
-          ].join(", "),
-        )
-        .eq("room_id", roomId)
-        .order("year")
-        .order("month"),
+      readRelevantUtilityMetrics({ client, roomId, billingPeriod }),
       client.database
         .from("invoices")
-        .select(
-          [
-            "id",
-            "room_id",
-            "month",
-            "year",
-            "room_fee",
-            "electricity_fee",
-            "water_fee",
-            "other_fee",
-            "other_fee_note",
-            "total_amount",
-            "amount_paid",
-            "status",
-          ].join(", "),
-        )
+        .select(invoiceSelect)
         .eq("room_id", roomId)
-        .order("year")
-        .order("month"),
+        .eq("month", billingPeriod.month)
+        .eq("year", billingPeriod.year)
+        .limit(1),
     ]);
 
     for (const response of [rooms, tenants, activeContracts, metrics, invoices]) {
@@ -159,31 +144,16 @@ async function saveUtilityMetricsToInsForge({
   billingPeriod,
   electricityNew,
   waterNew,
-}: Parameters<UtilityMetricsRepository["saveUtilityMetrics"]>[0]): Promise<
-  AppResult<UtilityMetricRecord>
-> {
+  getClient,
+}: Parameters<UtilityMetricsRepository["saveUtilityMetrics"]>[0] & {
+  getClient: () => Promise<InsForgeServerClient>;
+}): Promise<AppResult<UtilityMetricRecord>> {
   try {
-    const client = await createInsForgeServerClient();
+    const client = await getClient();
 
     const [rooms, metrics] = await Promise.all([
       client.database.from("rooms").select("id").eq("id", roomId).limit(1),
-      client.database
-        .from("utility_metrics")
-        .select(
-          [
-            "id",
-            "room_id",
-            "month",
-            "year",
-            "electricity_old",
-            "electricity_new",
-            "water_old",
-            "water_new",
-          ].join(", "),
-        )
-        .eq("room_id", roomId)
-        .order("year")
-        .order("month"),
+      readRelevantUtilityMetrics({ client, roomId, billingPeriod }),
     ]);
 
     for (const response of [rooms, metrics]) {
@@ -238,18 +208,16 @@ async function saveUtilityMetricsToInsForge({
       updated_at: new Date().toISOString(),
     };
 
-    const response = baseline.currentMetric
-      ? ((await client.database
-          .from("utility_metrics")
-          .update(values)
-          .eq("id", baseline.currentMetric.id)
-          .select()
-          .limit(1)) as QueryResponse<UtilityMetricRecord[]>)
-      : ((await client.database
-          .from("utility_metrics")
-          .insert(values)
-          .select()
-          .limit(1)) as QueryResponse<UtilityMetricRecord[]>);
+  const response = baseline.currentMetric
+    ? ((await client.database
+        .from("utility_metrics")
+        .update(values)
+        .eq("id", baseline.currentMetric.id)
+        .select(utilityMetricSelect)) as QueryResponse<UtilityMetricRecord[]>)
+    : ((await client.database
+        .from("utility_metrics")
+        .insert(values)
+        .select(utilityMetricSelect)) as QueryResponse<UtilityMetricRecord[]>);
 
     if (response.error) {
       if (!baseline.currentMetric) {
@@ -262,6 +230,7 @@ async function saveUtilityMetricsToInsForge({
 
         if (allowUpdateExisting) {
           const retryResult = await updateUtilityMetricAfterInsertRace({
+            client,
             roomId,
             billingPeriod,
             values,
@@ -319,10 +288,12 @@ function existingUtilityMetricsMutationForbidden() {
 }
 
 async function updateUtilityMetricAfterInsertRace({
+  client,
   roomId,
   billingPeriod,
   values,
 }: {
+  client: InsForgeServerClient;
   roomId: string;
   billingPeriod: { month: number; year: number };
   values: {
@@ -336,10 +307,9 @@ async function updateUtilityMetricAfterInsertRace({
     updated_at: string;
   };
 }): Promise<AppResult<UtilityMetricRecord>> {
-  const client = await createInsForgeServerClient();
   const existingResponse = (await client.database
     .from("utility_metrics")
-    .select("*")
+    .select(utilityMetricSelect)
     .eq("room_id", roomId)
     .eq("month", billingPeriod.month)
     .eq("year", billingPeriod.year)
@@ -363,7 +333,7 @@ async function updateUtilityMetricAfterInsertRace({
     .from("utility_metrics")
     .update(values)
     .eq("id", existingMetric.id)
-    .select()
+    .select(utilityMetricSelect)
     .limit(1)) as QueryResponse<UtilityMetricRecord[]>;
 
   if (updateResponse.error) {
@@ -384,3 +354,97 @@ async function updateUtilityMetricAfterInsertRace({
 
   return ok(updatedMetric);
 }
+
+async function readRelevantUtilityMetrics({
+  client,
+  roomId,
+  billingPeriod,
+}: {
+  client: InsForgeServerClient;
+  roomId: string;
+  billingPeriod: { month: number; year: number };
+}) {
+  const plan = getUtilityMetricReadPlan(billingPeriod);
+  const [current, earlierThisYear] = (await Promise.all([
+    client.database
+      .from("utility_metrics")
+      .select(utilityMetricSelect)
+      .eq("room_id", roomId)
+      .eq("year", plan.current.year)
+      .eq("month", plan.current.month)
+      .limit(1),
+    client.database
+      .from("utility_metrics")
+      .select(utilityMetricSelect)
+      .eq("room_id", roomId)
+      .eq("year", plan.earlierThisYear.year)
+      .lt("month", plan.earlierThisYear.beforeMonth)
+      .order("month", { ascending: false })
+      .limit(1),
+  ])) as QueryResponse<UtilityMetricRecord[]>[];
+  const failedResponse = [current, earlierThisYear].find(
+    (response) => response.error,
+  );
+
+  if (failedResponse) {
+    return { data: null, error: failedResponse.error };
+  }
+
+  const currentMetric = current.data?.[0];
+  const previousThisYear = earlierThisYear.data?.[0];
+
+  if (previousThisYear) {
+    return {
+      data: [currentMetric, previousThisYear].filter(
+        (metric): metric is UtilityMetricRecord => Boolean(metric),
+      ),
+      error: null,
+    };
+  }
+
+  const latestPriorYear = (await client.database
+    .from("utility_metrics")
+    .select(utilityMetricSelect)
+    .eq("room_id", roomId)
+    .lt("year", plan.priorYears.beforeYear)
+    .order("year", { ascending: false })
+    .order("month", { ascending: false })
+    .limit(1)) as QueryResponse<UtilityMetricRecord[]>;
+
+  if (latestPriorYear.error) {
+    return { data: null, error: latestPriorYear.error };
+  }
+
+  return {
+    data: [currentMetric, latestPriorYear.data?.[0]].filter(
+      (metric): metric is UtilityMetricRecord => Boolean(metric),
+    ),
+    error: null,
+  };
+}
+
+const utilityMetricSelect = [
+  "id",
+  "room_id",
+  "month",
+  "year",
+  "electricity_old",
+  "electricity_new",
+  "water_old",
+  "water_new",
+].join(", ");
+
+const invoiceSelect = [
+  "id",
+  "room_id",
+  "month",
+  "year",
+  "room_fee",
+  "electricity_fee",
+  "water_fee",
+  "other_fee",
+  "other_fee_note",
+  "total_amount",
+  "amount_paid",
+  "status",
+].join(", ");

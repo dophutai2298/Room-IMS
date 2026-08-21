@@ -28,3 +28,60 @@ export function getDashboardRevenueRangeDetails(
     (option) => option.value === range,
   )!;
 }
+
+export function getDashboardRevenuePeriodBounds(
+  billingPeriod: BillingPeriod,
+  range: DashboardRevenueRange,
+): { start: BillingPeriod; end: BillingPeriod } | null {
+  const { monthCount } = getDashboardRevenueRangeDetails(range);
+
+  if (monthCount === null) {
+    return null;
+  }
+
+  const startDate = new Date(
+    Date.UTC(
+      billingPeriod.year,
+      billingPeriod.month - monthCount,
+      1,
+    ),
+  );
+
+  return {
+    start: {
+      month: startDate.getUTCMonth() + 1,
+      year: startDate.getUTCFullYear(),
+    },
+    end: billingPeriod,
+  };
+}
+
+export type DashboardRevenueQuerySegment = {
+  year: number;
+  startMonth: number;
+  endMonth: number;
+};
+
+export function getDashboardRevenueQuerySegments(
+  billingPeriod: BillingPeriod,
+  range: DashboardRevenueRange,
+): DashboardRevenueQuerySegment[] | null {
+  const bounds = getDashboardRevenuePeriodBounds(billingPeriod, range);
+
+  if (!bounds) {
+    return null;
+  }
+
+  const segments: DashboardRevenueQuerySegment[] = [];
+
+  for (let year = bounds.start.year; year <= bounds.end.year; year += 1) {
+    segments.push({
+      year,
+      startMonth: year === bounds.start.year ? bounds.start.month : 1,
+      endMonth: year === bounds.end.year ? bounds.end.month : 12,
+    });
+  }
+
+  return segments;
+}
+import type { BillingPeriod } from "@/lib/utilities/presenter";

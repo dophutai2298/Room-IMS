@@ -113,7 +113,10 @@ export function UtilitiesClient({
         />
         <aside className="space-y-4">
           <SummaryCard view={view} />
-          <InvoiceGenerationForm view={view} />
+          <InvoiceGenerationForm
+            key={`${view.room.id}-${view.periodLabel}`}
+            view={view}
+          />
         </aside>
       </section>
 

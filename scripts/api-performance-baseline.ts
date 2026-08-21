@@ -20,7 +20,8 @@ const baseUrl =
   process.env.API_BASELINE_BASE_URL ??
   process.env.NEXT_PUBLIC_APP_URL ??
   "http://localhost:3000";
-const cookie = process.env.NEXT_API_BASELINE_COOKIE;
+const cookie =
+  process.env.API_BASELINE_COOKIE ?? process.env.NEXT_API_BASELINE_COOKIE;
 
 const allowUnauthenticated =
   process.env.API_BASELINE_ALLOW_UNAUTHENTICATED === "true";
@@ -39,6 +40,9 @@ const year = readPositiveInt("API_BASELINE_YEAR", new Date().getFullYear());
 const invoiceGenerationDurations = readDurationList(
   "API_BASELINE_INVOICE_GENERATION_SAMPLES",
 );
+const includeDashboardOperationsSummary =
+  process.env.API_BASELINE_INCLUDE_DASHBOARD_OPERATIONS_SUMMARY !== "false";
+const requestedEndpointKeys = readStringList("API_BASELINE_ENDPOINT_KEYS");
 
 const endpoints: ApiPerformanceEndpoint[] = [
   endpoint("foundation-current-user", "Foundation current user", "/api/foundation/current-user"),
@@ -58,6 +62,15 @@ const endpoints: ApiPerformanceEndpoint[] = [
     `/api/rooms/${roomId}/utility-metrics?month=${month}&year=${year}`,
   ),
   endpoint("invoices-list", "Invoices list", "/api/invoices"),
+  ...(includeDashboardOperationsSummary
+    ? [
+        endpoint(
+          "dashboard-operations-summary",
+          "Dashboard operations summary",
+          `/api/dashboard/operations-summary?month=${month}&year=${year}`,
+        ),
+      ]
+    : []),
   endpoint(
     "dashboard-revenue",
     "Dashboard revenue",
@@ -78,6 +91,12 @@ const endpoints: ApiPerformanceEndpoint[] = [
   endpoint("utility-pricing-list", "Utility Pricing list", "/api/utility-pricing"),
   endpoint("staff-list", "Staff list", "/api/staff"),
 ];
+const selectedEndpoints =
+  requestedEndpointKeys.length === 0
+    ? endpoints
+    : endpoints.filter((currentEndpoint) =>
+        requestedEndpointKeys.includes(currentEndpoint.key),
+      );
 
 void main().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
@@ -93,7 +112,7 @@ async function main() {
 
   if (!cookie && !allowUnauthenticated) {
     throw new Error(
-      "Set NEXT_API_BASELINE_COOKIE to an authenticated browser Cookie header. Set API_BASELINE_ALLOW_UNAUTHENTICATED=true only for an intentional 401 Auth check.",
+      "Set API_BASELINE_COOKIE to an authenticated browser Cookie header. NEXT_API_BASELINE_COOKIE remains supported for compatibility. Set API_BASELINE_ALLOW_UNAUTHENTICATED=true only for an intentional 401 Auth check.",
     );
   }
 
@@ -103,9 +122,17 @@ async function main() {
     );
   }
 
+  const missingEndpointKeys = requestedEndpointKeys.filter(
+    (key) => !selectedEndpoints.some((currentEndpoint) => currentEndpoint.key === key),
+  );
+
+  if (missingEndpointKeys.length > 0) {
+    throw new Error(`Unknown API_BASELINE_ENDPOINT_KEYS: ${missingEndpointKeys.join(", ")}`);
+  }
+
   const results: ApiPerformanceReport["results"] = [];
 
-  for (const currentEndpoint of endpoints) {
+  for (const currentEndpoint of selectedEndpoints) {
     const cold = await requestEndpoint(currentEndpoint);
 
     if (
@@ -134,7 +161,7 @@ async function main() {
       key: "invoice-generation-action",
       name: "Invoice generation",
       method: "POST",
-      path: "Server Action: generateMonthlyInvoice",
+      path: "POST /api/rooms/:id/invoices",
     };
     const [coldDuration = 0, ...warmDurations] = invoiceGenerationDurations;
 
@@ -147,7 +174,7 @@ async function main() {
     );
   } else {
     console.warn(
-      "Invoice generation is a mutating Server Action, so it is not repeated automatically. Run controlled UI submissions and set API_BASELINE_INVOICE_GENERATION_SAMPLES to comma-separated totalMs values (cold first, then warm).",
+      "Invoice generation is a mutating API request, so it is not repeated automatically. Run controlled UI submissions and set API_BASELINE_INVOICE_GENERATION_SAMPLES to comma-separated totalMs values (cold first, then warm).",
     );
   }
 
@@ -257,6 +284,17 @@ function readDurationList(name: string) {
     .map((item) => Number.parseFloat(item.trim()))
     .filter((item) => Number.isFinite(item) && item >= 0)
     .map(roundDuration);
+}
+
+function readStringList(name: string) {
+  const value = process.env[name];
+
+  return value
+    ? value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
 }
 
 function roundDuration(value: number) {

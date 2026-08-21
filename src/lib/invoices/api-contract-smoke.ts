@@ -1,5 +1,40 @@
 import type { ApiResponse } from "@/lib/api/response";
+import type { InvoiceRecord } from "@/lib/insforge/types";
 import type { InvoiceListItem } from "./presenter";
+
+const authenticatedInvoiceGenerationApiSmoke = {
+  ok: true,
+  data: {
+    id: "00000000-0000-0000-0000-000000000501",
+    room_id: "00000000-0000-0000-0000-000000000101",
+    month: 7,
+    year: 2026,
+    room_fee: 2500000,
+    electricity_fee: 350000,
+    water_fee: 170000,
+    other_fee: 0,
+    other_fee_note: null,
+    total_amount: 3020000,
+    amount_paid: 0,
+    status: "Unpaid",
+  },
+  meta: {
+    timing: {
+      operation: "invoices.generate",
+      totalMs: 1,
+      spans: [
+        { name: "validation", durationMs: 1 },
+        { name: "auth", durationMs: 1 },
+        { name: "service", durationMs: 1 },
+        { name: "repository.insforge.invoice-generation", durationMs: 1 },
+      ],
+    },
+  },
+} satisfies ApiResponse<InvoiceRecord>;
+
+export function getAuthenticatedInvoiceGenerationApiSmokeResponse() {
+  return authenticatedInvoiceGenerationApiSmoke;
+}
 
 const authenticatedInvoiceListApiSmoke = {
   ok: true,

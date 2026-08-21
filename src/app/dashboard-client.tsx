@@ -27,6 +27,7 @@ import { fetchAppApi } from "@/lib/api/client";
 import {
   buildDashboardRoomAvailabilityFromItems,
   type DashboardMissingUtilityMetricsView,
+  type DashboardOperationsSummaryView,
   type DashboardRevenueView,
   type DashboardRoomAvailabilityView,
   type DashboardRoomStatusItem,
@@ -65,13 +66,21 @@ export function DashboardClient({
   const [chartRange, setChartRange] = useState<DashboardRevenueRange>(
     DEFAULT_DASHBOARD_REVENUE_RANGE,
   );
-  const revenueSummaryQuery = useDashboardRevenueQuery({
-    billingPeriod,
-    chartRange: DEFAULT_DASHBOARD_REVENUE_RANGE,
+  const operationsSummaryQuery = useQuery({
+    queryKey: dashboardQueryKeys.operationsSummary(billingPeriod),
+    queryFn: () =>
+      fetchAppApi<DashboardOperationsSummaryView>(
+        `/api/dashboard/operations-summary?${periodSearchParams(billingPeriod)}`,
+        { cache: "no-store" },
+      ),
+    ...dashboardQueryOptions,
   });
+  const usesOperationsSummaryRevenue =
+    chartRange === DEFAULT_DASHBOARD_REVENUE_RANGE;
   const revenueChartQuery = useDashboardRevenueQuery({
     billingPeriod,
     chartRange,
+    enabled: !usesOperationsSummaryRevenue,
   });
   const availabilityQuery = useQuery({
     queryKey: roomQueryKeys.list(),
@@ -83,24 +92,19 @@ export function DashboardClient({
     select: buildDashboardRoomAvailabilityFromItems,
     ...dashboardQueryOptions,
   });
-  const missingMetricsQuery = useQuery({
-    queryKey: dashboardQueryKeys.missingUtilityMetrics(billingPeriod),
-    queryFn: () =>
-      fetchAppApi<DashboardMissingUtilityMetricsView>(
-        `/api/dashboard/missing-utility-metrics?${periodSearchParams(billingPeriod)}`,
-        { cache: "no-store" },
-      ),
-    ...dashboardQueryOptions,
-  });
-  const unpaidInvoicesQuery = useQuery({
-    queryKey: dashboardQueryKeys.unpaidInvoices(billingPeriod),
-    queryFn: () =>
-      fetchAppApi<DashboardUnpaidInvoicesView>(
-        `/api/dashboard/unpaid-invoices?${periodSearchParams(billingPeriod)}`,
-        { cache: "no-store" },
-      ),
-    ...dashboardQueryOptions,
-  });
+  const operationsRevenue = operationsSummaryQuery.data?.revenue;
+  const chartRevenue = usesOperationsSummaryRevenue
+    ? operationsRevenue
+    : revenueChartQuery.data;
+  const chartIsLoading = usesOperationsSummaryRevenue
+    ? operationsSummaryQuery.isPending
+    : revenueChartQuery.isPending;
+  const chartError = usesOperationsSummaryRevenue
+    ? operationsSummaryQuery.error?.message
+    : revenueChartQuery.error?.message;
+  const retryChart = usesOperationsSummaryRevenue
+    ? () => void operationsSummaryQuery.refetch()
+    : () => void revenueChartQuery.refetch();
   const periodLabel = formatBillingPeriod(billingPeriod);
 
   return (
@@ -135,33 +139,33 @@ export function DashboardClient({
           className="xl:col-span-4"
           label="Đã thu trong kỳ"
           value={
-            revenueSummaryQuery.data
-              ? formatCurrency(revenueSummaryQuery.data.collectedRevenue)
+            operationsRevenue
+              ? formatCurrency(operationsRevenue.collectedRevenue)
               : undefined
           }
           note={
-            revenueSummaryQuery.data
-              ? `${revenueSummaryQuery.data.invoiceCount} hóa đơn kỳ ${revenueSummaryQuery.data.periodLabel}`
+            operationsRevenue
+              ? `${operationsRevenue.invoiceCount} hóa đơn kỳ ${operationsRevenue.periodLabel}`
               : "Đang đọc doanh thu"
           }
           tone="success"
-          isLoading={revenueSummaryQuery.isPending}
-          error={revenueSummaryQuery.error?.message}
-          onRetry={() => void revenueSummaryQuery.refetch()}
+          isLoading={operationsSummaryQuery.isPending}
+          error={operationsSummaryQuery.error?.message}
+          onRetry={() => void operationsSummaryQuery.refetch()}
         />
         <MetricCard
           className="xl:col-span-3"
           label="Công nợ"
           value={
-            revenueSummaryQuery.data
-              ? formatCurrency(revenueSummaryQuery.data.outstandingDebt)
+            operationsRevenue
+              ? formatCurrency(operationsRevenue.outstandingDebt)
               : undefined
           }
           note="Chưa thu hoặc thu một phần"
           tone="warning"
-          isLoading={revenueSummaryQuery.isPending}
-          error={revenueSummaryQuery.error?.message}
-          onRetry={() => void revenueSummaryQuery.refetch()}
+          isLoading={operationsSummaryQuery.isPending}
+          error={operationsSummaryQuery.error?.message}
+          onRetry={() => void operationsSummaryQuery.refetch()}
         />
         <MetricCard
           className="xl:col-span-3"
@@ -197,27 +201,27 @@ export function DashboardClient({
 
       <section className="grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(20rem,0.7fr)]">
         <RevenueSection
-          revenue={revenueChartQuery.data}
-          isLoading={revenueChartQuery.isPending}
-          error={revenueChartQuery.error?.message}
-          onRetry={() => void revenueChartQuery.refetch()}
+          revenue={chartRevenue}
+          isLoading={chartIsLoading}
+          error={chartError}
+          onRetry={retryChart}
           range={chartRange}
           onRangeChange={setChartRange}
         />
         <MissingMetricsSection
-          data={missingMetricsQuery.data}
-          isLoading={missingMetricsQuery.isPending}
-          error={missingMetricsQuery.error?.message}
-          onRetry={() => void missingMetricsQuery.refetch()}
+          data={operationsSummaryQuery.data?.missingUtilityMetrics}
+          isLoading={operationsSummaryQuery.isPending}
+          error={operationsSummaryQuery.error?.message}
+          onRetry={() => void operationsSummaryQuery.refetch()}
         />
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
         <UnpaidInvoicesSection
-          data={unpaidInvoicesQuery.data}
-          isLoading={unpaidInvoicesQuery.isPending}
-          error={unpaidInvoicesQuery.error?.message}
-          onRetry={() => void unpaidInvoicesQuery.refetch()}
+          data={operationsSummaryQuery.data?.unpaidInvoices}
+          isLoading={operationsSummaryQuery.isPending}
+          error={operationsSummaryQuery.error?.message}
+          onRetry={() => void operationsSummaryQuery.refetch()}
         />
         <RoomAvailabilitySection
           data={availabilityQuery.data}
@@ -233,9 +237,11 @@ export function DashboardClient({
 function useDashboardRevenueQuery({
   billingPeriod,
   chartRange,
+  enabled,
 }: {
   billingPeriod: BillingPeriod;
   chartRange: DashboardRevenueRange;
+  enabled: boolean;
 }) {
   return useQuery({
     queryKey: dashboardQueryKeys.revenue(billingPeriod, chartRange),
@@ -244,6 +250,7 @@ function useDashboardRevenueQuery({
         `/api/dashboard/revenue?${revenueSearchParams(billingPeriod, chartRange)}`,
         { cache: "no-store" },
       ),
+    enabled,
     ...dashboardQueryOptions,
   });
 }

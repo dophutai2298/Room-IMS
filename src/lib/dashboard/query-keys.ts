@@ -6,6 +6,15 @@ import {
 
 export const dashboardQueryKeys = {
   all: ["dashboard"] as const,
+  operationsSummary: (billingPeriod?: BillingPeriod) =>
+    billingPeriod
+      ? ([
+          ...dashboardQueryKeys.all,
+          "operations-summary",
+          billingPeriod.year,
+          billingPeriod.month,
+        ] as const)
+      : ([...dashboardQueryKeys.all, "operations-summary"] as const),
   revenue: (
     billingPeriod?: BillingPeriod,
     chartRange: DashboardRevenueRange = DEFAULT_DASHBOARD_REVENUE_RANGE,

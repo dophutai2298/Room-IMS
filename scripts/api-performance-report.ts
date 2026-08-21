@@ -39,6 +39,7 @@ export type ApiPerformanceSummary = {
   samples: number;
   p50PayloadBytes: number;
   largestSpan: string;
+  slowestSample: string;
 };
 
 export type ApiPerformanceReport = {
@@ -94,6 +95,7 @@ export function summarizeEndpointSamples({
     samples: warm.length,
     p50PayloadBytes: percentile(payloadSizes, 50),
     largestSpan: findLargestSpan(warm),
+    slowestSample: describeSlowestSample(warm),
   };
 }
 
@@ -177,6 +179,34 @@ function findLargestSpan(samples: ApiPerformanceSample[]) {
     .sort((left, right) => right.p50Ms - left.p50Ms)[0];
 
   return largest ? `${largest.name}:${largest.p50Ms}ms p50` : "n/a";
+}
+
+function describeSlowestSample(samples: ApiPerformanceSample[]) {
+  const slowest = [...samples].sort(
+    (left, right) => right.durationMs - left.durationMs,
+  )[0];
+
+  if (!slowest) {
+    return "n/a";
+  }
+
+  if (!slowest.timing) {
+    return `client:${slowest.durationMs}ms; server:n/a`;
+  }
+
+  const spans = [...slowest.timing.spans]
+    .sort((left, right) => right.durationMs - left.durationMs)
+    .slice(0, 5)
+    .map((span) => `${span.name}:${span.durationMs}ms`)
+    .join("; ");
+
+  return [
+    `client:${slowest.durationMs}ms`,
+    `server:${slowest.timing.totalMs}ms`,
+    spans,
+  ]
+    .filter(Boolean)
+    .join("; ");
 }
 
 function percentile(values: number[], percentileValue: number) {
