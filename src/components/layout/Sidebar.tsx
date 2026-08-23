@@ -1,5 +1,7 @@
 "use client";
 
+import * as React from "react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -18,8 +20,27 @@ const navItems = [
   { name: "Bảng giá", href: "/utility-pricing", icon: "pricing" },
 ];
 
+type NavItem = (typeof navItems)[number];
+
 export const Sidebar = () => {
   const pathname = usePathname();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    const desktopQuery = window.matchMedia("(min-width: 768px)");
+    const handleDesktopQueryChange = (event: MediaQueryListEvent) => {
+      if (event.matches) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    desktopQuery.addEventListener("change", handleDesktopQueryChange);
+
+    return () => {
+      desktopQuery.removeEventListener("change", handleDesktopQueryChange);
+    };
+  }, []);
+
   const currentUserQuery = useQuery({
     queryKey: authQueryKeys.currentUser(),
     queryFn: fetchCurrentAppUser,
@@ -37,69 +58,223 @@ export const Sidebar = () => {
     <header className="sticky top-0 z-40 px-3 pt-3 sm:px-5 sm:pt-4">
       {
         currentUserQuery.data && (
-          <div className="clay-surface mx-auto flex max-w-[1480px] items-center gap-3 rounded-[1.4rem] border border-white/60 bg-card/75 px-3 py-2.5 backdrop-blur-2xl dark:border-white/10 sm:px-4">
-            <Link
-              href="/"
-              className="flex shrink-0 items-center gap-2.5 rounded-xl pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <span className="flex size-9 items-center justify-center rounded-xl border border-white/30 bg-primary text-xs font-bold tracking-tight text-primary-foreground shadow-[inset_0_1px_0_rgb(255_255_255_/_0.28)]">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" className="size-6">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Z" />
-                </svg>
+          <DialogPrimitive.Root
+            open={isMobileMenuOpen}
+            onOpenChange={setIsMobileMenuOpen}
+          >
+            <div className="clay-surface mx-auto flex max-w-[1480px] items-center gap-3 rounded-[1.4rem] border border-white/60 bg-card/75 px-3 py-2.5 backdrop-blur-2xl dark:border-white/10 sm:px-4">
+              <BrandLink />
 
-              </span>
-              <span className="hidden min-w-0 sm:block">
-                <span className="block text-sm font-semibold leading-5">
-                  Rental Room
-                </span>
-                <span className="block text-[0.68rem] text-muted-foreground">
-                  Vận hành nhà trọ
-                </span>
-              </span>
-            </Link>
+              <nav
+                aria-label="Điều hướng chính"
+                className="mx-auto hidden min-w-0 items-center gap-1 overflow-x-auto rounded-xl bg-muted/45 p-1 clay-inset min-[769px]:flex"
+              >
+                {visibleNavItems.map((item) => {
+                  const isActive = isNavItemActive(pathname, item);
 
-            <nav
-              aria-label="Điều hướng chính"
-              className="mx-auto flex min-w-0 items-center gap-1 overflow-x-auto rounded-xl bg-muted/45 p-1 clay-inset"
-            >
-              {visibleNavItems.map((item) => {
-                const isActive =
-                  pathname === item.href ||
-                  (item.href !== "/" && pathname?.startsWith(item.href));
+                  return (
+                    <SidebarNavLink
+                      key={item.href}
+                      item={item}
+                      isActive={isActive}
+                      variant="desktop"
+                    />
+                  );
+                })}
+              </nav>
 
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    aria-current={isActive ? "page" : undefined}
-                    className={cn(
-                      "flex h-9 items-center gap-2 whitespace-nowrap rounded-lg px-2.5 text-xs font-medium text-muted-foreground outline-none transition-[background-color,color,box-shadow,transform] duration-200 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring sm:px-3 sm:text-sm",
-                      isActive && "bg-card text-foreground shadow-2xl border",
-                    )}
+              <div className="ml-auto flex shrink-0 items-center gap-2">
+                <div className="hidden min-[769px]:block">
+                  <ThemeSwitcher />
+                </div>
+                {pathname !== "/sign-in" && (
+                  <AccountMenu
+                    user={currentUserQuery.data}
+                    isLoading={currentUserQuery.isPending}
+                  />
+                )}
+                <DialogPrimitive.Trigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Mở menu điều hướng"
+                    className="flex size-10 items-center justify-center rounded-xl border border-white/55 bg-card/60 text-foreground shadow-sm outline-none transition-[background-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring dark:border-white/10 min-[769px]:hidden"
                   >
-                    <NavIcon name={item.icon} />
-                    {item.name}
-                  </Link>
-                );
-              })}
-            </nav>
-
-            <div className="ml-auto flex shrink-0 items-center gap-2">
-              <ThemeSwitcher />
-              {pathname !== "/sign-in" && (
-                <AccountMenu
-                  user={currentUserQuery.data}
-                  isLoading={currentUserQuery.isPending}
-                />
-              )}
+                    <HamburgerIcon />
+                  </button>
+                </DialogPrimitive.Trigger>
+              </div>
             </div>
-          </div>
+
+            <MobileNavigationDrawer
+              items={visibleNavItems}
+              pathname={pathname}
+              onNavigate={() => setIsMobileMenuOpen(false)}
+            />
+          </DialogPrimitive.Root>
         )
       }
 
     </header>
   );
 };
+
+function BrandLink({
+  compact = false,
+  onNavigate,
+}: {
+  compact?: boolean;
+  onNavigate?: () => void;
+}) {
+  return (
+    <Link
+      href="/"
+      onClick={onNavigate}
+      className="flex shrink-0 items-center gap-2.5 rounded-xl pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <span className="flex size-9 items-center justify-center rounded-xl border border-white/30 bg-primary text-xs font-bold tracking-tight text-primary-foreground shadow-[inset_0_1px_0_rgb(255_255_255_/_0.28)]">
+        <BuildingIcon />
+      </span>
+      <span className={cn("min-w-0", compact ? "block" : "hidden sm:block")}>
+        <span className="block text-sm font-semibold leading-5">
+          Rental Room
+        </span>
+        <span className="block text-[0.68rem] text-muted-foreground">
+          Vận hành nhà trọ
+        </span>
+      </span>
+    </Link>
+  );
+}
+
+function MobileNavigationDrawer({
+  items,
+  pathname,
+  onNavigate,
+}: {
+  items: NavItem[];
+  pathname: string;
+  onNavigate: () => void;
+}) {
+  return (
+    <DialogPrimitive.Portal>
+      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-background/75 backdrop-blur-sm transition-opacity data-[state=closed]:opacity-0 data-[state=open]:opacity-100 min-[769px]:hidden" />
+      <DialogPrimitive.Content className="clay-surface fixed inset-x-3 top-3 z-50 flex max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-[1.5rem] border border-white/60 bg-card/95 text-card-foreground shadow-2xl outline-none backdrop-blur-2xl transition-[opacity,transform] duration-200 data-[state=closed]:-translate-y-3 data-[state=closed]:opacity-0 data-[state=open]:translate-y-0 data-[state=open]:opacity-100 dark:border-white/10 min-[769px]:hidden">
+        <div className="flex items-start justify-between gap-3 border-b border-white/40 px-4 py-3.5 dark:border-white/10">
+          <div className="min-w-0">
+            <BrandLink compact onNavigate={onNavigate} />
+            <DialogPrimitive.Title className="sr-only">
+              Menu điều hướng
+            </DialogPrimitive.Title>
+            <DialogPrimitive.Description className="sr-only">
+              Chọn khu vực quản lý trong hệ thống Rental Room.
+            </DialogPrimitive.Description>
+          </div>
+
+          <DialogPrimitive.Close asChild>
+            <button
+              type="button"
+              aria-label="Đóng menu điều hướng"
+              className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/55 bg-background/45 text-foreground shadow-sm outline-none transition-[background-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring dark:border-white/10"
+            >
+              <CloseIcon />
+            </button>
+          </DialogPrimitive.Close>
+        </div>
+
+        <nav
+          aria-label="Điều hướng chính trên mobile"
+          className="grid gap-2 overflow-y-auto px-3 py-3"
+        >
+          {items.map((item) => (
+            <SidebarNavLink
+              key={item.href}
+              item={item}
+              isActive={isNavItemActive(pathname, item)}
+              variant="mobile"
+              onNavigate={onNavigate}
+            />
+          ))}
+        </nav>
+
+        <div className="mt-auto border-t border-white/40 px-4 py-3 dark:border-white/10">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs font-medium text-muted-foreground">
+              Giao diện
+            </span>
+            <ThemeSwitcher />
+          </div>
+        </div>
+      </DialogPrimitive.Content>
+    </DialogPrimitive.Portal>
+  );
+}
+
+function SidebarNavLink({
+  item,
+  isActive,
+  onNavigate,
+  variant,
+}: {
+  item: NavItem;
+  isActive: boolean;
+  onNavigate?: () => void;
+  variant: "desktop" | "mobile";
+}) {
+  return (
+    <Link
+      href={item.href}
+      onClick={onNavigate}
+      aria-current={isActive ? "page" : undefined}
+      className={cn(
+        "flex items-center gap-2 whitespace-nowrap font-medium text-muted-foreground outline-none transition-[background-color,color,box-shadow,transform] duration-200 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+        variant === "desktop" &&
+        "h-9 rounded-lg px-2.5 text-xs sm:px-3 sm:text-sm",
+        variant === "mobile" &&
+        "min-h-12 rounded-2xl border border-transparent px-3.5 py-3 text-sm",
+        isActive &&
+        variant === "desktop" &&
+        "border bg-card text-foreground shadow-2xl",
+        isActive &&
+        variant === "mobile" &&
+        "border-white/55 bg-background/45 text-foreground clay-inset dark:border-white/10",
+      )}
+    >
+      <NavIcon name={item.icon} />
+      {item.name}
+    </Link>
+  );
+}
+
+function isNavItemActive(pathname: string, item: NavItem) {
+  return pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
+}
+
+function HamburgerIcon() {
+  return (
+    <span aria-hidden="true" className="flex size-5 flex-col justify-center gap-1.5">
+      <span className="h-0.5 w-5 rounded-full bg-current" />
+      <span className="h-0.5 w-4 rounded-full bg-current" />
+      <span className="h-0.5 w-5 rounded-full bg-current" />
+    </span>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <span aria-hidden="true" className="relative size-5">
+      <span className="absolute left-0 top-1/2 h-0.5 w-full -translate-y-1/2 rotate-45 rounded-full bg-current" />
+      <span className="absolute left-0 top-1/2 h-0.5 w-full -translate-y-1/2 -rotate-45 rounded-full bg-current" />
+    </span>
+  );
+}
+
+function BuildingIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Z" />
+    </svg>
+  );
+}
 
 function NavIcon({ name }: { name: string }) {
   if (name === "rooms") {
