@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="background" x1="64" y1="40" x2="448" y2="472" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3B9978"/>
+      <stop offset="1" stop-color="#175B47"/>
+    </linearGradient>
+    <linearGradient id="surface" x1="128" y1="106" x2="388" y2="416" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FCF8"/>
+      <stop offset="1" stop-color="#DDEBDD"/>
+    </linearGradient>
+    <filter id="clay-shadow" x="60" y="50" width="404" height="426" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="15" dy="18" stdDeviation="18" flood-color="#0D3A2D" flood-opacity="0.35"/>
+      <feDropShadow dx="-8" dy="-10" stdDeviation="15" flood-color="#8FD7BC" flood-opacity="0.42"/>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#background)"/>
+  <circle cx="82" cy="72" r="86" fill="#91D2BA" fill-opacity="0.16"/>
+  <circle cx="454" cy="438" r="112" fill="#F2B65F" fill-opacity="0.14"/>
+
+  <g filter="url(#clay-shadow)">
+    <rect x="98" y="82" width="316" height="348" rx="78" fill="url(#surface)"/>
+    <rect x="100" y="84" width="312" height="344" rx="76" stroke="white" stroke-opacity="0.72" stroke-width="4"/>
+  </g>
+
+  <path d="M164 371H348" stroke="#175B47" stroke-width="20" stroke-linecap="round"/>
+  <path d="M188 371V179C188 166.85 197.85 157 210 157H302C314.15 157 324 166.85 324 179V371" stroke="#237B5C" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M226 371V307C226 297.059 234.059 289 244 289H268C277.941 289 286 297.059 286 307V371" fill="#F2B65F" stroke="#175B47" stroke-width="14" stroke-linejoin="round"/>
+
+  <g fill="#3B9978">
+    <rect x="222" y="199" width="26" height="26" rx="8"/>
+    <rect x="264" y="199" width="26" height="26" rx="8"/>
+    <rect x="222" y="241" width="26" height="26" rx="8"/>
+    <rect x="264" y="241" width="26" height="26" rx="8"/>
+  </g>
+</svg>

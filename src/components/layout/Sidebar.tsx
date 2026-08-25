@@ -7,6 +7,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { AccountMenu } from "@/components/layout/account-menu";
+import { PwaInstallButton } from "@/components/pwa-install-button";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { fetchCurrentAppUser } from "@/lib/auth/client";
 import { authQueryKeys } from "@/lib/auth/query-keys";
@@ -55,7 +56,7 @@ export const Sidebar = () => {
       : navItems;
 
   return (
-    <header className="sticky top-0 z-40 px-3 pt-3 sm:px-5 sm:pt-4">
+    <header className="pwa-safe-header sticky top-0 z-40 px-3 pt-3 sm:px-5 sm:pt-4">
       {
         currentUserQuery.data && (
           <DialogPrimitive.Root
@@ -84,6 +85,7 @@ export const Sidebar = () => {
               </nav>
 
               <div className="ml-auto flex shrink-0 items-center gap-2">
+                <PwaInstallButton responsiveLabel />
                 <div className="hidden min-[769px]:block">
                   <ThemeSwitcher />
                 </div>
