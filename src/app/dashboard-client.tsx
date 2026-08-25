@@ -475,8 +475,8 @@ function UnpaidInvoicesSection({
             Ưu tiên theo số tiền còn lại trong kỳ.
           </CardDescription>
         </div>
-        <Button asChild variant="ghost" size="sm">
-          <Link href="/invoices">Xem tất cả</Link>
+        <Button variant="default" size="sm">
+          <Link href="/invoices" >Xem tất cả</Link>
         </Button>
       </CardHeader>
       <CardContent className="space-y-4 pt-2">

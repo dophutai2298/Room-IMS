@@ -164,6 +164,16 @@ a {
   background: oklch(0.68 0.12 162 / 28%);
 }
 
+@media (display-mode: standalone) and (max-width: 768px) {
+  .pwa-safe-header {
+    padding-top: max(0.75rem, calc(env(safe-area-inset-top) + 0.35rem));
+  }
+
+  .pwa-safe-content {
+    padding-bottom: max(3rem, calc(env(safe-area-inset-bottom) + 1.5rem));
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
