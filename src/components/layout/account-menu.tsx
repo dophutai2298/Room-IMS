@@ -1,7 +1,6 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import Link from "next/link";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -15,17 +14,7 @@ export function AccountMenu({
   user: AppUser | undefined;
   isLoading: boolean;
 }) {
-  const queryClient = useQueryClient();
-  const signOutMutation = useMutation({
-    mutationFn: signOutCurrentSession,
-    onSuccess: () => {
-      queryClient.clear();
-      window.location.assign("/sign-in");
-    },
-    onError: (error) => {
-      toast.error(error.message || "Không thể đăng xuất.");
-    },
-  });
+  const signOutMutation = useSignOutMutation();
   const initials = getInitials(user?.displayName);
   const accountLabel =
     user?.role === "staff" ? "Tài khoản Nhân viên" : "Tài khoản Admin";
@@ -82,6 +71,70 @@ export function AccountMenu({
       </div>
     </div>
   );
+}
+
+export function MobileAccountMenu({
+  user,
+  isLoading,
+}: {
+  user: AppUser | undefined;
+  isLoading: boolean;
+}) {
+  const signOutMutation = useSignOutMutation();
+  const initials = getInitials(user?.displayName);
+  const accountLabel =
+    user?.role === "staff" ? "Tài khoản Nhân viên" : "Tài khoản Admin";
+
+  return (
+    <section
+      aria-label={accountLabel}
+      className="rounded-2xl border border-white/55 bg-background/45 p-3.5 clay-inset dark:border-white/10"
+    >
+      <div className="flex items-center gap-3">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-accent text-sm font-semibold text-accent-foreground shadow-sm">
+          {isLoading ? "…" : initials}
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">
+            {user?.displayName ?? "Tài khoản vận hành"}
+          </p>
+          <p className="truncate text-xs text-muted-foreground">
+            {user?.email ?? "Đang tải thông tin..."}
+          </p>
+          {user && (
+            <p className="mt-1 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-primary">
+              {user.role === "landlord" ? "Admin" : "Nhân viên"}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <Button
+        type="button"
+        variant="ghost"
+        className="mt-3 w-full justify-start text-destructive hover:text-destructive cursor-pointer"
+        disabled={signOutMutation.isPending || isLoading}
+        onClick={() => signOutMutation.mutate()}
+      >
+        {signOutMutation.isPending ? "Đang đăng xuất..." : "Đăng xuất"}
+      </Button>
+    </section>
+  );
+}
+
+function useSignOutMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: signOutCurrentSession,
+    onSuccess: () => {
+      queryClient.clear();
+      window.location.assign("/sign-in");
+    },
+    onError: (error) => {
+      toast.error(error.message || "Không thể đăng xuất.");
+    },
+  });
 }
 
 function getInitials(displayName: string | undefined) {

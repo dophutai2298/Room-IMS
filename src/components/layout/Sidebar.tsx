@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { AccountMenu } from "@/components/layout/account-menu";
+import { AccountMenu, MobileAccountMenu } from "@/components/layout/account-menu";
 import { PwaInstallButton } from "@/components/pwa-install-button";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { fetchCurrentAppUser } from "@/lib/auth/client";
@@ -90,10 +90,12 @@ export const Sidebar = () => {
                   <ThemeSwitcher />
                 </div>
                 {pathname !== "/sign-in" && (
-                  <AccountMenu
-                    user={currentUserQuery.data}
-                    isLoading={currentUserQuery.isPending}
-                  />
+                  <div className="hidden min-[769px]:block">
+                    <AccountMenu
+                      user={currentUserQuery.data}
+                      isLoading={currentUserQuery.isPending}
+                    />
+                  </div>
                 )}
                 <DialogPrimitive.Trigger asChild>
                   <button
@@ -110,6 +112,8 @@ export const Sidebar = () => {
             <MobileNavigationDrawer
               items={visibleNavItems}
               pathname={pathname}
+              user={currentUserQuery.data}
+              isUserLoading={currentUserQuery.isPending}
               onNavigate={() => setIsMobileMenuOpen(false)}
             />
           </DialogPrimitive.Root>
@@ -151,10 +155,14 @@ function BrandLink({
 function MobileNavigationDrawer({
   items,
   pathname,
+  user,
+  isUserLoading,
   onNavigate,
 }: {
   items: NavItem[];
   pathname: string;
+  user: React.ComponentProps<typeof MobileAccountMenu>["user"];
+  isUserLoading: boolean;
   onNavigate: () => void;
 }) {
   return (
@@ -197,6 +205,10 @@ function MobileNavigationDrawer({
             />
           ))}
         </nav>
+
+        <div className="px-3 pb-3">
+          <MobileAccountMenu user={user} isLoading={isUserLoading} />
+        </div>
 
         <div className="mt-auto border-t border-white/40 px-4 py-3 dark:border-white/10">
           <div className="flex items-center justify-between gap-3">
