@@ -95,7 +95,8 @@ CREATE TABLE IF NOT EXISTS public.invoices (
     electricity_fee NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (electricity_fee >= 0),
     water_fee NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (water_fee >= 0),
     room_fee NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (room_fee >= 0),
-    other_fee NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (other_fee >= 0),
+    -- Historical billing imports may use negative other_fee as a discount.
+    other_fee NUMERIC(12, 2) NOT NULL DEFAULT 0,
     other_fee_note TEXT,
     total_amount NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (total_amount >= 0),
     amount_paid NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (amount_paid >= 0),
@@ -143,6 +144,9 @@ ALTER TABLE public.invoices
 
 ALTER TABLE public.invoices
     ADD COLUMN IF NOT EXISTS other_fee_note TEXT;
+
+ALTER TABLE public.invoices
+    DROP CONSTRAINT IF EXISTS invoices_other_fee_check;
 
 ALTER TABLE public.tenants
     ADD COLUMN IF NOT EXISTS date_of_birth TEXT,

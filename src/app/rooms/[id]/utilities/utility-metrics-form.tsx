@@ -186,12 +186,11 @@ export function UtilityMetricsForm({ view }: { view: UtilityMetricsView }) {
           {message.text}
         </p>
       )}
-
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">
           {view.persistedMetricId
-            ? "Kỳ này đã có chỉ số; lưu lại sẽ cập nhật record hiện có."
-            : "Kỳ này chưa có chỉ số; lưu sẽ tạo record đầu tiên cho phòng."}
+            ? "Kỳ này đã có chỉ số; Lưu lại sẽ cập nhật dữ liệu hiện có."
+            : "Kỳ này chưa có chỉ số; Lưu sẽ tạo record dữ liệu cho phòng."}
         </p>
         <SaveButton disabled={hasClientErrors} pending={saveMutation.isPending} />
       </div>

@@ -183,7 +183,7 @@ function PeriodSelector({
     <Card className="w-full lg:w-[24rem]">
       <CardHeader>
         <CardTitle>Kỳ ghi chỉ số</CardTitle>
-        <CardDescription>Chọn tháng/năm để xem hoặc cập nhật record.</CardDescription>
+        <CardDescription>Chọn tháng/năm và Bấm vào "Xem" để xem hoặc cập nhật dữ liệu.</CardDescription>
       </CardHeader>
       <CardContent>
         <form
@@ -230,9 +230,9 @@ function SummaryCard({ view }: { view: UtilityMetricsView }) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle>Tóm tắt kỳ {view.periodLabel}</CardTitle>
-            <CardDescription>
+            {/* <CardDescription>
               Dữ liệu đọc qua API nội bộ từ bảng utility_metrics trên InsForge.
-            </CardDescription>
+            </CardDescription> */}
           </div>
           <Badge variant={view.persistedMetricId ? "success" : "warning"}>
             {view.persistedMetricId ? "Đã lưu" : "Chưa lưu"}
@@ -245,7 +245,7 @@ function SummaryCard({ view }: { view: UtilityMetricsView }) {
             label="Nguồn chỉ số cũ"
             value={
               view.persistedMetricId
-                ? `Record kỳ ${view.periodLabel}`
+                ? `Kỳ ${view.periodLabel}`
                 : view.previousPeriodLabel
                   ? `Kỳ trước gần nhất ${view.previousPeriodLabel}`
                   : "Chưa có kỳ trước, bắt đầu từ 0"
@@ -260,14 +260,14 @@ function SummaryCard({ view }: { view: UtilityMetricsView }) {
             value={formatConsumption(view.water.consumption, view.water.unit)}
           />
           <DetailRow
-            label="Active Contract"
+            label="Hợp đồng hợp lệ"
             value={view.activeContractId ? "Có" : "Chưa có"}
           />
         </div>
         <Separator />
-        <div className="rounded-2xl border border-amber-200/70 bg-amber-50/70 p-4 text-sm text-amber-800 shadow-[inset_0_1px_0_rgb(255_255_255_/_0.5)] dark:border-amber-900 dark:bg-amber-950/70 dark:text-amber-200">
-          Lưu cùng Room và cùng kỳ sẽ cập nhật record hiện có, không tạo duplicate.
-        </div>
+        {/* <div className="rounded-2xl border border-amber-200/70 bg-amber-50/70 p-4 text-sm text-amber-800 shadow-[inset_0_1px_0_rgb(255_255_255_/_0.5)] dark:border-amber-900 dark:bg-amber-950/70 dark:text-amber-200">
+          Lưu cùng Room và cùng kỳ sẽ cập nhật vào dữ liệu hiện có, không tạo thêm.
+        </div> */}
       </CardContent>
     </Card>
   );

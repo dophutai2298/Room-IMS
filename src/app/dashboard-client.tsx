@@ -129,7 +129,7 @@ export function DashboardClient({
           <Button asChild variant="secondary">
             <Link href="/invoices">Hóa đơn</Link>
           </Button>
-          <Button variant="default">
+          <Button asChild variant="default">
             <Link href="/rooms">Quản lý phòng</Link>
           </Button>
         </div>
@@ -411,7 +411,7 @@ function MissingMetricsSection({
         <p className="text-sm font-medium text-primary-foreground/70">Ưu tiên hôm nay</p>
         <CardTitle className="text-2xl">Chốt chỉ số kỳ {data?.periodLabel ?? "hiện tại"}</CardTitle>
         <CardDescription className="text-primary-foreground/70">
-          {data ? `${data.rooms.length} phòng còn thiếu Utility Metrics.` : "Đang kiểm tra phòng còn thiếu chỉ số."}
+          {data ? `${data.rooms.length} phòng còn thiếu chỉ số Điện-Nước.` : "Đang kiểm tra phòng còn thiếu chỉ số."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -444,7 +444,7 @@ function MissingMetricsSection({
                 </div>
                 <span aria-hidden="true" className="text-xl">↗</span>
               </div>
-              <Button variant="default" className="mt-4 w-full">
+              <Button asChild variant="default" className="mt-4 w-full">
                 <Link href={`/rooms/${room.id}/utilities`}>Nhập chỉ số</Link>
               </Button>
             </div>
@@ -475,7 +475,7 @@ function UnpaidInvoicesSection({
             Ưu tiên theo số tiền còn lại trong kỳ.
           </CardDescription>
         </div>
-        <Button variant="default" size="sm">
+        <Button asChild variant="default" size="sm">
           <Link href="/invoices" >Xem tất cả</Link>
         </Button>
       </CardHeader>
