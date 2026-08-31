@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { ApiTimer } from "@/lib/api/timing";
+import { getActiveOwnerAppUserId } from "@/lib/server/operational-owner-scope";
 import {
   buildRoomListItem,
   buildRoomDetailView,
@@ -82,7 +83,8 @@ export async function readRoomItemsFromInsForge({
 } = {}) {
   try {
     const client = await getClient();
-    const relatedData = await readRoomRelatedData(client);
+    const ownerAppUserId = getActiveOwnerAppUserId();
+    const relatedData = await readRoomRelatedData(client, ownerAppUserId);
 
     if (relatedData.error) {
       return relatedData;
@@ -110,23 +112,28 @@ export async function readRoomItemsFromInsForge({
 
 async function createRoomInInsForge({
   name,
+  floor,
   basePrice,
   status,
   getClient,
 }: {
   name: string;
+  floor?: number | null;
   basePrice: number;
   status: RoomRecord["status"];
   getClient: () => Promise<InsForgeServerClient>;
 }) {
   try {
     const client = await getClient();
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const response = (await client.database
       .from("rooms")
       .insert({
         name,
+        floor,
         status,
         base_price: basePrice,
+        owner_app_user_id: ownerAppUserId,
         updated_at: new Date().toISOString(),
       })
       .select(roomSelect)
@@ -157,27 +164,32 @@ async function createRoomInInsForge({
 async function updateRoomInInsForge({
   roomId,
   name,
+  floor,
   basePrice,
   status,
   getClient,
 }: {
   roomId: string;
   name: string;
+  floor?: number | null;
   basePrice: number;
   status: RoomRecord["status"];
   getClient: () => Promise<InsForgeServerClient>;
 }) {
   try {
     const client = await getClient();
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const response = (await client.database
       .from("rooms")
       .update({
         name,
+        floor,
         status,
         base_price: basePrice,
         updated_at: new Date().toISOString(),
       })
       .eq("id", roomId)
+      .eq("owner_app_user_id", ownerAppUserId)
       .select(roomSelect)) as QueryResponse<RoomRecord[]>;
 
     if (response.error) {
@@ -194,7 +206,7 @@ async function updateRoomInInsForge({
       });
     }
 
-    const item = await readRoomItemFromInsForge({ room, client });
+    const item = await readRoomItemFromInsForge({ room, client, ownerAppUserId });
 
     if (item.error) {
       return item;
@@ -215,16 +227,19 @@ async function readRoomDetailFromInsForge({
 }): Promise<AppResult<ReturnType<typeof buildRoomDetailView>>> {
   try {
     const client = await getClient();
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const [rooms, tenants, activeContracts] = await Promise.all([
       client.database
         .from("rooms")
-        .select("id, name, status, base_price")
+        .select("id, name, floor, status, base_price, owner_app_user_id")
         .eq("id", roomId)
+        .eq("owner_app_user_id", ownerAppUserId)
         .limit(1),
       client.database
         .from("tenants")
         .select("id, room_id, full_name, phone, is_key_tenant, status")
         .eq("room_id", roomId)
+        .eq("owner_app_user_id", ownerAppUserId)
         .order("full_name"),
       client.database
         .from("contracts")
@@ -243,6 +258,7 @@ async function readRoomDetailFromInsForge({
           ].join(", "),
         )
         .eq("room_id", roomId)
+        .eq("owner_app_user_id", ownerAppUserId)
         .eq("status", "Active")
         .order("start_date"),
     ]);
@@ -286,8 +302,14 @@ async function readRoomOperationsSummaryFromInsForge({
 }): Promise<AppResult<ReturnType<typeof buildRoomOperationsSummary>>> {
   try {
     const client = await getClient();
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const [rooms, metrics, invoices] = await Promise.all([
-      client.database.from("rooms").select("id").eq("id", roomId).limit(1),
+      client.database
+        .from("rooms")
+        .select("id")
+        .eq("id", roomId)
+        .eq("owner_app_user_id", ownerAppUserId)
+        .limit(1),
       client.database
         .from("utility_metrics")
         .select(
@@ -303,6 +325,7 @@ async function readRoomOperationsSummaryFromInsForge({
           ].join(", "),
         )
         .eq("room_id", roomId)
+        .eq("owner_app_user_id", ownerAppUserId)
         .order("year")
         .order("month"),
       client.database
@@ -324,6 +347,7 @@ async function readRoomOperationsSummaryFromInsForge({
           ].join(", "),
         )
         .eq("room_id", roomId)
+        .eq("owner_app_user_id", ownerAppUserId)
         .order("year")
         .order("month"),
     ]);
@@ -358,15 +382,18 @@ async function readRoomOperationsSummaryFromInsForge({
 async function readRoomItemFromInsForge({
   room,
   client,
+  ownerAppUserId,
 }: {
   room: RoomRecord;
   client: InsForgeServerClient;
+  ownerAppUserId: string;
 }) {
   const [tenants, activeContracts] = await Promise.all([
     client.database
       .from("tenants")
       .select("id, room_id, full_name, phone, is_key_tenant, status")
       .eq("room_id", room.id)
+      .eq("owner_app_user_id", ownerAppUserId)
       .order("full_name"),
     client.database
       .from("contracts")
@@ -385,6 +412,7 @@ async function readRoomItemFromInsForge({
         ].join(", "),
       )
       .eq("room_id", room.id)
+      .eq("owner_app_user_id", ownerAppUserId)
       .eq("status", "Active")
       .order("start_date"),
   ]);
@@ -407,6 +435,7 @@ async function readRoomItemFromInsForge({
 
 async function readRoomRelatedData(
   client: InsForgeServerClient,
+  ownerAppUserId: string,
 ): Promise<
   AppResult<{
     rooms: RoomRecord[];
@@ -415,10 +444,15 @@ async function readRoomRelatedData(
   }>
 > {
   const [rooms, tenants, activeContracts] = await Promise.all([
-    client.database.from("rooms").select(roomSelect).order("name"),
+    client.database
+      .from("rooms")
+      .select(roomSelect)
+      .eq("owner_app_user_id", ownerAppUserId)
+      .order("name"),
     client.database
       .from("tenants")
       .select("id, room_id, full_name, phone, is_key_tenant, status")
+      .eq("owner_app_user_id", ownerAppUserId)
       .order("full_name"),
     client.database
       .from("contracts")
@@ -436,6 +470,7 @@ async function readRoomRelatedData(
           "water_price_override",
         ].join(", "),
       )
+      .eq("owner_app_user_id", ownerAppUserId)
       .eq("status", "Active")
       .order("start_date"),
   ]);
@@ -453,4 +488,4 @@ async function readRoomRelatedData(
   });
 }
 
-const roomSelect = "id, name, status, base_price, created_at, updated_at";
+const roomSelect = "id, name, floor, status, base_price, owner_app_user_id, created_at, updated_at";

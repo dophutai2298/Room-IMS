@@ -183,7 +183,7 @@ function PeriodSelector({
     <Card className="w-full lg:w-[24rem]">
       <CardHeader>
         <CardTitle>Kỳ ghi chỉ số</CardTitle>
-        <CardDescription>Chọn tháng/năm và Bấm vào "Xem" để xem hoặc cập nhật dữ liệu.</CardDescription>
+        <CardDescription>Chọn tháng/năm và Bấm vào &quot;Xem&quot; để xem hoặc cập nhật dữ liệu.</CardDescription>
       </CardHeader>
       <CardContent>
         <form

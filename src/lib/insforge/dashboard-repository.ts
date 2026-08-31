@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { ApiTimer } from "@/lib/api/timing";
+import { getActiveOwnerAppUserId } from "@/lib/server/operational-owner-scope";
 import {
   buildDashboardMissingUtilityMetricsFromCompactRows,
   buildDashboardOperationsSummaryFromCompactRows,
@@ -97,10 +98,12 @@ async function readRevenueSummaryFromInsForge({
 }) {
   try {
     const client = await getClient();
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const response = await readRevenueInvoices({
       client,
       billingPeriod,
       chartRange,
+      ownerAppUserId,
     });
 
     if (response.error) {
@@ -128,15 +131,22 @@ async function readOperationsSummaryFromInsForge({
 }) {
   try {
     const client = await getClient();
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const [rooms, tenants, activeContracts, metrics, invoices] = await Promise.all([
       client.database
         .from("rooms")
         .select("id, name, status, base_price")
+        .eq("owner_app_user_id", ownerAppUserId)
         .order("name"),
-      client.database.from("tenants").select("id, full_name").order("full_name"),
+      client.database
+        .from("tenants")
+        .select("id, full_name")
+        .eq("owner_app_user_id", ownerAppUserId)
+        .order("full_name"),
       client.database
         .from("contracts")
         .select("id, room_id, key_tenant_id, rent_amount")
+        .eq("owner_app_user_id", ownerAppUserId)
         .eq("status", "Active")
         .order("start_date"),
       client.database
@@ -153,12 +163,14 @@ async function readOperationsSummaryFromInsForge({
             "water_new",
           ].join(", "),
         )
+        .eq("owner_app_user_id", ownerAppUserId)
         .eq("month", billingPeriod.month)
         .eq("year", billingPeriod.year),
       readRevenueInvoices({
         client,
         billingPeriod,
         chartRange: DEFAULT_DASHBOARD_REVENUE_RANGE,
+        ownerAppUserId,
       }),
     ]);
 
@@ -196,10 +208,12 @@ async function readRevenueInvoices({
   client,
   billingPeriod,
   chartRange,
+  ownerAppUserId,
 }: {
   client: InsForgeServerClient;
   billingPeriod: BillingPeriod;
   chartRange: DashboardRevenueRange;
+  ownerAppUserId: string;
 }) {
   const segments = getDashboardRevenueQuerySegments(
     billingPeriod,
@@ -210,6 +224,7 @@ async function readRevenueInvoices({
     return client.database
       .from("invoices")
       .select(invoiceSelect)
+      .eq("owner_app_user_id", ownerAppUserId)
       .order("year")
       .order("month") as PromiseLike<QueryResponse<InvoiceRecord[]>>;
   }
@@ -219,6 +234,7 @@ async function readRevenueInvoices({
       client.database
         .from("invoices")
         .select(invoiceSelect)
+        .eq("owner_app_user_id", ownerAppUserId)
         .eq("year", year)
         .gte("month", startMonth)
         .lte("month", endMonth)
@@ -244,12 +260,22 @@ async function readMissingUtilityMetricsFromInsForge({
 }) {
   try {
     const client = await getClient();
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const [rooms, tenants, activeContracts, metrics] = await Promise.all([
-      client.database.from("rooms").select("id, name, status, base_price").order("name"),
-      client.database.from("tenants").select("id, full_name").order("full_name"),
+      client.database
+        .from("rooms")
+        .select("id, name, status, base_price")
+        .eq("owner_app_user_id", ownerAppUserId)
+        .order("name"),
+      client.database
+        .from("tenants")
+        .select("id, full_name")
+        .eq("owner_app_user_id", ownerAppUserId)
+        .order("full_name"),
       client.database
         .from("contracts")
         .select("id, room_id, key_tenant_id, rent_amount")
+        .eq("owner_app_user_id", ownerAppUserId)
         .eq("status", "Active")
         .order("start_date"),
       client.database
@@ -266,6 +292,7 @@ async function readMissingUtilityMetricsFromInsForge({
             "water_new",
           ].join(", "),
         )
+        .eq("owner_app_user_id", ownerAppUserId)
         .eq("month", billingPeriod.month)
         .eq("year", billingPeriod.year),
     ]);
@@ -308,11 +335,17 @@ async function readUnpaidInvoicesFromInsForge({
 }) {
   try {
     const client = await getClient();
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const [rooms, invoices] = await Promise.all([
-      client.database.from("rooms").select("id, name").order("name"),
+      client.database
+        .from("rooms")
+        .select("id, name")
+        .eq("owner_app_user_id", ownerAppUserId)
+        .order("name"),
       client.database
         .from("invoices")
         .select(invoiceSelect)
+        .eq("owner_app_user_id", ownerAppUserId)
         .eq("month", billingPeriod.month)
         .eq("year", billingPeriod.year)
         .order("year")
@@ -350,4 +383,5 @@ const invoiceSelect = [
   "total_amount",
   "amount_paid",
   "status",
+  "owner_app_user_id",
 ].join(", ");

@@ -21,6 +21,7 @@ export async function runRoomManagementServiceBehaviorSmoke() {
     createRoom: await createRoomForOperations({
       repository,
       name: " P104 ",
+      floor: 1,
       basePrice: 2_800_000,
       status: "Available",
     }),
@@ -28,19 +29,29 @@ export async function runRoomManagementServiceBehaviorSmoke() {
       repository,
       roomId: smokeRoom.id,
       name: "P104",
+      floor: 2,
       basePrice: 2_900_000,
       status: "Maintenance",
     }),
     rejectMissingName: await createRoomForOperations({
       repository,
       name: "",
+      floor: null,
       basePrice: 2_800_000,
       status: "Available",
     }),
     rejectNegativeBaseRent: await createRoomForOperations({
       repository,
       name: "P105",
+      floor: null,
       basePrice: -1,
+      status: "Available",
+    }),
+    rejectInvalidFloor: await createRoomForOperations({
+      repository,
+      name: "P106",
+      floor: 201,
+      basePrice: 2_800_000,
       status: "Available",
     }),
   };
@@ -69,6 +80,7 @@ function createSmokeRepository(): RoomRepository {
 const smokeRoom: RoomListItem = {
   id: "00000000-0000-0000-0000-000000000104",
   name: "P104",
+  floor: 1,
   status: "available",
   basePrice: 2_800_000,
   roomBasePrice: 2_800_000,
@@ -82,6 +94,7 @@ function createRoomItem(input: WriteRoomInput): RoomListItem {
   return {
     ...smokeRoom,
     name: input.name,
+    floor: input.floor ?? null,
     status: input.status === "Maintenance" ? "maintenance" : "available",
     basePrice: input.basePrice,
     roomBasePrice: input.basePrice,

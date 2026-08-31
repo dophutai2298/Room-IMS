@@ -12,13 +12,16 @@ export type AppUser = {
   displayName: string;
   role: AppRole;
   status?: AppUserStatus;
+  ownerAppUserId?: string | null;
 };
 
 export type RoomRecord = {
   id: string;
   name: string;
+  floor?: number | null;
   status: RoomDbStatus;
   base_price: number;
+  owner_app_user_id?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -35,6 +38,7 @@ export type TenantRecord = {
   cccd_front_url?: string | null;
   cccd_back_url?: string | null;
   status: TenantDbStatus;
+  owner_app_user_id?: string | null;
 };
 
 export type TenantCccdImageRecord = {
@@ -46,6 +50,7 @@ export type TenantCccdImageRecord = {
   mime_type: string | null;
   file_size: number | null;
   created_at: string;
+  owner_app_user_id?: string | null;
 };
 
 export type ContractRecord = {
@@ -59,6 +64,7 @@ export type ContractRecord = {
   rent_amount: number | null;
   electricity_price_override: number | null;
   water_price_override: number | null;
+  owner_app_user_id?: string | null;
 };
 
 export type UtilityMetricRecord = {
@@ -70,6 +76,7 @@ export type UtilityMetricRecord = {
   electricity_new: number;
   water_old: number;
   water_new: number;
+  owner_app_user_id?: string | null;
 };
 
 export type UtilityPricingRecord = {
@@ -78,6 +85,7 @@ export type UtilityPricingRecord = {
   electricity_unit_price: number;
   water_unit_price: number;
   is_active: boolean;
+  owner_app_user_id?: string | null;
 };
 
 export type InvoiceRecord = {
@@ -93,6 +101,7 @@ export type InvoiceRecord = {
   total_amount: number;
   amount_paid: number;
   status: InvoiceDbStatus;
+  owner_app_user_id?: string | null;
 };
 
 export type MvpSeededData = {

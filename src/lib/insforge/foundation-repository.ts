@@ -2,6 +2,7 @@ import "server-only";
 
 import type { ApiTimer } from "@/lib/api/timing";
 import type { FoundationRepository } from "@/lib/foundation/repository";
+import { getActiveOwnerAppUserId } from "@/lib/server/operational-owner-scope";
 import type {
   ContractRecord,
   InvoiceRecord,
@@ -55,24 +56,40 @@ async function readSeededDataFromInsForge(
 ): Promise<AppResult<MvpSeededData>> {
   try {
     const client = await getClient();
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const [rooms, tenants, contracts, utilityMetrics, utilityPricing, invoices] =
       await Promise.all([
-        client.database.from("rooms").select(roomSelect).order("name"),
-        client.database.from("tenants").select(tenantSelect).order("full_name"),
-        client.database.from("contracts").select(contractSelect).order("start_date"),
+        client.database
+          .from("rooms")
+          .select(roomSelect)
+          .eq("owner_app_user_id", ownerAppUserId)
+          .order("name"),
+        client.database
+          .from("tenants")
+          .select(tenantSelect)
+          .eq("owner_app_user_id", ownerAppUserId)
+          .order("full_name"),
+        client.database
+          .from("contracts")
+          .select(contractSelect)
+          .eq("owner_app_user_id", ownerAppUserId)
+          .order("start_date"),
         client.database
           .from("utility_metrics")
           .select(utilityMetricSelect)
+          .eq("owner_app_user_id", ownerAppUserId)
           .order("year")
           .order("month"),
         client.database
           .from("utility_pricing")
           .select(utilityPricingSelect)
+          .eq("owner_app_user_id", ownerAppUserId)
           .eq("is_active", true)
           .order("effective_from"),
         client.database
           .from("invoices")
           .select(invoiceSelect)
+          .eq("owner_app_user_id", ownerAppUserId)
           .order("year")
           .order("month"),
       ]);
@@ -112,10 +129,12 @@ async function touchRoomInInsForge({
 }): Promise<AppResult<RoomRecord>> {
   try {
     const client = await getClient();
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const response = (await client.database
       .from("rooms")
       .update({ updated_at: new Date().toISOString() })
       .eq("id", roomId)
+      .eq("owner_app_user_id", ownerAppUserId)
       .select(roomSelect)
       .limit(1)) as QueryResponse<RoomRecord[]>;
 
@@ -137,7 +156,7 @@ async function touchRoomInInsForge({
   }
 }
 
-const roomSelect = "id, name, status, base_price, created_at, updated_at";
+const roomSelect = "id, name, floor, status, base_price, owner_app_user_id, created_at, updated_at";
 
 const tenantSelect = [
   "id",
@@ -151,6 +170,7 @@ const tenantSelect = [
   "cccd_front_url",
   "cccd_back_url",
   "status",
+  "owner_app_user_id",
 ].join(", ");
 
 const contractSelect = [
@@ -164,6 +184,7 @@ const contractSelect = [
   "rent_amount",
   "electricity_price_override",
   "water_price_override",
+  "owner_app_user_id",
 ].join(", ");
 
 const utilityMetricSelect = [
@@ -175,6 +196,7 @@ const utilityMetricSelect = [
   "electricity_new",
   "water_old",
   "water_new",
+  "owner_app_user_id",
 ].join(", ");
 
 const utilityPricingSelect = [
@@ -183,6 +205,7 @@ const utilityPricingSelect = [
   "electricity_unit_price",
   "water_unit_price",
   "is_active",
+  "owner_app_user_id",
 ].join(", ");
 
 const invoiceSelect = [
@@ -198,4 +221,5 @@ const invoiceSelect = [
   "total_amount",
   "amount_paid",
   "status",
+  "owner_app_user_id",
 ].join(", ");

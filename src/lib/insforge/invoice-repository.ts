@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { ApiTimer } from "@/lib/api/timing";
+import { getActiveOwnerAppUserId } from "@/lib/server/operational-owner-scope";
 import {
   buildInvoiceList,
   buildInvoiceListFromJoinedRows,
@@ -66,11 +67,13 @@ async function readInvoiceItemsFromInsForge({
 }): Promise<AppResult<InvoiceListItem[]>> {
   try {
     const client = await getClient();
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const response = await client.database
       .from("invoices")
       .select(
         `${invoiceListSelect}, room:rooms!invoices_room_id_fkey(name)`,
       )
+      .eq("owner_app_user_id", ownerAppUserId)
       .order("year")
       .order("month");
 
@@ -97,10 +100,12 @@ async function readInvoicePaymentTargetFromInsForge({
 }): Promise<AppResult<InvoicePaymentTarget>> {
   try {
     const client = await getClient();
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const response = (await client.database
       .from("invoices")
       .select("id, total_amount")
       .eq("id", invoiceId)
+      .eq("owner_app_user_id", ownerAppUserId)
       .limit(1)) as QueryResponse<Array<Pick<InvoiceRecord, "id" | "total_amount">>>;
 
     if (response.error) {
@@ -136,6 +141,7 @@ async function updateInvoicePaymentInInsForge({
 }): Promise<AppResult<InvoiceListItem>> {
   try {
     const client = await getClient();
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const updateResponse = (await client.database
       .from("invoices")
       .update({
@@ -144,6 +150,7 @@ async function updateInvoicePaymentInInsForge({
         updated_at: new Date().toISOString(),
       })
       .eq("id", invoiceId)
+      .eq("owner_app_user_id", ownerAppUserId)
       .select(invoiceListSelect)) as QueryResponse<InvoiceRecord[]>;
 
     if (updateResponse.error) {
@@ -164,6 +171,7 @@ async function updateInvoicePaymentInInsForge({
       .from("rooms")
       .select("id, name")
       .eq("id", updatedInvoice.room_id)
+      .eq("owner_app_user_id", ownerAppUserId)
       .limit(1)) as QueryResponse<RoomRecord[]>;
 
     if (roomResponse.error) {
@@ -201,6 +209,7 @@ const invoiceListSelect = [
   "total_amount",
   "amount_paid",
   "status",
+  "owner_app_user_id",
 ].join(", ");
 
 function toMoney(value: number | string | null) {

@@ -24,12 +24,13 @@ export async function listRoomsForOperations({
 export async function createRoomForOperations({
   repository,
   name,
+  floor,
   basePrice,
   status,
 }: WriteRoomInput & {
   repository: RoomRepository;
 }): Promise<AppResult<RoomListItem>> {
-  const validation = validateRoomWrite({ name, basePrice, status });
+  const validation = validateRoomWrite({ name, floor, basePrice, status });
 
   if (validation.error) {
     return validation;
@@ -42,6 +43,7 @@ export async function updateRoomForOperations({
   repository,
   roomId,
   name,
+  floor,
   basePrice,
   status,
 }: UpdateRoomInput & {
@@ -55,7 +57,7 @@ export async function updateRoomForOperations({
     });
   }
 
-  const validation = validateRoomWrite({ name, basePrice, status });
+  const validation = validateRoomWrite({ name, floor, basePrice, status });
 
   if (validation.error) {
     return validation;
@@ -89,6 +91,7 @@ export async function getRoomOperationsSummaryForOperations({
 
 function validateRoomWrite({
   name,
+  floor,
   basePrice,
   status,
 }: WriteRoomInput): AppResult<WriteRoomInput> {
@@ -110,6 +113,18 @@ function validateRoomWrite({
     });
   }
 
+  if (
+    floor !== undefined &&
+    floor !== null &&
+    (!Number.isInteger(floor) || floor < 0 || floor > 200)
+  ) {
+    return appError({
+      message: "Room floor must be a whole number between 0 and 200.",
+      code: "ROOM_FLOOR_INVALID",
+      statusCode: 422,
+    });
+  }
+
   if (!isRoomWriteStatus(status)) {
     return appError({
       message: "Room status must be Available or Maintenance.",
@@ -121,6 +136,7 @@ function validateRoomWrite({
   return {
     data: {
       name: cleanName,
+      floor: floor ?? null,
       basePrice: roundMoney(basePrice),
       status,
     },

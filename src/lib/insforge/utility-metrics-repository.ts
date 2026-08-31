@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { ApiTimer } from "@/lib/api/timing";
+import { getActiveOwnerAppUserId } from "@/lib/server/operational-owner-scope";
 import type { UtilityMetricsRepository } from "@/lib/utilities/repository";
 import {
   buildUtilityMetricsView,
@@ -65,16 +66,19 @@ async function readUtilityMetricsScreenFromInsForge({
 }) {
   try {
     const client = await getClient();
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const [rooms, tenants, activeContracts, metrics, invoices] = await Promise.all([
       client.database
         .from("rooms")
         .select("id, name")
         .eq("id", roomId)
+        .eq("owner_app_user_id", ownerAppUserId)
         .limit(1),
       client.database
         .from("tenants")
         .select("id, full_name")
         .eq("room_id", roomId)
+        .eq("owner_app_user_id", ownerAppUserId)
         .order("full_name"),
       client.database
         .from("contracts")
@@ -93,13 +97,15 @@ async function readUtilityMetricsScreenFromInsForge({
           ].join(", "),
         )
         .eq("room_id", roomId)
+        .eq("owner_app_user_id", ownerAppUserId)
         .eq("status", "Active")
         .order("start_date"),
-      readRelevantUtilityMetrics({ client, roomId, billingPeriod }),
+      readRelevantUtilityMetrics({ client, roomId, billingPeriod, ownerAppUserId }),
       client.database
         .from("invoices")
         .select(invoiceSelect)
         .eq("room_id", roomId)
+        .eq("owner_app_user_id", ownerAppUserId)
         .eq("month", billingPeriod.month)
         .eq("year", billingPeriod.year)
         .limit(1),
@@ -150,10 +156,16 @@ async function saveUtilityMetricsToInsForge({
 }): Promise<AppResult<UtilityMetricRecord>> {
   try {
     const client = await getClient();
+    const ownerAppUserId = getActiveOwnerAppUserId();
 
     const [rooms, metrics] = await Promise.all([
-      client.database.from("rooms").select("id").eq("id", roomId).limit(1),
-      readRelevantUtilityMetrics({ client, roomId, billingPeriod }),
+      client.database
+        .from("rooms")
+        .select("id")
+        .eq("id", roomId)
+        .eq("owner_app_user_id", ownerAppUserId)
+        .limit(1),
+      readRelevantUtilityMetrics({ client, roomId, billingPeriod, ownerAppUserId }),
     ]);
 
     for (const response of [rooms, metrics]) {
@@ -205,19 +217,21 @@ async function saveUtilityMetricsToInsForge({
       electricity_new: electricityNew,
       water_old: baseline.waterOld,
       water_new: waterNew,
+      owner_app_user_id: ownerAppUserId,
       updated_at: new Date().toISOString(),
     };
 
-  const response = baseline.currentMetric
-    ? ((await client.database
-        .from("utility_metrics")
-        .update(values)
-        .eq("id", baseline.currentMetric.id)
-        .select(utilityMetricSelect)) as QueryResponse<UtilityMetricRecord[]>)
-    : ((await client.database
-        .from("utility_metrics")
-        .insert(values)
-        .select(utilityMetricSelect)) as QueryResponse<UtilityMetricRecord[]>);
+    const response = baseline.currentMetric
+      ? ((await client.database
+          .from("utility_metrics")
+          .update(values)
+          .eq("id", baseline.currentMetric.id)
+          .eq("owner_app_user_id", ownerAppUserId)
+          .select(utilityMetricSelect)) as QueryResponse<UtilityMetricRecord[]>)
+      : ((await client.database
+          .from("utility_metrics")
+          .insert(values)
+          .select(utilityMetricSelect)) as QueryResponse<UtilityMetricRecord[]>);
 
     if (response.error) {
       if (!baseline.currentMetric) {
@@ -234,6 +248,7 @@ async function saveUtilityMetricsToInsForge({
             roomId,
             billingPeriod,
             values,
+            ownerAppUserId,
           });
 
           if (retryResult.data) {
@@ -292,6 +307,7 @@ async function updateUtilityMetricAfterInsertRace({
   roomId,
   billingPeriod,
   values,
+  ownerAppUserId,
 }: {
   client: InsForgeServerClient;
   roomId: string;
@@ -304,13 +320,16 @@ async function updateUtilityMetricAfterInsertRace({
     electricity_new: number;
     water_old: number;
     water_new: number;
+    owner_app_user_id: string;
     updated_at: string;
   };
+  ownerAppUserId: string;
 }): Promise<AppResult<UtilityMetricRecord>> {
   const existingResponse = (await client.database
     .from("utility_metrics")
     .select(utilityMetricSelect)
     .eq("room_id", roomId)
+    .eq("owner_app_user_id", ownerAppUserId)
     .eq("month", billingPeriod.month)
     .eq("year", billingPeriod.year)
     .limit(1)) as QueryResponse<UtilityMetricRecord[]>;
@@ -333,6 +352,7 @@ async function updateUtilityMetricAfterInsertRace({
     .from("utility_metrics")
     .update(values)
     .eq("id", existingMetric.id)
+    .eq("owner_app_user_id", ownerAppUserId)
     .select(utilityMetricSelect)
     .limit(1)) as QueryResponse<UtilityMetricRecord[]>;
 
@@ -359,10 +379,12 @@ async function readRelevantUtilityMetrics({
   client,
   roomId,
   billingPeriod,
+  ownerAppUserId,
 }: {
   client: InsForgeServerClient;
   roomId: string;
   billingPeriod: { month: number; year: number };
+  ownerAppUserId: string;
 }) {
   const plan = getUtilityMetricReadPlan(billingPeriod);
   const [current, earlierThisYear] = (await Promise.all([
@@ -370,6 +392,7 @@ async function readRelevantUtilityMetrics({
       .from("utility_metrics")
       .select(utilityMetricSelect)
       .eq("room_id", roomId)
+      .eq("owner_app_user_id", ownerAppUserId)
       .eq("year", plan.current.year)
       .eq("month", plan.current.month)
       .limit(1),
@@ -377,6 +400,7 @@ async function readRelevantUtilityMetrics({
       .from("utility_metrics")
       .select(utilityMetricSelect)
       .eq("room_id", roomId)
+      .eq("owner_app_user_id", ownerAppUserId)
       .eq("year", plan.earlierThisYear.year)
       .lt("month", plan.earlierThisYear.beforeMonth)
       .order("month", { ascending: false })
@@ -406,6 +430,7 @@ async function readRelevantUtilityMetrics({
     .from("utility_metrics")
     .select(utilityMetricSelect)
     .eq("room_id", roomId)
+    .eq("owner_app_user_id", ownerAppUserId)
     .lt("year", plan.priorYears.beforeYear)
     .order("year", { ascending: false })
     .order("month", { ascending: false })
@@ -432,6 +457,7 @@ const utilityMetricSelect = [
   "electricity_new",
   "water_old",
   "water_new",
+  "owner_app_user_id",
 ].join(", ");
 
 const invoiceSelect = [
@@ -447,4 +473,5 @@ const invoiceSelect = [
   "total_amount",
   "amount_paid",
   "status",
+  "owner_app_user_id",
 ].join(", ");

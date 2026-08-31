@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { ApiTimer } from "@/lib/api/timing";
+import { getActiveOwnerAppUserId } from "@/lib/server/operational-owner-scope";
 import {
   buildContractList,
   type ContractListItem,
@@ -66,21 +67,25 @@ async function listRoomContractsFromInsForge({
 }): Promise<AppResult<ContractListItem[]>> {
   try {
     const client = await getClient();
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const [roomResponse, contractResponse, tenantResponse] = await Promise.all([
       client.database
         .from("rooms")
         .select("id, base_price")
         .eq("id", roomId)
+        .eq("owner_app_user_id", ownerAppUserId)
         .limit(1),
       client.database
         .from("contracts")
         .select(contractSelect)
         .eq("room_id", roomId)
+        .eq("owner_app_user_id", ownerAppUserId)
         .order("start_date"),
       client.database
         .from("tenants")
         .select(tenantSelect)
         .eq("room_id", roomId)
+        .eq("owner_app_user_id", ownerAppUserId)
         .order("full_name"),
     ]);
 
@@ -118,22 +123,26 @@ async function createContractInInsForge({
 }): Promise<AppResult<ContractListItem>> {
   try {
     const client = await getClient();
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const [roomResponse, tenantResponse, activeContractResponse] =
       await Promise.all([
         client.database
           .from("rooms")
           .select("id")
           .eq("id", input.roomId)
+          .eq("owner_app_user_id", ownerAppUserId)
           .limit(1),
         client.database
           .from("tenants")
           .select(tenantSelect)
           .eq("id", input.keyTenantId)
+          .eq("owner_app_user_id", ownerAppUserId)
           .limit(1),
         client.database
           .from("contracts")
           .select("id")
           .eq("room_id", input.roomId)
+          .eq("owner_app_user_id", ownerAppUserId)
           .eq("status", "Active")
           .limit(1),
       ]);
@@ -169,7 +178,7 @@ async function createContractInInsForge({
 
     const response = (await client.database
       .from("contracts")
-      .insert(contractWriteValues({ ...input, status: "Active" }))
+      .insert(contractWriteValues({ ...input, status: "Active", ownerAppUserId }))
       .select(contractSelect)) as QueryResponse<ContractRecord[]>;
 
     if (response.error) {
@@ -204,10 +213,12 @@ async function updateContractInInsForge({
 }): Promise<AppResult<ContractListItem>> {
   try {
     const client = await getClient();
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const currentResponse = (await client.database
       .from("contracts")
       .select(contractSelect)
       .eq("id", input.contractId)
+      .eq("owner_app_user_id", ownerAppUserId)
       .limit(1)) as QueryResponse<ContractRecord[]>;
 
     if (currentResponse.error) {
@@ -225,11 +236,13 @@ async function updateContractInInsForge({
         .from("tenants")
         .select(tenantSelect)
         .eq("id", input.keyTenantId)
+        .eq("owner_app_user_id", ownerAppUserId)
         .limit(1),
       client.database
         .from("contracts")
         .select("id")
         .eq("room_id", currentContract.room_id)
+        .eq("owner_app_user_id", ownerAppUserId)
         .eq("status", "Active"),
     ]);
 
@@ -264,9 +277,11 @@ async function updateContractInInsForge({
         contractWriteValues({
           ...input,
           roomId: currentContract.room_id,
+          ownerAppUserId,
         }),
       )
       .eq("id", input.contractId)
+      .eq("owner_app_user_id", ownerAppUserId)
       .select(contractSelect)) as QueryResponse<ContractRecord[]>;
 
     if (response.error) {
@@ -300,7 +315,11 @@ function contractWriteValues({
   startDate,
   endDate,
   status,
-}: CreateContractInput & { status: ContractRecord["status"] }) {
+  ownerAppUserId,
+}: CreateContractInput & {
+  status: ContractRecord["status"];
+  ownerAppUserId: string;
+}) {
   return {
     room_id: roomId,
     key_tenant_id: keyTenantId,
@@ -311,6 +330,7 @@ function contractWriteValues({
     start_date: startDate,
     end_date: endDate,
     status,
+    owner_app_user_id: ownerAppUserId,
     updated_at: new Date().toISOString(),
   };
 }
@@ -403,6 +423,7 @@ const contractSelect = [
   "rent_amount",
   "electricity_price_override",
   "water_price_override",
+  "owner_app_user_id",
 ].join(", ");
 
 const tenantSelect = [

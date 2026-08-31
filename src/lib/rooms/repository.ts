@@ -10,6 +10,7 @@ export type RoomWriteStatus = Extract<RoomDbStatus, "Available" | "Maintenance">
 
 export type WriteRoomInput = {
   name: string;
+  floor?: number | null;
   basePrice: number;
   status: RoomWriteStatus;
 };

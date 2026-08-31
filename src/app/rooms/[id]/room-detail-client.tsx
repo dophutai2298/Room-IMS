@@ -113,6 +113,9 @@ function RoomHeader({ detail }: { detail: RoomDetailView }) {
             Chi tiết {detail.room.name}
           </h1>
           <RoomBadge status={detail.room.status} />
+          {detail.room.floor !== undefined && detail.room.floor !== null && (
+            <Badge variant="outline">Tầng {detail.room.floor}</Badge>
+          )}
         </div>
       </div>
       <div className="flex flex-col gap-2 sm:flex-row">

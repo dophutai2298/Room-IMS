@@ -119,7 +119,7 @@ export function TenantsDirectoryClient() {
           header: "Action",
           cell: ({ row }) => (
             <div className="flex flex-wrap justify-end gap-2">
-              {/* <TenantDetailDialog tenant={row.original} roomOptions={roomOptions} /> */}
+              <TenantDetailDialog tenant={row.original} roomOptions={roomOptions} />
               <TenantEditorDialog
                 mode="edit"
                 tenant={row.original}
