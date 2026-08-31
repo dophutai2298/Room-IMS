@@ -25,7 +25,7 @@
 - Added shared server-only owner scope resolution: landlord uses its own `app_users.id`; staff uses its assigned `owner_app_user_id`.
 - Added `npm run data:migrate-account-scope` for non-destructive schema/backfill migration. It preflights that `IMPORT_OWNER_APP_USER_ID` exists and is an active landlord before applying DB changes.
 - Added and ran `npm run data:migrate-account-scope-schema` against InsForge to create the `owner_app_user_id` schema columns first without choosing/backfilling an owner for existing business rows.
-- Ran account-scope data migration/backfill against InsForge for owner `c4a200d3-9311-411b-a1a5-635aa42b0b2a`.
+- Ran account-scope data migration/backfill against InsForge for owner `xxxxxxxxx`.
 - Verified owner coverage after backfill:
   - `rooms`: total 4, owner 4, null 0
   - `tenants`: total 9, owner 9, null 0
