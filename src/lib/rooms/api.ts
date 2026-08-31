@@ -12,6 +12,7 @@ export async function validateRoomWriteRequest(
 ): Promise<
   ValidationResult<{
     name: string;
+    floor: number | null;
     basePrice: number;
     status: RoomWriteStatus;
   }>
@@ -28,6 +29,7 @@ export async function validateRoomWriteRequest(
   }
 
   const name = typeof body.name === "string" ? body.name : "";
+  const floor = parseFloor(body.floor);
   const basePrice = parseMoney(body.basePrice);
   const status = parseRoomWriteStatus(body.status);
   const fieldErrors: Record<string, string> = {};
@@ -38,6 +40,10 @@ export async function validateRoomWriteRequest(
 
   if (basePrice === null) {
     fieldErrors.basePrice = "Base rent must be a non-negative number.";
+  }
+
+  if (floor === undefined) {
+    fieldErrors.floor = "Floor must be a whole number between 0 and 200.";
   }
 
   if (!status) {
@@ -57,6 +63,7 @@ export async function validateRoomWriteRequest(
   return {
     data: {
       name,
+      floor: floor as number | null,
       basePrice: basePrice as number,
       status: status as RoomWriteStatus,
     },
@@ -76,6 +83,25 @@ function parseMoney(value: unknown) {
   const parsed = Number.parseFloat(value);
 
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function parseFloor(value: unknown): number | null | undefined {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const parsed =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number.parseInt(value, 10)
+        : Number.NaN;
+
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 200) {
+    return undefined;
+  }
+
+  return parsed;
 }
 
 function parseRoomWriteStatus(value: unknown): RoomWriteStatus | null {

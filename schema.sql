@@ -9,6 +9,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE TABLE IF NOT EXISTS public.rooms (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
+    floor INTEGER CHECK (floor IS NULL OR (floor >= 0 AND floor <= 200)),
     status TEXT NOT NULL DEFAULT 'Available'
         CHECK (status IN ('Available', 'Occupied', 'Maintenance')),
     base_price NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (base_price >= 0),
@@ -122,6 +123,7 @@ CREATE TABLE IF NOT EXISTS public.app_users (
     display_name TEXT NOT NULL,
     role TEXT NOT NULL CHECK (role IN ('landlord', 'staff')),
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'disabled')),
+    owner_app_user_id UUID REFERENCES public.app_users(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -129,6 +131,39 @@ CREATE TABLE IF NOT EXISTS public.app_users (
 ALTER TABLE public.app_users
     ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'
         CHECK (status IN ('active', 'disabled'));
+
+ALTER TABLE public.app_users
+    ADD COLUMN IF NOT EXISTS owner_app_user_id UUID REFERENCES public.app_users(id) ON DELETE SET NULL;
+
+UPDATE public.app_users
+SET owner_app_user_id = id
+WHERE role = 'landlord'
+  AND owner_app_user_id IS NULL;
+
+ALTER TABLE public.rooms
+    ADD COLUMN IF NOT EXISTS floor INTEGER
+        CHECK (floor IS NULL OR (floor >= 0 AND floor <= 200));
+
+ALTER TABLE public.rooms
+    ADD COLUMN IF NOT EXISTS owner_app_user_id UUID REFERENCES public.app_users(id) ON DELETE CASCADE;
+
+ALTER TABLE public.tenants
+    ADD COLUMN IF NOT EXISTS owner_app_user_id UUID REFERENCES public.app_users(id) ON DELETE CASCADE;
+
+ALTER TABLE public.tenant_cccd_images
+    ADD COLUMN IF NOT EXISTS owner_app_user_id UUID REFERENCES public.app_users(id) ON DELETE CASCADE;
+
+ALTER TABLE public.contracts
+    ADD COLUMN IF NOT EXISTS owner_app_user_id UUID REFERENCES public.app_users(id) ON DELETE CASCADE;
+
+ALTER TABLE public.utility_metrics
+    ADD COLUMN IF NOT EXISTS owner_app_user_id UUID REFERENCES public.app_users(id) ON DELETE CASCADE;
+
+ALTER TABLE public.utility_pricing
+    ADD COLUMN IF NOT EXISTS owner_app_user_id UUID REFERENCES public.app_users(id) ON DELETE CASCADE;
+
+ALTER TABLE public.invoices
+    ADD COLUMN IF NOT EXISTS owner_app_user_id UUID REFERENCES public.app_users(id) ON DELETE CASCADE;
 
 ALTER TABLE public.contracts
     ADD COLUMN IF NOT EXISTS rent_amount NUMERIC(12, 2)
@@ -283,130 +318,147 @@ AS $$
   );
 $$;
 
+CREATE OR REPLACE FUNCTION public.current_app_user_owner_id()
+RETURNS UUID
+LANGUAGE SQL
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT COALESCE(owner_app_user_id, id)
+  FROM public.app_users
+  WHERE auth_user_id = auth.uid()
+    AND status = 'active'
+  LIMIT 1;
+$$;
+
 REVOKE ALL ON FUNCTION public.current_app_user_is_active() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.current_app_user_is_active() TO authenticated;
 
 REVOKE ALL ON FUNCTION public.current_app_user_is_landlord() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.current_app_user_is_landlord() TO authenticated;
 
+REVOKE ALL ON FUNCTION public.current_app_user_owner_id() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.current_app_user_owner_id() TO authenticated;
+
 CREATE POLICY "authenticated_read_rooms"
 ON public.rooms FOR SELECT TO authenticated
-USING (public.current_app_user_is_active());
+USING (owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_insert_rooms"
 ON public.rooms FOR INSERT TO authenticated
-WITH CHECK (public.current_app_user_is_active());
+WITH CHECK (owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_landlord_update_rooms"
 ON public.rooms FOR UPDATE TO authenticated
-USING (public.current_app_user_is_landlord())
-WITH CHECK (public.current_app_user_is_landlord());
+USING (public.current_app_user_is_landlord() AND owner_app_user_id = public.current_app_user_owner_id())
+WITH CHECK (public.current_app_user_is_landlord() AND owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_landlord_delete_rooms"
 ON public.rooms FOR DELETE TO authenticated
-USING (public.current_app_user_is_landlord());
+USING (public.current_app_user_is_landlord() AND owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_read_tenants"
 ON public.tenants FOR SELECT TO authenticated
-USING (public.current_app_user_is_active());
+USING (owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_insert_tenants"
 ON public.tenants FOR INSERT TO authenticated
-WITH CHECK (public.current_app_user_is_active());
+WITH CHECK (owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_landlord_update_tenants"
 ON public.tenants FOR UPDATE TO authenticated
-USING (public.current_app_user_is_landlord())
-WITH CHECK (public.current_app_user_is_landlord());
+USING (public.current_app_user_is_landlord() AND owner_app_user_id = public.current_app_user_owner_id())
+WITH CHECK (public.current_app_user_is_landlord() AND owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_landlord_delete_tenants"
 ON public.tenants FOR DELETE TO authenticated
-USING (public.current_app_user_is_landlord());
+USING (public.current_app_user_is_landlord() AND owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_read_tenant_cccd_images"
 ON public.tenant_cccd_images FOR SELECT TO authenticated
-USING (public.current_app_user_is_active());
+USING (owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_insert_tenant_cccd_images"
 ON public.tenant_cccd_images FOR INSERT TO authenticated
-WITH CHECK (public.current_app_user_is_active());
+WITH CHECK (owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_landlord_update_tenant_cccd_images"
 ON public.tenant_cccd_images FOR UPDATE TO authenticated
-USING (public.current_app_user_is_landlord())
-WITH CHECK (public.current_app_user_is_landlord());
+USING (public.current_app_user_is_landlord() AND owner_app_user_id = public.current_app_user_owner_id())
+WITH CHECK (public.current_app_user_is_landlord() AND owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_landlord_delete_tenant_cccd_images"
 ON public.tenant_cccd_images FOR DELETE TO authenticated
-USING (public.current_app_user_is_landlord());
+USING (public.current_app_user_is_landlord() AND owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_read_contracts"
 ON public.contracts FOR SELECT TO authenticated
-USING (public.current_app_user_is_active());
+USING (owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_insert_contracts"
 ON public.contracts FOR INSERT TO authenticated
-WITH CHECK (public.current_app_user_is_active());
+WITH CHECK (owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_landlord_update_contracts"
 ON public.contracts FOR UPDATE TO authenticated
-USING (public.current_app_user_is_landlord())
-WITH CHECK (public.current_app_user_is_landlord());
+USING (public.current_app_user_is_landlord() AND owner_app_user_id = public.current_app_user_owner_id())
+WITH CHECK (public.current_app_user_is_landlord() AND owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_landlord_delete_contracts"
 ON public.contracts FOR DELETE TO authenticated
-USING (public.current_app_user_is_landlord());
+USING (public.current_app_user_is_landlord() AND owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_read_utility_metrics"
 ON public.utility_metrics FOR SELECT TO authenticated
-USING (public.current_app_user_is_active());
+USING (owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_insert_utility_metrics"
 ON public.utility_metrics FOR INSERT TO authenticated
-WITH CHECK (public.current_app_user_is_active());
+WITH CHECK (owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_landlord_update_utility_metrics"
 ON public.utility_metrics FOR UPDATE TO authenticated
-USING (public.current_app_user_is_landlord())
-WITH CHECK (public.current_app_user_is_landlord());
+USING (public.current_app_user_is_landlord() AND owner_app_user_id = public.current_app_user_owner_id())
+WITH CHECK (public.current_app_user_is_landlord() AND owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_landlord_delete_utility_metrics"
 ON public.utility_metrics FOR DELETE TO authenticated
-USING (public.current_app_user_is_landlord());
+USING (public.current_app_user_is_landlord() AND owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_read_utility_pricing"
 ON public.utility_pricing FOR SELECT TO authenticated
-USING (public.current_app_user_is_active());
+USING (owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_landlord_insert_utility_pricing"
 ON public.utility_pricing FOR INSERT TO authenticated
-WITH CHECK (public.current_app_user_is_landlord());
+WITH CHECK (public.current_app_user_is_landlord() AND owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_landlord_update_utility_pricing"
 ON public.utility_pricing FOR UPDATE TO authenticated
-USING (public.current_app_user_is_landlord())
-WITH CHECK (public.current_app_user_is_landlord());
+USING (public.current_app_user_is_landlord() AND owner_app_user_id = public.current_app_user_owner_id())
+WITH CHECK (public.current_app_user_is_landlord() AND owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_landlord_delete_utility_pricing"
 ON public.utility_pricing FOR DELETE TO authenticated
-USING (public.current_app_user_is_landlord());
+USING (public.current_app_user_is_landlord() AND owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_read_invoices"
 ON public.invoices FOR SELECT TO authenticated
-USING (public.current_app_user_is_active());
+USING (owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_insert_invoices"
 ON public.invoices FOR INSERT TO authenticated
-WITH CHECK (public.current_app_user_is_active());
+WITH CHECK (owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_landlord_update_invoices"
 ON public.invoices FOR UPDATE TO authenticated
-USING (public.current_app_user_is_landlord())
-WITH CHECK (public.current_app_user_is_landlord());
+USING (public.current_app_user_is_landlord() AND owner_app_user_id = public.current_app_user_owner_id())
+WITH CHECK (public.current_app_user_is_landlord() AND owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_landlord_delete_invoices"
 ON public.invoices FOR DELETE TO authenticated
-USING (public.current_app_user_is_landlord());
+USING (public.current_app_user_is_landlord() AND owner_app_user_id = public.current_app_user_owner_id());
 
 CREATE POLICY "authenticated_read_own_app_user"
 ON public.app_users FOR SELECT TO authenticated
@@ -414,15 +466,22 @@ USING (auth_user_id = auth.uid());
 
 CREATE POLICY "authenticated_landlord_read_app_users"
 ON public.app_users FOR SELECT TO authenticated
-USING (public.current_app_user_is_landlord());
+USING (
+    public.current_app_user_is_landlord()
+    AND (
+        id = public.current_app_user_owner_id()
+        OR owner_app_user_id = public.current_app_user_owner_id()
+    )
+);
 
-INSERT INTO public.rooms (id, name, status, base_price)
+INSERT INTO public.rooms (id, name, floor, status, base_price)
 VALUES
-    ('00000000-0000-0000-0000-000000000101', 'Room 101', 'Occupied', 3200000),
-    ('00000000-0000-0000-0000-000000000102', 'Room 102', 'Available', 2800000),
-    ('00000000-0000-0000-0000-000000000103', 'Room 103', 'Occupied', 3500000)
+    ('00000000-0000-0000-0000-000000000101', 'Room 101', 1, 'Occupied', 3200000),
+    ('00000000-0000-0000-0000-000000000102', 'Room 102', 1, 'Available', 2800000),
+    ('00000000-0000-0000-0000-000000000103', 'Room 103', 1, 'Occupied', 3500000)
 ON CONFLICT (id) DO UPDATE
 SET name = EXCLUDED.name,
+    floor = EXCLUDED.floor,
     status = EXCLUDED.status,
     base_price = EXCLUDED.base_price,
     updated_at = NOW();
@@ -607,6 +666,30 @@ WHERE status = 'Active';
 CREATE INDEX IF NOT EXISTS tenant_cccd_images_tenant_id_created_at_idx
 ON public.tenant_cccd_images (tenant_id, created_at DESC);
 
+CREATE INDEX IF NOT EXISTS app_users_owner_app_user_id_idx
+ON public.app_users (owner_app_user_id);
+
+CREATE INDEX IF NOT EXISTS rooms_owner_app_user_id_name_idx
+ON public.rooms (owner_app_user_id, name);
+
+CREATE INDEX IF NOT EXISTS tenants_owner_app_user_id_full_name_idx
+ON public.tenants (owner_app_user_id, full_name);
+
+CREATE INDEX IF NOT EXISTS tenant_cccd_images_owner_app_user_id_tenant_id_idx
+ON public.tenant_cccd_images (owner_app_user_id, tenant_id);
+
+CREATE INDEX IF NOT EXISTS contracts_owner_app_user_id_room_id_status_idx
+ON public.contracts (owner_app_user_id, room_id, status);
+
+CREATE INDEX IF NOT EXISTS utility_metrics_owner_app_user_id_room_period_idx
+ON public.utility_metrics (owner_app_user_id, room_id, year, month);
+
+CREATE INDEX IF NOT EXISTS utility_pricing_owner_app_user_id_effective_from_idx
+ON public.utility_pricing (owner_app_user_id, effective_from);
+
+CREATE INDEX IF NOT EXISTS invoices_owner_app_user_id_room_period_idx
+ON public.invoices (owner_app_user_id, room_id, year, month);
+
 CREATE OR REPLACE FUNCTION public.enforce_contract_key_tenant_same_room()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -617,8 +700,9 @@ BEGIN
         FROM public.tenants
         WHERE tenants.id = NEW.key_tenant_id
           AND tenants.room_id = NEW.room_id
+          AND tenants.owner_app_user_id = NEW.owner_app_user_id
     ) THEN
-        RAISE EXCEPTION 'Contract key_tenant_id must belong to the same room_id'
+        RAISE EXCEPTION 'Contract key_tenant_id must belong to the same room_id and owner_app_user_id'
             USING ERRCODE = '23514';
     END IF;
 

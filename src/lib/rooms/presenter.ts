@@ -13,6 +13,7 @@ export type RoomUiStatus = "occupied" | "available" | "maintenance";
 export type RoomListItem = {
   id: string;
   name: string;
+  floor?: number | null;
   status: RoomUiStatus;
   basePrice: number;
   roomBasePrice: number;
@@ -26,6 +27,7 @@ export type RoomDetailView = {
   room: {
     id: string;
     name: string;
+    floor?: number | null;
     status: RoomUiStatus;
     storedStatus: RoomDbStatus;
     basePrice: number;
@@ -104,6 +106,7 @@ export function buildRoomListItem({
   return {
     id: room.id,
     name: room.name,
+    floor: room.floor ?? null,
     status,
     basePrice: toMoney(activeContract?.rent_amount ?? room.base_price),
     roomBasePrice: toMoney(room.base_price),
@@ -135,6 +138,7 @@ export function buildRoomDetailView({
     room: {
       id: room.id,
       name: room.name,
+      floor: room.floor ?? null,
       status: deriveRoomStatus(room.status, activeContract),
       storedStatus: room.status,
       basePrice: toMoney(room.base_price),

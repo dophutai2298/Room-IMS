@@ -25,6 +25,7 @@ type AppUserRow = {
   display_name: string;
   role: "landlord" | "staff";
   status?: "active" | "disabled";
+  owner_app_user_id?: string | null;
 };
 
 export function createInsForgeAuthRepository({
@@ -68,7 +69,7 @@ async function readCurrentAppUserFromInsForge({
       const query = async () =>
         (await client.database
           .from("app_users")
-          .select("id, auth_user_id, email, display_name, role, status")
+          .select("id, auth_user_id, email, display_name, role, status, owner_app_user_id")
           .eq("auth_user_id", authUserId)
           .limit(1)) as QueryResponse<AppUserRow[]>;
 
@@ -134,6 +135,7 @@ async function readCurrentAppUserFromInsForge({
         String(profile.displayName ?? profile.nickname ?? user.email),
       role: row.role,
       status: row.status ?? "active",
+      ownerAppUserId: row.owner_app_user_id ?? row.id,
     });
   } catch (error) {
     return { data: null, error: toAppBackendError(error) };

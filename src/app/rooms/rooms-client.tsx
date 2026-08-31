@@ -40,12 +40,14 @@ import { roomQueryKeys } from "@/lib/rooms/query-keys";
 
 type RoomDraft = {
   name: string;
+  floor: string;
   basePrice: string;
   status: RoomWriteStatus;
 };
 
 const defaultRoomDraft: RoomDraft = {
   name: "",
+  floor: "",
   basePrice: "",
   status: "Available",
 };
@@ -78,6 +80,17 @@ export function RoomsClient() {
               </p>
             </div>
           ),
+          sortFn: "alphanumeric",
+        }),
+        roomColumnHelper.accessor((room) => room.floor ?? "", {
+          id: "floor",
+          header: "Tầng",
+          cell: (info) => (
+            <span className="font-mono tabular-nums">
+              {info.row.original.floor ?? "—"}
+            </span>
+          ),
+          enableGlobalFilter: false,
           sortFn: "alphanumeric",
         }),
         roomColumnHelper.accessor("status", {
@@ -209,6 +222,7 @@ function RoomEditorDialog({
     AppApiClientError,
     {
       name: string;
+      floor: number | null;
       basePrice: number;
       status: RoomWriteStatus;
     }
@@ -264,6 +278,7 @@ function RoomEditorDialog({
     setServerMessage(null);
     mutation.mutate({
       name: draft.name,
+      floor: draft.floor.trim() ? Number.parseInt(draft.floor, 10) : null,
       basePrice: Number.parseFloat(draft.basePrice),
       status: draft.status,
     });
@@ -321,6 +336,26 @@ function RoomEditorDialog({
                 setServerMessage(null);
               }}
             />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor={`room-floor-${mode}-${room?.id ?? "new"}`}>Tầng</Label>
+            <Input
+              id={`room-floor-${mode}-${room?.id ?? "new"}`}
+              type="number"
+              min={0}
+              step={1}
+              value={draft.floor}
+              placeholder="1"
+              disabled={mutation.isPending}
+              onChange={(event) => {
+                setDraft((current) => ({ ...current, floor: event.target.value }));
+                setServerMessage(null);
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              Có thể bỏ trống nếu phòng chưa được phân tầng.
+            </p>
           </div>
 
           <div className="grid gap-2">
@@ -402,6 +437,7 @@ function getInitialDraft(room?: RoomListItem): RoomDraft {
 
   return {
     name: room.name,
+    floor: room.floor === null ? "" : String(room.floor),
     basePrice: String(room.roomBasePrice),
     status: room.status === "maintenance" ? "Maintenance" : "Available",
   };
@@ -413,9 +449,14 @@ function validateRoomDraft(draft: RoomDraft) {
   }
 
   const basePrice = Number.parseFloat(draft.basePrice);
+  const floor = draft.floor.trim() ? Number.parseInt(draft.floor, 10) : null;
 
   if (!Number.isFinite(basePrice) || basePrice < 0) {
     return "Base rent phải là số không âm.";
+  }
+
+  if (floor !== null && (!Number.isInteger(floor) || floor < 0 || floor > 200)) {
+    return "Tầng phải là số nguyên từ 0 đến 200.";
   }
 
   return null;

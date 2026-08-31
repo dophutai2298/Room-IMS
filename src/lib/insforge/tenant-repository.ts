@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { ApiTimer } from "@/lib/api/timing";
+import { getActiveOwnerAppUserId } from "@/lib/server/operational-owner-scope";
 import {
   buildTenantList,
   type TenantCccdImage,
@@ -117,13 +118,14 @@ async function readTenantsFromInsForge({
 }): Promise<AppResult<TenantListItem[]>> {
   try {
     const client = await getClient();
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const tenantResult = await readTenantRows({ client, search: input?.search });
 
     if (tenantResult.error) {
       return tenantResult;
     }
 
-    return buildTenantItems({ client, tenants: tenantResult.data });
+    return buildTenantItems({ client, tenants: tenantResult.data, ownerAppUserId });
   } catch (error) {
     return { data: null, error: toAppBackendError(error) };
   }
@@ -138,10 +140,12 @@ async function readTenantFromInsForge({
 }): Promise<AppResult<TenantListItem>> {
   try {
     const client = await getClient();
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const response = (await client.database
       .from("tenants")
       .select(tenantSelect)
-      .eq("id", tenantId)) as QueryResponse<TenantRecord[]>;
+      .eq("id", tenantId)
+      .eq("owner_app_user_id", ownerAppUserId)) as QueryResponse<TenantRecord[]>;
 
     if (response.error) {
       return fail(response.error, "Could not read Tenant");
@@ -153,7 +157,7 @@ async function readTenantFromInsForge({
       return tenantNotFound();
     }
 
-    return buildSingleTenantItem({ client, tenant });
+    return buildSingleTenantItem({ client, tenant, ownerAppUserId });
   } catch (error) {
     return { data: null, error: toAppBackendError(error) };
   }
@@ -168,19 +172,25 @@ async function readRoomTenantsFromInsForge({
 }): Promise<AppResult<TenantListItem[]>> {
   try {
     const client = await getClient();
-    const roomResult = await readRoomById({ client, roomId });
+    const ownerAppUserId = getActiveOwnerAppUserId();
+    const roomResult = await readRoomById({ client, roomId, ownerAppUserId });
 
     if (roomResult.error) {
       return roomResult;
     }
 
-    const tenants = await readTenantRowsForRoom({ client, roomId });
+    const tenants = await readTenantRowsForRoom({ client, roomId, ownerAppUserId });
 
     if (tenants.error) {
       return tenants;
     }
 
-    return buildTenantItems({ client, tenants: tenants.data, rooms: [roomResult.data] });
+    return buildTenantItems({
+      client,
+      tenants: tenants.data,
+      rooms: [roomResult.data],
+      ownerAppUserId,
+    });
   } catch (error) {
     return { data: null, error: toAppBackendError(error) };
   }
@@ -200,7 +210,8 @@ async function createTenantInInsForge({
 }): Promise<AppResult<TenantListItem>> {
   try {
     const client = await getClient();
-    const roomResult = await readRoomById({ client, roomId });
+    const ownerAppUserId = getActiveOwnerAppUserId();
+    const roomResult = await readRoomById({ client, roomId, ownerAppUserId });
 
     if (roomResult.error) {
       return roomResult;
@@ -217,6 +228,7 @@ async function createTenantInInsForge({
         cccd_number: cccdNumber,
         status,
         is_key_tenant: false,
+        owner_app_user_id: ownerAppUserId,
       })
       .select(tenantSelect)) as QueryResponse<TenantRecord[]>;
 
@@ -230,7 +242,12 @@ async function createTenantInInsForge({
       return fail(new Error("Tenant create returned no rows"), "Could not create Tenant");
     }
 
-    return buildSingleTenantItem({ client, tenant, rooms: [roomResult.data] });
+    return buildSingleTenantItem({
+      client,
+      tenant,
+      rooms: [roomResult.data],
+      ownerAppUserId,
+    });
   } catch (error) {
     return { data: null, error: toAppBackendError(error) };
   }
@@ -251,9 +268,10 @@ async function updateTenantInInsForge({
 }): Promise<AppResult<TenantListItem>> {
   try {
     const client = await getClient();
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const [currentTenantResult, roomResult] = await Promise.all([
-      readTenantById({ client, tenantId }),
-      readRoomById({ client, roomId }),
+      readTenantById({ client, tenantId, ownerAppUserId }),
+      readRoomById({ client, roomId, ownerAppUserId }),
     ]);
 
     if (currentTenantResult.error) {
@@ -276,6 +294,7 @@ async function updateTenantInInsForge({
         status,
       })
       .eq("id", tenantId)
+      .eq("owner_app_user_id", ownerAppUserId)
       .select(tenantSelect)) as QueryResponse<TenantRecord[]>;
 
     if (response.error) {
@@ -288,7 +307,12 @@ async function updateTenantInInsForge({
       return fail(new Error("Tenant update returned no rows"), "Could not update Tenant");
     }
 
-    return buildSingleTenantItem({ client, tenant, rooms: [roomResult.data] });
+    return buildSingleTenantItem({
+      client,
+      tenant,
+      rooms: [roomResult.data],
+      ownerAppUserId,
+    });
   } catch (error) {
     return { data: null, error: toAppBackendError(error) };
   }
@@ -303,13 +327,18 @@ async function deleteTenantInInsForge({
 }): Promise<AppResult<DeleteTenantResult>> {
   try {
     const client = await getClient();
-    const tenantResult = await readTenantById({ client, tenantId });
+    const ownerAppUserId = getActiveOwnerAppUserId();
+    const tenantResult = await readTenantById({ client, tenantId, ownerAppUserId });
 
     if (tenantResult.error) {
       return tenantResult;
     }
 
-    const contractReferences = await readContractsForTenant({ client, tenantId });
+    const contractReferences = await readContractsForTenant({
+      client,
+      tenantId,
+      ownerAppUserId,
+    });
 
     if (contractReferences.error) {
       return contractReferences;
@@ -335,7 +364,11 @@ async function deleteTenantInInsForge({
       });
     }
 
-    const images = await readTenantCccdImages({ client, tenantIds: [tenantId] });
+    const images = await readTenantCccdImages({
+      client,
+      tenantIds: [tenantId],
+      ownerAppUserId,
+    });
 
     if (images.error) {
       return images;
@@ -345,6 +378,7 @@ async function deleteTenantInInsForge({
       .from("tenants")
       .delete()
       .eq("id", tenantId)
+      .eq("owner_app_user_id", ownerAppUserId)
       .select("id, room_id")) as QueryResponse<Array<Pick<TenantRecord, "id" | "room_id">>>;
 
     if (response.error) {
@@ -377,7 +411,8 @@ async function uploadTenantCccdImagesToInsForge({
 }): Promise<AppResult<TenantCccdImage[]>> {
   try {
     const client = await getClient();
-    const tenantResult = await readTenantById({ client, tenantId });
+    const ownerAppUserId = getActiveOwnerAppUserId();
+    const tenantResult = await readTenantById({ client, tenantId, ownerAppUserId });
 
     if (tenantResult.error) {
       return tenantResult;
@@ -404,6 +439,7 @@ async function uploadTenantCccdImagesToInsForge({
         file_name: image.name,
         mime_type: image.type,
         file_size: image.size,
+        owner_app_user_id: ownerAppUserId,
       });
     }
 
@@ -443,13 +479,19 @@ async function deleteTenantCccdImageFromInsForge({
 }): Promise<AppResult<DeleteTenantCccdImageResult>> {
   try {
     const client = await getClient();
-    const tenantResult = await readTenantById({ client, tenantId });
+    const ownerAppUserId = getActiveOwnerAppUserId();
+    const tenantResult = await readTenantById({ client, tenantId, ownerAppUserId });
 
     if (tenantResult.error) {
       return tenantResult;
     }
 
-    const imageResult = await readTenantCccdImageById({ client, tenantId, imageId });
+    const imageResult = await readTenantCccdImageById({
+      client,
+      tenantId,
+      imageId,
+      ownerAppUserId,
+    });
 
     if (imageResult.error) {
       return imageResult;
@@ -469,6 +511,7 @@ async function deleteTenantCccdImageFromInsForge({
       .delete()
       .eq("id", imageId)
       .eq("tenant_id", tenantId)
+      .eq("owner_app_user_id", ownerAppUserId)
       .select("id, tenant_id")) as QueryResponse<
       Array<Pick<TenantCccdImageRecord, "id" | "tenant_id">>
     >;
@@ -496,12 +539,19 @@ async function buildSingleTenantItem({
   client,
   tenant,
   rooms,
+  ownerAppUserId,
 }: {
   client: InsForgeServerClient;
   tenant: TenantRecord;
   rooms?: Array<Pick<RoomRecord, "id" | "name">>;
+  ownerAppUserId: string;
 }): Promise<AppResult<TenantListItem>> {
-  const result = await buildTenantItems({ client, tenants: [tenant], rooms });
+  const result = await buildTenantItems({
+    client,
+    tenants: [tenant],
+    rooms,
+    ownerAppUserId,
+  });
 
   if (result.error) {
     return result;
@@ -520,10 +570,12 @@ async function buildTenantItems({
   client,
   tenants,
   rooms,
+  ownerAppUserId,
 }: {
   client: InsForgeServerClient;
   tenants: TenantRecord[];
   rooms?: Array<Pick<RoomRecord, "id" | "name">>;
+  ownerAppUserId: string;
 }): Promise<AppResult<TenantListItem[]>> {
   const roomIds = Array.from(
     new Set(tenants.map((tenant) => tenant.room_id).filter(isNonEmptyString)),
@@ -531,9 +583,11 @@ async function buildTenantItems({
   const tenantIds = tenants.map((tenant) => tenant.id);
 
   const [roomResult, activeContracts, cccdImages] = await Promise.all([
-    rooms ? Promise.resolve(ok(rooms)) : readRoomsByIds({ client, roomIds }),
-    readActiveContracts({ client }),
-    readTenantCccdImages({ client, tenantIds }),
+    rooms
+      ? Promise.resolve(ok(rooms))
+      : readRoomsByIds({ client, roomIds, ownerAppUserId }),
+    readActiveContracts({ client, ownerAppUserId }),
+    readTenantCccdImages({ client, tenantIds, ownerAppUserId }),
   ]);
 
   if (roomResult.error) {
@@ -561,14 +615,17 @@ async function buildTenantItems({
 async function readTenantById({
   client,
   tenantId,
+  ownerAppUserId,
 }: {
   client: InsForgeServerClient;
   tenantId: string;
+  ownerAppUserId: string;
 }): Promise<AppResult<TenantRecord>> {
   const response = (await client.database
     .from("tenants")
     .select(tenantSelect)
-    .eq("id", tenantId)) as QueryResponse<TenantRecord[]>;
+    .eq("id", tenantId)
+    .eq("owner_app_user_id", ownerAppUserId)) as QueryResponse<TenantRecord[]>;
 
   if (response.error) {
     return fail(response.error, "Could not read Tenant");
@@ -586,14 +643,17 @@ async function readTenantById({
 async function readRoomById({
   client,
   roomId,
+  ownerAppUserId,
 }: {
   client: InsForgeServerClient;
   roomId: string;
+  ownerAppUserId: string;
 }): Promise<AppResult<Pick<RoomRecord, "id" | "name">>> {
   const response = (await client.database
     .from("rooms")
     .select("id, name")
-    .eq("id", roomId)) as QueryResponse<Array<Pick<RoomRecord, "id" | "name">>>;
+    .eq("id", roomId)
+    .eq("owner_app_user_id", ownerAppUserId)) as QueryResponse<Array<Pick<RoomRecord, "id" | "name">>>;
 
   if (response.error) {
     return fail(response.error, "Could not read Room");
@@ -620,6 +680,9 @@ async function readTenantRows({
   search?: string | null;
 }): Promise<AppResult<TenantRecord[]>> {
   let query = client.database.from("tenants").select(tenantSelect);
+  const ownerAppUserId = getActiveOwnerAppUserId();
+
+  query = query.eq("owner_app_user_id", ownerAppUserId);
 
   if (search?.trim()) {
     query = query.ilike("full_name", `%${search.trim()}%`);
@@ -637,14 +700,17 @@ async function readTenantRows({
 async function readTenantRowsForRoom({
   client,
   roomId,
+  ownerAppUserId,
 }: {
   client: InsForgeServerClient;
   roomId: string;
+  ownerAppUserId: string;
 }): Promise<AppResult<TenantRecord[]>> {
   const response = (await client.database
     .from("tenants")
     .select(tenantSelect)
     .eq("room_id", roomId)
+    .eq("owner_app_user_id", ownerAppUserId)
     .order("full_name")) as QueryResponse<TenantRecord[]>;
 
   if (response.error) {
@@ -657,9 +723,11 @@ async function readTenantRowsForRoom({
 async function readRoomsByIds({
   client,
   roomIds,
+  ownerAppUserId,
 }: {
   client: InsForgeServerClient;
   roomIds: string[];
+  ownerAppUserId: string;
 }): Promise<AppResult<Array<Pick<RoomRecord, "id" | "name">>>> {
   if (roomIds.length === 0) {
     return ok([]);
@@ -668,6 +736,7 @@ async function readRoomsByIds({
   const response = (await client.database
     .from("rooms")
     .select("id, name")
+    .eq("owner_app_user_id", ownerAppUserId)
     .in("id", roomIds)) as QueryResponse<Array<Pick<RoomRecord, "id" | "name">>>;
 
   if (response.error) {
@@ -679,12 +748,15 @@ async function readRoomsByIds({
 
 async function readActiveContracts({
   client,
+  ownerAppUserId,
 }: {
   client: InsForgeServerClient;
+  ownerAppUserId: string;
 }): Promise<AppResult<ContractRecord[]>> {
   const response = (await client.database
     .from("contracts")
     .select(contractSelect)
+    .eq("owner_app_user_id", ownerAppUserId)
     .eq("status", "Active")) as QueryResponse<ContractRecord[]>;
 
   if (response.error) {
@@ -697,14 +769,17 @@ async function readActiveContracts({
 async function readContractsForTenant({
   client,
   tenantId,
+  ownerAppUserId,
 }: {
   client: InsForgeServerClient;
   tenantId: string;
+  ownerAppUserId: string;
 }): Promise<AppResult<ContractRecord[]>> {
   const response = (await client.database
     .from("contracts")
     .select(contractSelect)
-    .eq("key_tenant_id", tenantId)) as QueryResponse<ContractRecord[]>;
+    .eq("key_tenant_id", tenantId)
+    .eq("owner_app_user_id", ownerAppUserId)) as QueryResponse<ContractRecord[]>;
 
   if (response.error) {
     return fail(response.error, "Could not read Contracts for Tenant");
@@ -716,9 +791,11 @@ async function readContractsForTenant({
 async function readTenantCccdImages({
   client,
   tenantIds,
+  ownerAppUserId,
 }: {
   client: InsForgeServerClient;
   tenantIds: string[];
+  ownerAppUserId: string;
 }): Promise<AppResult<TenantCccdImageRecord[]>> {
   if (tenantIds.length === 0) {
     return ok([]);
@@ -727,6 +804,7 @@ async function readTenantCccdImages({
   const response = (await client.database
     .from("tenant_cccd_images")
     .select(cccdImageSelect)
+    .eq("owner_app_user_id", ownerAppUserId)
     .in("tenant_id", tenantIds)
     .order("created_at", { ascending: false })) as QueryResponse<
     TenantCccdImageRecord[]
@@ -743,16 +821,19 @@ async function readTenantCccdImageById({
   client,
   tenantId,
   imageId,
+  ownerAppUserId,
 }: {
   client: InsForgeServerClient;
   tenantId: string;
   imageId: string;
+  ownerAppUserId: string;
 }): Promise<AppResult<TenantCccdImageRecord>> {
   const response = (await client.database
     .from("tenant_cccd_images")
     .select(cccdImageSelect)
     .eq("id", imageId)
-    .eq("tenant_id", tenantId)) as QueryResponse<TenantCccdImageRecord[]>;
+    .eq("tenant_id", tenantId)
+    .eq("owner_app_user_id", ownerAppUserId)) as QueryResponse<TenantCccdImageRecord[]>;
 
   if (response.error) {
     return fail(response.error, "Could not read Tenant CCCD image");
@@ -855,6 +936,7 @@ const tenantSelect = [
   "cccd_front_url",
   "cccd_back_url",
   "status",
+  "owner_app_user_id",
 ].join(", ");
 
 const contractSelect = [
@@ -868,6 +950,7 @@ const contractSelect = [
   "rent_amount",
   "electricity_price_override",
   "water_price_override",
+  "owner_app_user_id",
 ].join(", ");
 
 const cccdImageSelect = [
@@ -879,4 +962,5 @@ const cccdImageSelect = [
   "mime_type",
   "file_size",
   "created_at",
+  "owner_app_user_id",
 ].join(", ");

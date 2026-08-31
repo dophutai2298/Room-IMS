@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { ApiTimer } from "@/lib/api/timing";
+import { getActiveOwnerAppUserId } from "@/lib/server/operational-owner-scope";
 import type { StaffListItem } from "@/lib/staff/presenter";
 import type {
   CreateStaffInput,
@@ -23,6 +24,7 @@ type AppUserRow = {
   display_name: string;
   role: "landlord" | "staff";
   status?: "active" | "disabled";
+  owner_app_user_id?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -71,10 +73,12 @@ async function readStaffFromInsForge({
 } = {}): Promise<AppResult<StaffListItem[]>> {
   try {
     const client = await createInsForgeServerClient({ timer });
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const response = (await client.database
       .from("app_users")
       .select(staffSelect)
       .eq("role", "staff")
+      .eq("owner_app_user_id", ownerAppUserId)
       .order("display_name")) as QueryResponse<AppUserRow[]>;
 
     if (response.error) {
@@ -94,6 +98,7 @@ async function createStaffInInsForge({
   timer?: ApiTimer;
 }): Promise<AppResult<StaffListItem>> {
   try {
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const authClient = createInsForgeAdminClient({ timer });
     const authResult = await authClient.auth.signUp({
       email: input.email,
@@ -129,6 +134,7 @@ async function createStaffInInsForge({
       authUserId: authUserIdResult.data,
       databaseClient,
       email: input.email,
+      ownerAppUserId,
     });
 
     if (existingStaffResult.error) {
@@ -147,6 +153,7 @@ async function createStaffInInsForge({
         email: input.email,
         display_name: input.displayName,
         role: "staff",
+        owner_app_user_id: ownerAppUserId,
         updated_at: now,
       })
       .select(staffSelect)
@@ -176,16 +183,19 @@ async function readExistingStaffProfile({
   authUserId,
   databaseClient,
   email,
+  ownerAppUserId,
 }: {
   authUserId: string;
   databaseClient: ReturnType<typeof createInsForgeAdminClient>;
   email: string;
+  ownerAppUserId: string;
 }): Promise<AppResult<AppUserRow | null>> {
   const byAuthUserId = (await databaseClient.database
     .from("app_users")
     .select(staffSelect)
     .eq("auth_user_id", authUserId)
     .eq("role", "staff")
+    .eq("owner_app_user_id", ownerAppUserId)
     .limit(1)) as QueryResponse<AppUserRow[]>;
 
   if (byAuthUserId.error) {
@@ -203,6 +213,7 @@ async function readExistingStaffProfile({
     .select(staffSelect)
     .eq("email", email)
     .eq("role", "staff")
+    .eq("owner_app_user_id", ownerAppUserId)
     .limit(1)) as QueryResponse<AppUserRow[]>;
 
   if (byEmail.error) {
@@ -223,6 +234,7 @@ async function updateStaffInInsForge({
 }): Promise<AppResult<StaffListItem>> {
   try {
     const client = createInsForgeAdminClient({ timer });
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const response = (await client.database
       .from("app_users")
       .update({
@@ -231,6 +243,7 @@ async function updateStaffInInsForge({
       })
       .eq("id", staffId)
       .eq("role", "staff")
+      .eq("owner_app_user_id", ownerAppUserId)
       .select(staffSelect)
       .limit(1)) as QueryResponse<AppUserRow[]>;
 
@@ -259,6 +272,7 @@ async function disableStaffInInsForge({
 }): Promise<AppResult<StaffListItem>> {
   try {
     const client = createInsForgeAdminClient({ timer });
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const response = (await client.database
       .from("app_users")
       .update({
@@ -267,6 +281,7 @@ async function disableStaffInInsForge({
       })
       .eq("id", staffId)
       .eq("role", "staff")
+      .eq("owner_app_user_id", ownerAppUserId)
       .select(staffSelect)
       .limit(1)) as QueryResponse<AppUserRow[]>;
 
@@ -313,6 +328,7 @@ const staffSelect = [
   "display_name",
   "role",
   "status",
+  "owner_app_user_id",
   "created_at",
   "updated_at",
 ].join(", ");

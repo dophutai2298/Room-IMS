@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { ApiTimer } from "@/lib/api/timing";
+import { getActiveOwnerAppUserId } from "@/lib/server/operational-owner-scope";
 import { resolveApplicableContract } from "@/lib/contracts/billing-period";
 import {
   buildInvoiceGenerationConditionalUpdate,
@@ -59,6 +60,7 @@ async function generateInvoiceInInsForge({
 }): Promise<AppResult<InvoiceRecord>> {
   try {
     const client = await getClient();
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const periodStart = toPeriodStart(input.billingPeriod);
     const periodEnd = toPeriodEnd(input.billingPeriod);
     const [rooms, activeContracts, metrics, utilityPricing, existingInvoices] =
@@ -67,6 +69,7 @@ async function generateInvoiceInInsForge({
           .from("rooms")
           .select("id, base_price")
           .eq("id", input.roomId)
+          .eq("owner_app_user_id", ownerAppUserId)
           // .limit(1)
           ,
         client.database
@@ -86,12 +89,14 @@ async function generateInvoiceInInsForge({
             ].join(", "),
           )
           .eq("room_id", input.roomId)
+          .eq("owner_app_user_id", ownerAppUserId)
           .lte("start_date", toIsoDate(periodEnd))
           .order("start_date"),
         client.database
           .from("utility_metrics")
           .select(utilityMetricSelect)
           .eq("room_id", input.roomId)
+          .eq("owner_app_user_id", ownerAppUserId)
           .eq("month", input.billingPeriod.month)
           .eq("year", input.billingPeriod.year)
           // .limit(1)
@@ -101,11 +106,13 @@ async function generateInvoiceInInsForge({
           .select(
             "id, effective_from, electricity_unit_price, water_unit_price, is_active",
           )
+          .eq("owner_app_user_id", ownerAppUserId)
           .order("effective_from"),
         client.database
           .from("invoices")
           .select(invoiceSelect)
           .eq("room_id", input.roomId)
+          .eq("owner_app_user_id", ownerAppUserId)
           .eq("month", input.billingPeriod.month)
           .eq("year", input.billingPeriod.year)
           // .limit(1)
@@ -190,18 +197,23 @@ async function generateInvoiceInInsForge({
       otherFeeNote: input.otherFeeNote,
       existingInvoice: null,
     });
+    const scopedValues = {
+      ...values,
+      owner_app_user_id: ownerAppUserId,
+    };
 
     if (existingInvoice) {
       return updateInvoicePreservingConcurrentPayment({
         client,
         existingInvoice,
-        values,
+        values: scopedValues,
+        ownerAppUserId,
       });
     }
 
     const response = (await client.database
       .from("invoices")
-      .insert(values)
+      .insert(scopedValues)
       .select(invoiceSelect)
       // .limit(1)
     ) as QueryResponse<InvoiceRecord[]>;
@@ -210,7 +222,8 @@ async function generateInvoiceInInsForge({
       const retryResult = await updateInvoiceAfterInsertRace({
         client,
         input,
-        values,
+        values: scopedValues,
+        ownerAppUserId,
       });
 
       if (retryResult.data) {
@@ -243,15 +256,18 @@ async function updateInvoiceAfterInsertRace({
   client,
   input,
   values,
+  ownerAppUserId,
 }: {
   client: InsForgeServerClient;
   input: GenerateInvoiceInput;
-  values: InvoiceGenerationValues;
+  values: InvoiceGenerationValues & { owner_app_user_id: string };
+  ownerAppUserId: string;
 }): Promise<AppResult<InvoiceRecord>> {
   const existingResponse = (await client.database
     .from("invoices")
     .select(invoiceSelect)
     .eq("room_id", input.roomId)
+    .eq("owner_app_user_id", ownerAppUserId)
     .eq("month", input.billingPeriod.month)
     .eq("year", input.billingPeriod.year)
     // .limit(1)
@@ -276,6 +292,7 @@ async function updateInvoiceAfterInsertRace({
     client,
     existingInvoice,
     values,
+    ownerAppUserId,
   });
 }
 
@@ -283,10 +300,12 @@ async function updateInvoicePreservingConcurrentPayment({
   client,
   existingInvoice,
   values,
+  ownerAppUserId,
 }: {
   client: InsForgeServerClient;
   existingInvoice: InvoiceRecord;
-  values: InvoiceGenerationValues;
+  values: InvoiceGenerationValues & { owner_app_user_id: string };
+  ownerAppUserId: string;
 }): Promise<AppResult<InvoiceRecord>> {
   let observedInvoice = existingInvoice;
 
@@ -299,6 +318,7 @@ async function updateInvoicePreservingConcurrentPayment({
       .from("invoices")
       .update(conditionalUpdate.values)
       .eq("id", observedInvoice.id)
+      .eq("owner_app_user_id", ownerAppUserId)
       .eq("amount_paid", conditionalUpdate.expectedPayment.amountPaid)
       .eq("status", conditionalUpdate.expectedPayment.status)
       .select(invoiceSelect)
@@ -319,6 +339,7 @@ async function updateInvoicePreservingConcurrentPayment({
       .from("invoices")
       .select(invoiceSelect)
       .eq("id", observedInvoice.id)
+      .eq("owner_app_user_id", ownerAppUserId)
       // .limit(1)
     ) as QueryResponse<InvoiceRecord[]>;
 
@@ -389,6 +410,7 @@ const utilityMetricSelect = [
   "electricity_new",
   "water_old",
   "water_new",
+  "owner_app_user_id",
 ].join(", ");
 
 const invoiceSelect = [
@@ -404,4 +426,5 @@ const invoiceSelect = [
   "total_amount",
   "amount_paid",
   "status",
+  "owner_app_user_id",
 ].join(", ");

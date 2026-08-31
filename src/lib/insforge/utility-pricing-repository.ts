@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { ApiTimer } from "@/lib/api/timing";
+import { getActiveOwnerAppUserId } from "@/lib/server/operational-owner-scope";
 import {
   buildUtilityPricingList,
   type UtilityPricingListItem,
@@ -65,9 +66,11 @@ async function readUtilityPricingFromInsForge({
 }): Promise<AppResult<UtilityPricingListItem[]>> {
   try {
     const client = await getClient();
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const response = (await client.database
       .from("utility_pricing")
       .select(utilityPricingSelect)
+      .eq("owner_app_user_id", ownerAppUserId)
       .order("effective_from")) as QueryResponse<UtilityPricingRecord[]>;
 
     if (response.error) {
@@ -94,9 +97,11 @@ async function createUtilityPricingInInsForge({
 }): Promise<AppResult<UtilityPricingListItem>> {
   try {
     const client = await getClient();
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const activePricingResponse = (await client.database
       .from("utility_pricing")
       .select("id")
+      .eq("owner_app_user_id", ownerAppUserId)
       .eq("is_active", true)) as QueryResponse<Array<Pick<UtilityPricingRecord, "id">>>;
 
     if (activePricingResponse.error) {
@@ -113,6 +118,7 @@ async function createUtilityPricingInInsForge({
         electricity_unit_price: electricityUnitPrice,
         water_unit_price: waterUnitPrice,
         is_active: true,
+        owner_app_user_id: ownerAppUserId,
         updated_at: new Date().toISOString(),
       })
       .select(utilityPricingSelect)
@@ -142,7 +148,8 @@ async function createUtilityPricingInInsForge({
           is_active: false,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", pricingId);
+        .eq("id", pricingId)
+        .eq("owner_app_user_id", ownerAppUserId);
 
       if (deactivateResponse.error) {
         return fail(
@@ -166,6 +173,7 @@ async function deactivateUtilityPricingInInsForge({
 }): Promise<AppResult<UtilityPricingListItem>> {
   try {
     const client = await getClient();
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const response = (await client.database
       .from("utility_pricing")
       .update({
@@ -173,6 +181,7 @@ async function deactivateUtilityPricingInInsForge({
         updated_at: new Date().toISOString(),
       })
       .eq("id", pricingId)
+      .eq("owner_app_user_id", ownerAppUserId)
       .select(utilityPricingSelect)
       .limit(1)) as QueryResponse<UtilityPricingRecord[]>;
 
@@ -202,4 +211,5 @@ const utilityPricingSelect = [
   "electricity_unit_price",
   "water_unit_price",
   "is_active",
+  "owner_app_user_id",
 ].join(", ");

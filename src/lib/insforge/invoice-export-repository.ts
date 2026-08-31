@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { ApiTimer } from "@/lib/api/timing";
+import { getActiveOwnerAppUserId } from "@/lib/server/operational-owner-scope";
 import { resolveApplicableContract } from "@/lib/contracts/billing-period";
 import type {
   InvoiceExportRepository,
@@ -59,17 +60,20 @@ async function readInvoiceExportSourceFromInsForge({
 }): Promise<AppResult<InvoiceExportSource>> {
   try {
     const client = await getClient();
+    const ownerAppUserId = getActiveOwnerAppUserId();
     const [roomResponse, invoiceResponse, metricResponse, contractsResponse] =
       await Promise.all([
         client.database
           .from("rooms")
           .select("id, name")
           .eq("id", roomId)
+          .eq("owner_app_user_id", ownerAppUserId)
           .limit(1),
         client.database
           .from("invoices")
           .select(invoiceExportSelect)
           .eq("room_id", roomId)
+          .eq("owner_app_user_id", ownerAppUserId)
           .eq("month", billingPeriod.month)
           .eq("year", billingPeriod.year)
           .limit(1),
@@ -77,6 +81,7 @@ async function readInvoiceExportSourceFromInsForge({
           .from("utility_metrics")
           .select(utilityMetricSelect)
           .eq("room_id", roomId)
+          .eq("owner_app_user_id", ownerAppUserId)
           .eq("month", billingPeriod.month)
           .eq("year", billingPeriod.year)
           .limit(1),
@@ -84,6 +89,7 @@ async function readInvoiceExportSourceFromInsForge({
           .from("contracts")
           .select("key_tenant_id, start_date, end_date, tenants(full_name)")
           .eq("room_id", roomId)
+          .eq("owner_app_user_id", ownerAppUserId)
           .order("start_date"),
       ]);
 
@@ -165,6 +171,7 @@ const invoiceExportSelect = [
   "total_amount",
   "amount_paid",
   "status",
+  "owner_app_user_id",
 ].join(", ");
 
 const utilityMetricSelect = [
@@ -176,4 +183,5 @@ const utilityMetricSelect = [
   "electricity_new",
   "water_old",
   "water_new",
+  "owner_app_user_id",
 ].join(", ");

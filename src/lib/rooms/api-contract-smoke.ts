@@ -11,6 +11,7 @@ const authenticatedRoomListApiSmoke = {
     {
       id: "00000000-0000-0000-0000-000000000101",
       name: "P101",
+      floor: 1,
       status: "occupied",
       basePrice: 2500000,
       roomBasePrice: 2500000,
@@ -38,6 +39,7 @@ const authenticatedRoomCreateApiSmoke = {
   data: {
     id: "00000000-0000-0000-0000-000000000104",
     name: "P104",
+    floor: 1,
     status: "available",
     basePrice: 2800000,
     roomBasePrice: 2800000,
@@ -65,6 +67,7 @@ const authenticatedRoomUpdateApiSmoke = {
   data: {
     id: "00000000-0000-0000-0000-000000000104",
     name: "P104",
+    floor: 1,
     status: "maintenance",
     basePrice: 2800000,
     roomBasePrice: 2800000,
@@ -93,6 +96,7 @@ const authenticatedRoomDetailApiSmoke = {
     room: {
       id: "00000000-0000-0000-0000-000000000101",
       name: "P101",
+      floor: 1,
       status: "occupied",
       storedStatus: "Occupied",
       basePrice: 2500000,
