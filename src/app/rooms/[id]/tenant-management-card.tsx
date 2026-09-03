@@ -39,10 +39,10 @@ export function TenantManagementCard({
   });
 
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div className="min-w-0">
             <CardTitle>Danh sách Người thuê</CardTitle>
             <CardDescription>
               Số lượng người ở của phòng {roomName} là <b>{tenantsQuery?.data?.length}</b>
@@ -51,7 +51,7 @@ export function TenantManagementCard({
           <TenantEditorDialog mode="create" fixedRoomId={roomId} />
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="min-w-0 space-y-3">
         {tenantsQuery.isPending ? (
           <TenantListSkeleton />
         ) : tenantsQuery.isError ? (
@@ -79,22 +79,22 @@ function TenantCard({
   tenant: TenantListItem;
 }) {
   return (
-    <div className="rounded-2xl border border-white/45 bg-background/35 p-4 clay-inset dark:border-white/8">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div className="min-w-0 rounded-2xl border border-white/45 bg-background/35 p-4 clay-inset dark:border-white/8">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="font-medium">{tenant.name}</p>
+            <p className="min-w-0 break-words font-medium">{tenant.name}</p>
             {tenant.isKeyTenant && <Badge variant="default">Người đại diện</Badge>}
             <TenantStatusBadge status={tenant.status} />
           </div>
-          <div className="mt-2 grid gap-1 text-sm text-muted-foreground sm:grid-cols-2">
+          <div className="mt-2 grid min-w-0 gap-1 text-sm text-muted-foreground sm:grid-cols-2">
             <p>SĐT: {tenant.phone ?? "Chưa có"}</p>
             <p>CCCD: {tenant.cccdNumber ?? "Chưa có"}</p>
             <p>Ngày sinh: {tenant.dateOfBirth ?? "Chưa có"}</p>
             <p>Thường trú: {tenant.permanentAddress ?? "Chưa có"}</p>
           </div>
         </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 md:shrink-0 md:justify-end">
           <TenantEditorDialog
             mode="edit"
             tenant={tenant}

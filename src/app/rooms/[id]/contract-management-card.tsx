@@ -83,7 +83,7 @@ export function ContractManagementCard({
 
   if (contractsQuery.isError) {
     return (
-      <Card className="border-destructive/20">
+      <Card className="min-w-0 border-destructive/20">
         <CardHeader>
           <CardTitle>Thông tin Hợp đồng</CardTitle>
           <CardDescription>Không tải được dữ liệu Hợp đồng.</CardDescription>
@@ -106,10 +106,10 @@ export function ContractManagementCard({
   const tenants = tenantsQuery.data ?? [];
 
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div className="min-w-0">
             <CardTitle>Thông tin Hợp đồng</CardTitle>
             <CardDescription>
               Hợp đồng quyết định trạng thái thuê và bảng giá riêng của phòng.
@@ -129,7 +129,7 @@ export function ContractManagementCard({
           )}
         </div>
       </CardHeader>
-      <CardContent className="space-y-5">
+      <CardContent className="min-w-0 space-y-5">
         {activeContract ? (
           <ContractSummary
             contract={activeContract}
@@ -203,7 +203,7 @@ function ContractSummary({
   action: React.ReactNode;
 }) {
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Badge variant="success">{label}</Badge>
         {action}
@@ -332,20 +332,22 @@ function ContractHistoryTable({
   );
 
   return (
-    <DataTable
-      columns={columns}
-      data={contracts}
-      filteredEmptyMessage="Thử đổi từ khóa search hoặc trạng thái hợp đồng."
-      filteredEmptyTitle="Không tìm thấy hợp đồng"
-      searchPlaceholder="Tìm người đại diện hoặc ngày..."
-      statusFilter={{
-        columnId: "status",
-        label: "Lọc trạng thái",
-        allLabel: "Tất cả trạng thái",
-        options: [{ value: "Terminated", label: contractStatusLabel.Terminated }],
-      }}
-      variant="plain"
-    />
+    <div className="min-w-0">
+      <DataTable
+        columns={columns}
+        data={contracts}
+        filteredEmptyMessage="Thử đổi từ khóa search hoặc trạng thái hợp đồng."
+        filteredEmptyTitle="Không tìm thấy hợp đồng"
+        searchPlaceholder="Tìm người đại diện hoặc ngày..."
+        statusFilter={{
+          columnId: "status",
+          label: "Lọc trạng thái",
+          allLabel: "Tất cả trạng thái",
+          options: [{ value: "Terminated", label: contractStatusLabel.Terminated }],
+        }}
+        variant="plain"
+      />
+    </div>
   );
 }
 
@@ -663,7 +665,7 @@ export function DateField({
 
 function ContractCardSkeleton() {
   return (
-    <Card aria-busy="true" aria-live="polite">
+    <Card className="min-w-0" aria-busy="true" aria-live="polite">
       <CardHeader>
         <CardTitle>Thông tin Hợp đồng</CardTitle>
         <Skeleton className="h-4 w-72 max-w-full" />
@@ -685,9 +687,9 @@ function ContractErrorState({
   onRetry: () => void;
 }) {
   return (
-    <div className="rounded-2xl border border-destructive/25 bg-destructive/10 p-4">
+    <div className="min-w-0 rounded-2xl border border-destructive/25 bg-destructive/10 p-4">
       <Badge variant="destructive">Lỗi API</Badge>
-      <p className="mt-3 text-sm text-destructive">{message}</p>
+      <p className="mt-3 break-words text-sm text-destructive">{message}</p>
       <Button className="mt-4" variant="secondary" onClick={onRetry}>
         Thử lại
       </Button>
@@ -697,9 +699,9 @@ function ContractErrorState({
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-border pb-3 last:border-0 last:pb-0">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-right text-sm font-medium">{value}</span>
+    <div className="grid gap-1 border-b border-border pb-3 last:border-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start sm:gap-4">
+      <span className="min-w-0 text-sm text-muted-foreground">{label}</span>
+      <span className="min-w-0 break-words text-sm font-medium sm:text-right">{value}</span>
     </div>
   );
 }

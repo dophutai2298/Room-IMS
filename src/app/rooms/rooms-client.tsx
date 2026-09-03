@@ -167,10 +167,9 @@ export function RoomsClient() {
           <h1 className="mt-2 text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
             Danh sách phòng trọ
           </h1>
-          {/* <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Rooms được tải qua API nội bộ đã xác thực. Trạng thái phòng vẫn được
-            tính từ active Contract, trừ khi phòng đang bảo trì.
-          </p> */}
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+            Click vào tên Phòng để bắt đầu tạo hóa đơn.
+          </p>
         </div>
         <RoomEditorDialog mode="create" />
       </header>

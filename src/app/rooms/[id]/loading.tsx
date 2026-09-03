@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function RoomDetailLoading() {
   return (
-    <>
+    <div className="min-w-0 space-y-6">
       <header className="space-y-3">
         <Skeleton className="h-8 w-44" />
         <div className="flex flex-wrap items-center gap-3">
@@ -13,8 +13,8 @@ export default function RoomDetailLoading() {
         <Skeleton className="h-5 w-[36rem] max-w-full" />
       </header>
 
-      <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <Card>
+      <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+        <Card className="min-w-0">
           <CardHeader>
             <Skeleton className="h-6 w-40" />
             <Skeleton className="h-4 w-72 max-w-full" />
@@ -33,7 +33,7 @@ export default function RoomDetailLoading() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="min-w-0">
           <CardHeader>
             <Skeleton className="h-6 w-44" />
             <Skeleton className="h-4 w-64 max-w-full" />
@@ -46,6 +46,6 @@ export default function RoomDetailLoading() {
           </CardContent>
         </Card>
       </section>
-    </>
+    </div>
   );
 }

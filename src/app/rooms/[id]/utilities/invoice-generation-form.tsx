@@ -128,7 +128,7 @@ export function InvoiceGenerationForm({ view }: { view: UtilityMetricsView }) {
               id="invoice-other-fee"
               type="number"
               inputMode="decimal"
-              min={0}
+              // min={0}
               step="1000"
               value={otherFee}
               aria-invalid={Boolean(fieldErrors.otherFee)}
@@ -242,7 +242,7 @@ function GenerateButton({
 }) {
   return (
     <Button type="submit" className="w-full" disabled={disabled || pending}>
-      {pending ? "Dang tao..." : label}
+      {pending ? "Đang tạo..." : label}
     </Button>
   );
 }

@@ -130,7 +130,7 @@ export function DashboardClient({
             <Link href="/invoices">Hóa đơn</Link>
           </Button>
           <Button asChild variant="default">
-            <Link href="/rooms">Quản lý phòng</Link>
+            <Link className="!text-white" href="/rooms">Quản lý phòng</Link>
           </Button>
         </div>
       </header>
@@ -476,7 +476,7 @@ function UnpaidInvoicesSection({
           </CardDescription>
         </div>
         <Button asChild variant="default" size="sm">
-          <Link href="/invoices" >Xem tất cả</Link>
+          <Link className="!text-white" href="/invoices" >Xem tất cả</Link>
         </Button>
       </CardHeader>
       <CardContent className="space-y-4 pt-2">

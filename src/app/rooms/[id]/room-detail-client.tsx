@@ -63,15 +63,15 @@ export function RoomDetailClient({ roomId }: { roomId: string }) {
   const detail = detailQuery.data;
 
   return (
-    <>
+    <div className="min-w-0 space-y-6">
       <RoomHeader detail={detail} />
 
       {detail.integrityWarning && (
-        <Card className="border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/40">
+        <Card className="min-w-0 border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/40">
           <CardContent className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
+            <div className="min-w-0">
               <Badge variant="warning">Cần kiểm tra Contract</Badge>
-              <p className="mt-2 text-sm text-amber-900 dark:text-amber-200">
+              <p className="mt-2 break-words text-sm text-amber-900 dark:text-amber-200">
                 {detail.integrityWarning}
               </p>
             </div>
@@ -79,7 +79,7 @@ export function RoomDetailClient({ roomId }: { roomId: string }) {
         </Card>
       )}
 
-      <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+      <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
         <TenantManagementCard roomId={detail.room.id} roomName={detail.room.name} />
         <ContractManagementCard
           roomId={detail.room.id}
@@ -97,31 +97,35 @@ export function RoomDetailClient({ roomId }: { roomId: string }) {
           refetch: () => void summaryQuery.refetch(),
         }}
       />
-    </>
+    </div>
   );
 }
 
 function RoomHeader({ detail }: { detail: RoomDetailView }) {
   return (
     <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-      <div>
+      <div className="min-w-0">
         <Button asChild variant="ghost" size="sm" className="-ml-3">
           <Link href="/rooms">← Quay lại danh sách phòng</Link>
         </Button>
         <div className="mt-3 flex flex-wrap items-center gap-3">
-          <h1 className="text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
+          <h1 className="min-w-0 break-words text-balance text-3xl font-semibold tracking-[-0.04em] sm:text-5xl">
             Chi tiết {detail.room.name}
           </h1>
+          
           <RoomBadge status={detail.room.status} />
           {detail.room.floor !== undefined && detail.room.floor !== null && (
             <Badge variant="outline">Tầng {detail.room.floor}</Badge>
           )}
         </div>
+        <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+          Chốt chỉ số điện nước kỳ này trước tiên sau đó tạo hơn đơn
+         </p>
       </div>
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <Button asChild variant="secondary">
-          <Link href={`/rooms/${detail.room.id}/utilities`}>
-            Chốt điện nước
+      <div className="flex flex-col gap-2 sm:flex-row lg:shrink-0">
+        <Button asChild variant="default" className="w-full sm:w-auto">
+          <Link className="!text-white" href={`/rooms/${detail.room.id}/utilities`}>
+            Chốt điện nước và hóa đơn
           </Link>
         </Button>
       </div>
@@ -142,7 +146,7 @@ function OperationsSummarySection({
 }) {
   if (summaryQuery.isPending) {
     return (
-      <section className="grid gap-4 xl:grid-cols-2">
+      <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <SummarySkeleton title="Tổng quan điện nước" />
         <SummarySkeleton title="Tổng quan hóa đơn" />
       </section>
@@ -160,7 +164,7 @@ function OperationsSummarySection({
   }
 
   return (
-    <section className="grid gap-4 xl:grid-cols-2">
+    <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <UtilitySummaryCard summary={summaryQuery.data.utilityMetrics} />
       <InvoiceSummaryCard summary={summaryQuery.data.invoices} />
     </section>
@@ -173,7 +177,7 @@ function UtilitySummaryCard({
   summary: RoomOperationsSummaryView["utilityMetrics"];
 }) {
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader>
         <CardTitle>Tổng quan điện nước</CardTitle>
         <CardDescription>
@@ -232,7 +236,7 @@ function InvoiceSummaryCard({
   summary: RoomOperationsSummaryView["invoices"];
 }) {
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader>
         <CardTitle>Tổng quan hóa đơn</CardTitle>
         <CardDescription>
@@ -281,7 +285,7 @@ function InvoiceSummaryCard({
 
 function RoomDetailSkeleton() {
   return (
-    <>
+    <div className="min-w-0 space-y-6">
       <header className="space-y-3">
         <Skeleton className="h-8 w-44" />
         <div className="flex flex-wrap items-center gap-3">
@@ -291,17 +295,17 @@ function RoomDetailSkeleton() {
         <Skeleton className="h-5 w-[36rem] max-w-full" />
       </header>
 
-      <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+      <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
         <SummarySkeleton title="Danh sách Tenant" />
         <SummarySkeleton title="Thông tin Contract" />
       </section>
-    </>
+    </div>
   );
 }
 
 function SummarySkeleton({ title }: { title: string }) {
   return (
-    <Card aria-busy="true" aria-live="polite">
+    <Card className="min-w-0" aria-busy="true" aria-live="polite">
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         <Skeleton className="h-4 w-72 max-w-full" />
@@ -317,9 +321,9 @@ function SummarySkeleton({ title }: { title: string }) {
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-border pb-3 last:border-0 last:pb-0">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-right text-sm font-medium">{value}</span>
+    <div className="grid gap-1 border-b border-border pb-3 last:border-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start sm:gap-4">
+      <span className="min-w-0 text-sm text-muted-foreground">{label}</span>
+      <span className="min-w-0 break-words text-sm font-medium sm:text-right">{value}</span>
     </div>
   );
 }
@@ -334,11 +338,11 @@ function ErrorCard({
   onRetry: () => void;
 }) {
   return (
-    <Card className="border-destructive/20">
+    <Card className="min-w-0 border-destructive/20">
       <CardContent className="space-y-3">
         <Badge variant="destructive">Lỗi API</Badge>
         <h2 className="text-lg font-semibold">{title}</h2>
-        <p className="text-sm text-muted-foreground">{message}</p>
+        <p className="break-words text-sm text-muted-foreground">{message}</p>
         <Button variant="secondary" onClick={onRetry}>
           Thử lại
         </Button>

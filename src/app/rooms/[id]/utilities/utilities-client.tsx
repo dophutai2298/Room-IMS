@@ -145,6 +145,9 @@ function UtilitiesHeaderFallback({
         <h1 className="mt-3 text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
           Chốt điện nước kỳ {formatBillingPeriod(billingPeriod)}
         </h1>
+         <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+          Nhập chỉ số điện nước trước sau đó tạo hóa đơn
+         </p>
       </div>
       <PeriodSelector roomId={roomId} billingPeriod={billingPeriod} />
     </header>

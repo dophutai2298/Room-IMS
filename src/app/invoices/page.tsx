@@ -16,8 +16,8 @@ export default function InvoicesPage() {
            
           </p> */}
         </div>
-        <Button variant="default">
-          <Link href="/rooms">Chọn phòng để tạo hóa đơn</Link>
+        <Button asChild variant="default">
+          <Link className="!text-white" href="/rooms">Chọn phòng để tạo hóa đơn</Link>
         </Button>
       </header>
 
