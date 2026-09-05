@@ -41,6 +41,8 @@ export type UtilityInvoiceSummary = {
   amountPaid: number;
   otherFee: number;
   otherFeeNote: string | null;
+  discountAmount: number;
+  discountNote: string | null;
 };
 
 export function getDefaultBillingPeriod(now = new Date()): BillingPeriod {
@@ -134,6 +136,8 @@ export function buildUtilityMetricsView({
           amountPaid: toNumber(currentInvoice.amount_paid),
           otherFee: toNumber(currentInvoice.other_fee),
           otherFeeNote: normalizeOptionalText(currentInvoice.other_fee_note),
+          discountAmount: toNumber(currentInvoice.discount_amount),
+          discountNote: normalizeOptionalText(currentInvoice.discount_note),
         }
       : null,
     electricity: {

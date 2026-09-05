@@ -122,6 +122,8 @@ type InvoiceRecord = {
   room_fee: number;
   other_fee: number;
   other_fee_note: string | null;
+  discount_amount: number;
+  discount_note: string | null;
   total_amount: number;
   amount_paid: number;
   status: "Unpaid" | "Paid";
@@ -446,6 +448,9 @@ function buildImportRecords(rows: BillingRow[], ownerAppUserId: string): ImportR
     invoices: rows.map((row) => {
       const status = row.periodKey === latestPeriodKey ? "Unpaid" : "Paid";
       const totalAmount = toVnd(row.total_amount);
+      const otherFee = toVnd(row.other_fee);
+      const discountAmount = otherFee < 0 ? Math.abs(otherFee) : 0;
+      const note = row.other_fee_note.trim() || null;
 
       return {
         id: uuidFromSeed(`invoice:${row.room}:${row.periodKey}`),
@@ -455,8 +460,10 @@ function buildImportRecords(rows: BillingRow[], ownerAppUserId: string): ImportR
         electricity_fee: toVnd(row.electricity_fee),
         water_fee: toVnd(row.water_fee),
         room_fee: toVnd(row.room_fee),
-        other_fee: toVnd(row.other_fee),
-        other_fee_note: row.other_fee_note.trim() || null,
+        other_fee: Math.max(otherFee, 0),
+        other_fee_note: otherFee > 0 ? note : null,
+        discount_amount: discountAmount,
+        discount_note: discountAmount > 0 ? note : null,
         total_amount: totalAmount,
         amount_paid: status === "Paid" ? totalAmount : 0,
         status,
@@ -697,8 +704,15 @@ async function insertImportRecords(client: InsForgeAdminRecordsClient, records: 
 async function ensureInvoiceOtherFeeAllowsDiscounts(config: Config) {
   const migration = {
     version: "202608290001",
-    name: "allow-negative-invoice-other-fee",
+    name: "allow-negative-invoice-other-fee-and-add-discount-fields",
     sql: `
+ALTER TABLE public.invoices
+  ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(12, 2) NOT NULL DEFAULT 0
+    CHECK (discount_amount >= 0);
+
+ALTER TABLE public.invoices
+  ADD COLUMN IF NOT EXISTS discount_note TEXT;
+
 DO $$
 BEGIN
   IF EXISTS (
@@ -710,6 +724,13 @@ BEGIN
     ALTER TABLE public.invoices DROP CONSTRAINT invoices_other_fee_check;
   END IF;
 END $$;
+
+UPDATE public.invoices
+SET discount_amount = ABS(other_fee),
+    discount_note = COALESCE(NULLIF(TRIM(discount_note), ''), other_fee_note),
+    other_fee = 0
+WHERE other_fee < 0
+  AND discount_amount = 0;
 `,
   };
 

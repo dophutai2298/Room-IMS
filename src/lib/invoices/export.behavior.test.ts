@@ -19,7 +19,9 @@ const invoice: InvoiceRecord = {
   water_fee: 170_000,
   other_fee: 50_000,
   other_fee_note: "Phụ thu vệ sinh",
-  total_amount: 3_070_000,
+  discount_amount: 100_000,
+  discount_note: "Hỗ trợ sửa khóa",
+  total_amount: 2_970_000,
   amount_paid: 1_000_000,
   status: "Partially Paid",
 };
@@ -84,6 +86,12 @@ test("invoice export view contains the customer-facing monthly invoice without s
         amount: 50_000,
         note: "Phụ thu vệ sinh",
       },
+      {
+        code: "discount",
+        label: "Giảm giá",
+        amount: -100_000,
+        note: "Hỗ trợ sửa khóa",
+      },
     ],
     utilityReadings: {
       electricity: {
@@ -99,9 +107,9 @@ test("invoice export view contains the customer-facing monthly invoice without s
         unit: "m³",
       },
     },
-    totalAmount: 3_070_000,
+    totalAmount: 2_970_000,
     amountPaid: 1_000_000,
-    balanceDue: 2_070_000,
+    balanceDue: 1_970_000,
   });
 
   const serialized = JSON.stringify(view);

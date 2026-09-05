@@ -3,6 +3,7 @@
 import {
   Area,
   AreaChart,
+  Brush,
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
@@ -72,9 +73,11 @@ export function RevenueChart({
   title: string;
   description: string;
 }) {
+  const showBrush = data.length > 6;
+
   return (
     <div
-      className="h-72 w-full sm:h-80"
+      className={showBrush ? "h-80 w-full sm:h-96" : "h-72 w-full sm:h-80"}
       role="img"
       aria-label={`${title}. ${description}`}
     >
@@ -84,7 +87,7 @@ export function RevenueChart({
           data={data}
           title={title}
           desc={description}
-          margin={{ top: 16, right: 8, bottom: 0, left: -12 }}
+          margin={{ top: 16, right: 8, bottom: showBrush ? 8 : 0, left: -12 }}
         >
           <defs>
             <linearGradient id="billedRevenue" x1="0" y1="0" x2="0" y2="1">
@@ -137,6 +140,17 @@ export function RevenueChart({
             strokeWidth={3}
             type="monotone"
           />
+          {showBrush && (
+            <Brush
+              key={`${data[0]?.period}-${data.at(-1)?.period}`}
+              aria-label="Chọn khoảng thời gian hiển thị trên biểu đồ doanh thu"
+              dataKey="period"
+              fill="var(--background)"
+              height={28}
+              stroke="var(--chart-primary)"
+              travellerWidth={10}
+            />
+          )}
         </AreaChart>
       </ResponsiveContainer>
     </div>

@@ -1,7 +1,10 @@
+import type { BillingPeriod } from "@/lib/utilities/presenter";
+
 export const DASHBOARD_REVENUE_RANGE_OPTIONS = [
   { value: "3m", label: "3 tháng", monthCount: 3 },
   { value: "6m", label: "6 tháng", monthCount: 6 },
   { value: "1y", label: "1 năm", monthCount: 12 },
+  { value: "this-year", label: "Năm nay", monthCount: "calendar-year" },
   { value: "2y", label: "2 năm", monthCount: 24 },
   { value: "all", label: "Tất cả các kỳ", monthCount: null },
 ] as const;
@@ -37,6 +40,13 @@ export function getDashboardRevenuePeriodBounds(
 
   if (monthCount === null) {
     return null;
+  }
+
+  if (monthCount === "calendar-year") {
+    return {
+      start: { month: 1, year: billingPeriod.year },
+      end: { month: 12, year: billingPeriod.year },
+    };
   }
 
   const startDate = new Date(
@@ -84,4 +94,3 @@ export function getDashboardRevenueQuerySegments(
 
   return segments;
 }
-import type { BillingPeriod } from "@/lib/utilities/presenter";

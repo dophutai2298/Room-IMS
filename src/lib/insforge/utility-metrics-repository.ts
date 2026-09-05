@@ -470,6 +470,8 @@ const invoiceSelect = [
   "water_fee",
   "other_fee",
   "other_fee_note",
+  "discount_amount",
+  "discount_note",
   "total_amount",
   "amount_paid",
   "status",

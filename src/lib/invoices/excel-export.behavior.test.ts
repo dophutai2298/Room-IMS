@@ -16,7 +16,9 @@ describe("invoice table Excel export", () => {
         roomName: "Phòng B",
         otherFee: 51_000,
         otherFeeNote: "Phí vệ sinh",
-        totalAmount: 3_147_000,
+        discountAmount: 100_000,
+        discountNote: "Hỗ trợ sửa khóa",
+        totalAmount: 3_047_000,
         status: "Partially Paid",
         amountPaid: 1_000_000,
         balanceDue: 2_147_000,
@@ -40,6 +42,8 @@ describe("invoice table Excel export", () => {
         "Tiền nước",
         "Phí khác",
         "Ghi chú phí khác",
+        "Giảm giá",
+        "Ghi chú giảm giá",
         "Tổng tiền",
         "Đã thu",
         "Còn lại",
@@ -55,11 +59,14 @@ describe("invoice table Excel export", () => {
     assert.equal(rows[0].waterFee, 51_000);
     assert.equal(rows[0].otherFee, 51_000);
     assert.equal(rows[0].otherFeeNote, "Phí vệ sinh");
-    assert.equal(rows[0].totalAmount, 3_147_000);
+    assert.equal(rows[0].discountAmount, 100_000);
+    assert.equal(rows[0].discountNote, "Hỗ trợ sửa khóa");
+    assert.equal(rows[0].totalAmount, 3_047_000);
     assert.equal(rows[0].amountPaid, 1_000_000);
     assert.equal(rows[0].balanceDue, 2_147_000);
     assert.equal(rows[0].paymentStatus, "Thanh toán một phần");
     assert.equal(rows[1].otherFeeNote, "");
+    assert.equal(rows[1].discountNote, "");
     assert.equal(rows[1].paymentStatus, "Đã thanh toán");
     assert.equal("actions" in rows[0], false);
   });
@@ -105,6 +112,8 @@ function createInvoice(
     waterFee: 51_000,
     otherFee: 0,
     otherFeeNote: null,
+    discountAmount: 0,
+    discountNote: null,
     utilityFee: 296_000,
     totalAmount,
     amountPaid,

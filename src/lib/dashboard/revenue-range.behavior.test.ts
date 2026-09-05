@@ -20,6 +20,7 @@ test("dashboard revenue range normalizes supported values and safely falls back 
   assert.equal(normalizeDashboardRevenueRange("6m"), "6m");
   assert.equal(normalizeDashboardRevenueRange("1y"), "1y");
   assert.equal(normalizeDashboardRevenueRange("2y"), "2y");
+  assert.equal(normalizeDashboardRevenueRange("this-year"), "this-year");
   assert.equal(normalizeDashboardRevenueRange("all"), "all");
   assert.equal(normalizeDashboardRevenueRange("invalid"), "6m");
   assert.equal(normalizeDashboardRevenueRange(null), "6m");
@@ -44,6 +45,10 @@ test("dashboard revenue range keeps separate React Query cache keys", () => {
     dashboardQueryKeys.revenue(billingPeriod, "3m"),
     dashboardQueryKeys.revenue(billingPeriod, "6m"),
   );
+  assert.notDeepEqual(
+    dashboardQueryKeys.revenue(billingPeriod, "this-year"),
+    dashboardQueryKeys.revenue(billingPeriod, "1y"),
+  );
   assert.deepEqual(
     dashboardQueryKeys.revenue(billingPeriod),
     dashboardQueryKeys.revenue(billingPeriod, "6m"),
@@ -59,6 +64,10 @@ test("fixed Dashboard revenue ranges expose exact query bounds while all remains
     start: { month: 9, year: 2025 },
     end: billingPeriod,
   });
+  assert.deepEqual(getDashboardRevenuePeriodBounds(billingPeriod, "this-year"), {
+    start: { month: 1, year: 2026 },
+    end: { month: 12, year: 2026 },
+  });
   assert.equal(getDashboardRevenuePeriodBounds(billingPeriod, "all"), null);
   assert.deepEqual(getDashboardRevenueQuerySegments(billingPeriod, "1y"), [
     { year: 2025, startMonth: 9, endMonth: 12 },
@@ -70,6 +79,9 @@ test("fixed Dashboard revenue ranges expose exact query bounds while all remains
     { year: 2026, startMonth: 1, endMonth: 8 },
   ]);
   assert.equal(getDashboardRevenueQuerySegments(billingPeriod, "all"), null);
+  assert.deepEqual(getDashboardRevenueQuerySegments(billingPeriod, "this-year"), [
+    { year: 2026, startMonth: 1, endMonth: 12 },
+  ]);
 });
 
 test("all dashboard revenue range retains a no-data state when no invoice history exists", () => {
@@ -92,9 +104,43 @@ test("dashboard revenue API request normalizes an invalid range to six months", 
   );
   assert.equal(
     getDashboardRevenueRangeFromRequest(
+      new Request("http://localhost/api/dashboard/revenue?range=this-year"),
+    ),
+    "this-year",
+  );
+  assert.equal(
+    getDashboardRevenueRangeFromRequest(
       new Request("http://localhost/api/dashboard/revenue?range=not-a-range"),
     ),
     "6m",
+  );
+});
+
+test("this-year dashboard revenue range creates January through December buckets", () => {
+  const revenue = buildDashboardRevenue({
+    invoices: [
+      createInvoice({ month: 1, year: 2026, total_amount: 100, amount_paid: 50 }),
+      createInvoice({ month: 8, year: 2026, total_amount: 800, amount_paid: 300 }),
+      createInvoice({ month: 12, year: 2026, total_amount: 1200, amount_paid: 1200 }),
+      createInvoice({ month: 12, year: 2025, total_amount: 999, amount_paid: 999 }),
+    ],
+    billingPeriod,
+    chartRange: "this-year",
+  });
+
+  assert.equal(revenue.chartRange, "this-year");
+  assert.equal(revenue.chart.length, 12);
+  assert.equal(revenue.chart[0]?.period, "01/2026");
+  assert.equal(revenue.chart.at(-1)?.period, "12/2026");
+  assert.equal(revenue.chartInvoiceCount, 3);
+  assert.deepEqual(
+    revenue.chart.find((point) => point.period === "02/2026"),
+    {
+      period: "02/2026",
+      billingPeriod: { month: 2, year: 2026 },
+      billed: 0,
+      collected: 0,
+    },
   );
 });
 
@@ -184,6 +230,8 @@ function createInvoice(
     water_fee: 0,
     other_fee: 0,
     other_fee_note: null,
+    discount_amount: 0,
+    discount_note: null,
     total_amount: 0,
     amount_paid: 0,
     status: "Unpaid",

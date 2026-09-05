@@ -145,8 +145,8 @@ export function UtilityMetricsForm({ view }: { view: UtilityMetricsView }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid gap-4 lg:grid-cols-2">
+    <form onSubmit={handleSubmit} className="min-w-0 space-y-4">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-2">
         <MetricFormCard
           title="Chỉ số điện"
           description="Điện được tính theo kWh."
@@ -226,10 +226,10 @@ function MetricFormCard({
   const error = clientError ?? serverError ?? null;
 
   return (
-    <Card>
+    <Card className="min-w-0 overflow-hidden">
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <CardTitle>{title}</CardTitle>
             <CardDescription>{description}</CardDescription>
           </div>
@@ -289,7 +289,7 @@ function SaveButton({
   pending: boolean;
 }) {
   return (
-    <Button type="submit" disabled={disabled || pending}>
+    <Button type="submit" className="w-full sm:w-auto" disabled={disabled || pending}>
       {pending ? "Đang lưu..." : "Lưu chỉ số"}
     </Button>
   );

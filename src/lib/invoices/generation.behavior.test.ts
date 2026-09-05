@@ -1,22 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  buildInvoiceGenerationConditionalUpdate,
-  buildInvoiceGenerationValues,
-  validateInvoiceGenerationRequest,
-} from "./generation";
-import { createInvoiceGenerationHttpHandler } from "./generation-http";
-import { ok } from "@/lib/insforge/errors";
-import { withOperationalAuth } from "@/lib/server/operational-route";
-import { operationalCreateRoles } from "@/lib/server/role-policy";
 import { resolveApplicableContract } from "@/lib/contracts/billing-period";
+import { ok } from "@/lib/insforge/errors";
 import type {
   ContractRecord,
   InvoiceRecord,
   RoomRecord,
   UtilityMetricRecord,
 } from "@/lib/insforge/types";
+import { withOperationalAuth } from "@/lib/server/operational-route";
+import { operationalCreateRoles } from "@/lib/server/role-policy";
+import {
+  buildInvoiceGenerationConditionalUpdate,
+  buildInvoiceGenerationValues,
+  validateInvoiceGenerationRequest,
+} from "./generation";
+import { createInvoiceGenerationHttpHandler } from "./generation-http";
 
 test("Invoice generation requires a note when an other fee is charged", () => {
   const result = validateInvoiceGenerationRequest({
@@ -38,6 +38,27 @@ test("Invoice generation requires a note when an other fee is charged", () => {
   });
 });
 
+test("Invoice generation requires a note when a discount is applied", () => {
+  const result = validateInvoiceGenerationRequest({
+    roomId: "room-1",
+    body: {
+      month: 8,
+      year: 2026,
+      otherFee: 0,
+      discountAmount: 100_000,
+      discountNote: "   ",
+    },
+  });
+
+  assert.equal(result.data, null);
+  assert.equal(result.error?.code, "VALIDATION_ERROR");
+  assert.deepEqual(result.error?.details, {
+    fieldErrors: {
+      discountNote: "Nhập ghi chú để biết lý do giảm giá.",
+    },
+  });
+});
+
 test("Invoice generation normalizes a valid API request", () => {
   const result = validateInvoiceGenerationRequest({
     roomId: "room-1",
@@ -46,6 +67,8 @@ test("Invoice generation normalizes a valid API request", () => {
       year: "2026",
       otherFee: "100000",
       otherFeeNote: "  Phụ thu vệ sinh  ",
+      discountAmount: "50000",
+      discountNote: "  Giảm giá khách ở lâu  ",
     },
   });
 
@@ -55,7 +78,34 @@ test("Invoice generation normalizes a valid API request", () => {
     billingPeriod: { month: 8, year: 2026 },
     otherFee: 100_000,
     otherFeeNote: "Phụ thu vệ sinh",
+    discountAmount: 50_000,
+    discountNote: "Giảm giá khách ở lâu",
   });
+});
+
+test("Invoice generation subtracts discount after adding rent, utilities, and other fees", () => {
+  const values = buildInvoiceGenerationValues({
+    room: createRoom(),
+    activeContract: createContract(),
+    metric: createMetric(),
+    billingPeriod: { month: 8, year: 2026 },
+    electricityUnitPrice: 3_500,
+    waterUnitPrice: 17_000,
+    otherFee: 100_000,
+    otherFeeNote: "Phụ thu vệ sinh",
+    discountAmount: 200_000,
+    discountNote: "Giảm giá khách ở lâu",
+    existingInvoice: null,
+    now: "2026-08-20T00:00:00.000Z",
+  });
+
+  assert.equal(values.room_fee, 3_000_000);
+  assert.equal(values.electricity_fee, 350_000);
+  assert.equal(values.water_fee, 170_000);
+  assert.equal(values.other_fee, 100_000);
+  assert.equal(values.discount_amount, 200_000);
+  assert.equal(values.discount_note, "Giảm giá khách ở lâu");
+  assert.equal(values.total_amount, 3_420_000);
 });
 
 test("Updating a generated Invoice preserves collected money and derives its status", () => {
@@ -68,6 +118,8 @@ test("Updating a generated Invoice preserves collected money and derives its sta
     waterUnitPrice: 17_000,
     otherFee: 100_000,
     otherFeeNote: "Phụ thu vệ sinh",
+    discountAmount: 0,
+    discountNote: null,
     existingInvoice: createInvoice({ amount_paid: 1_000_000 }),
     now: "2026-08-20T00:00:00.000Z",
   });
@@ -89,6 +141,7 @@ test("Invoice regeneration conditions its write on the observed payment snapshot
     electricityUnitPrice: 3_500,
     waterUnitPrice: 17_000,
     otherFee: 0,
+    discountAmount: 0,
     existingInvoice: null,
     now: "2026-08-20T00:00:00.000Z",
   });
@@ -129,6 +182,8 @@ test("authenticated Invoice generation exercises validation, service, and reposi
           billingPeriod: { month: 8, year: 2026 },
           otherFee: 0,
           otherFeeNote: null,
+          discountAmount: 0,
+          discountNote: null,
         });
         return ok(generatedInvoice);
       },
@@ -231,6 +286,8 @@ function createInvoice(
     water_fee: 0,
     other_fee: 0,
     other_fee_note: null,
+    discount_amount: 0,
+    discount_note: null,
     total_amount: 3_000_000,
     amount_paid: 0,
     status: "Unpaid",

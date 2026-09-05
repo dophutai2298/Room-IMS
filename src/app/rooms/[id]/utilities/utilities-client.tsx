@@ -48,19 +48,19 @@ export function UtilitiesClient({
 
   if (metricsQuery.isPending) {
     return (
-      <>
+      <div className="min-w-0 space-y-6">
         <UtilitiesHeaderSkeleton
           roomId={roomId}
           billingPeriod={billingPeriod}
         />
-        <section className="grid gap-4 xl:grid-cols-[1fr_22rem]">
+        <section className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.65fr)]">
           <MetricsFormSkeleton />
-          <aside className="space-y-4">
+          <aside className="min-w-0 space-y-5">
             <SummarySkeleton title={`Tóm tắt kỳ ${formatBillingPeriod(billingPeriod)}`} />
             <SummarySkeleton title={`Hóa đơn kỳ ${formatBillingPeriod(billingPeriod)}`} />
           </aside>
         </section>
-      </>
+      </div>
     );
   }
 
@@ -73,7 +73,7 @@ export function UtilitiesClient({
     }
 
     return (
-      <>
+      <div className="min-w-0 space-y-6">
         <UtilitiesHeaderFallback
           roomId={roomId}
           billingPeriod={billingPeriod}
@@ -83,20 +83,20 @@ export function UtilitiesClient({
           message={metricsQuery.error.message}
           onRetry={() => void metricsQuery.refetch()}
         />
-      </>
+      </div>
     );
   }
 
   const view = metricsQuery.data;
 
   return (
-    <>
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
+    <div className="min-w-0 space-y-6">
+      <header className="flex min-w-0 flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+        <div className="min-w-0">
           <Button asChild variant="ghost" size="sm" className="-ml-3">
             <Link href={`/rooms/${view.room.id}`}>← Quay lại chi tiết phòng</Link>
           </Button>
-          <h1 className="mt-3 text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
+          <h1 className="mt-3 break-words text-3xl font-semibold tracking-[-0.04em] sm:text-5xl">
             Chốt điện nước kỳ {view.periodLabel}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -106,12 +106,12 @@ export function UtilitiesClient({
         <PeriodSelector roomId={view.room.id} billingPeriod={billingPeriod} />
       </header>
 
-      <section className="grid gap-4 xl:grid-cols-[1fr_22rem]">
+      <section className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.65fr)]">
         <UtilityMetricsForm
           key={`${view.room.id}-${view.periodLabel}`}
           view={view}
         />
-        <aside className="space-y-4">
+        <aside className="min-w-0 space-y-5">
           <SummaryCard view={view} />
           <InvoiceGenerationForm
             key={`${view.room.id}-${view.periodLabel}`}
@@ -125,7 +125,7 @@ export function UtilitiesClient({
           <Link href={`/rooms/${view.room.id}`}>Hủy bỏ</Link>
         </Button>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -137,12 +137,12 @@ function UtilitiesHeaderFallback({
   billingPeriod: BillingPeriod;
 }) {
   return (
-    <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-      <div>
+    <header className="flex min-w-0 flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+      <div className="min-w-0">
         <Button asChild variant="ghost" size="sm" className="-ml-3">
           <Link href={`/rooms/${roomId}`}>← Quay lại chi tiết phòng</Link>
         </Button>
-        <h1 className="mt-3 text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
+        <h1 className="mt-3 break-words text-3xl font-semibold tracking-[-0.04em] sm:text-5xl">
           Chốt điện nước kỳ {formatBillingPeriod(billingPeriod)}
         </h1>
          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
@@ -162,8 +162,8 @@ function UtilitiesHeaderSkeleton({
   billingPeriod: BillingPeriod;
 }) {
   return (
-    <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-      <div className="space-y-3">
+    <header className="flex min-w-0 flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+      <div className="min-w-0 space-y-3">
         <Button asChild variant="ghost" size="sm" className="-ml-3">
           <Link href={`/rooms/${roomId}`}>← Quay lại chi tiết phòng</Link>
         </Button>
@@ -183,7 +183,7 @@ function PeriodSelector({
   billingPeriod: BillingPeriod;
 }) {
   return (
-    <Card className="w-full lg:w-[24rem]">
+    <Card className="min-w-0 w-full xl:w-[24rem] xl:flex-none">
       <CardHeader>
         <CardTitle>Kỳ ghi chỉ số</CardTitle>
         <CardDescription>Chọn tháng/năm và Bấm vào &quot;Xem&quot; để xem hoặc cập nhật dữ liệu.</CardDescription>
@@ -228,7 +228,7 @@ function PeriodSelector({
 
 function SummaryCard({ view }: { view: UtilityMetricsView }) {
   return (
-    <Card>
+    <Card className="min-w-0 overflow-hidden">
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -278,7 +278,7 @@ function SummaryCard({ view }: { view: UtilityMetricsView }) {
 
 function MetricsFormSkeleton() {
   return (
-    <div className="grid gap-4 lg:grid-cols-2" aria-busy="true" aria-live="polite">
+    <div className="grid min-w-0 gap-4 lg:grid-cols-2" aria-busy="true" aria-live="polite">
       <SummarySkeleton title="Chỉ số điện" />
       <SummarySkeleton title="Chỉ số nước" />
     </div>
@@ -287,7 +287,7 @@ function MetricsFormSkeleton() {
 
 function SummarySkeleton({ title }: { title: string }) {
   return (
-    <Card aria-busy="true" aria-live="polite">
+    <Card className="min-w-0 overflow-hidden" aria-busy="true" aria-live="polite">
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         <Skeleton className="h-4 w-64 max-w-full" />
@@ -303,9 +303,9 @@ function SummarySkeleton({ title }: { title: string }) {
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-border pb-3 last:border-0 last:pb-0">
+    <div className="grid min-w-0 gap-1 border-b border-border pb-3 last:border-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start sm:gap-4">
       <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-right text-sm font-medium">{value}</span>
+      <span className="min-w-0 break-words text-sm font-medium sm:max-w-64 sm:text-right">{value}</span>
     </div>
   );
 }
