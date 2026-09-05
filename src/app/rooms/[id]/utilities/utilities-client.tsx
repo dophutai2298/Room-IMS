@@ -99,9 +99,12 @@ export function UtilitiesClient({
           <h1 className="mt-3 break-words text-3xl font-semibold tracking-[-0.04em] sm:text-5xl">
             Chốt điện nước kỳ {view.periodLabel}
           </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="mt-2 text-sm text-muted-foreground font-medium">
             {view.room.name} · {view.keyTenantName ?? "Chưa có Key Tenant"}
           </p>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+          Chốt chỉ số điện nước kỳ này trước tiên sau đó tạo Hóa đơn
+         </p>
         </div>
         <PeriodSelector roomId={view.room.id} billingPeriod={billingPeriod} />
       </header>
@@ -113,18 +116,23 @@ export function UtilitiesClient({
         />
         <aside className="min-w-0 space-y-5">
           <SummaryCard view={view} />
-          <InvoiceGenerationForm
+          {/* <InvoiceGenerationForm
             key={`${view.room.id}-${view.periodLabel}`}
             view={view}
-          />
+          /> */}
         </aside>
       </section>
-
-      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+      <section className="min-w-0" aria-label={`Hóa đơn kỳ ${view.periodLabel}`}>
+        <InvoiceGenerationForm
+          key={`${view.room.id}-${view.periodLabel}`}
+          view={view}
+        />
+      </section>
+      {/* <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <Button asChild variant="secondary">
           <Link href={`/rooms/${view.room.id}`}>Hủy bỏ</Link>
         </Button>
-      </div>
+      </div> */}
     </div>
   );
 }

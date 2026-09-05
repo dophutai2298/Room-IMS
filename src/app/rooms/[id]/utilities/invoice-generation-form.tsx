@@ -143,8 +143,6 @@ export function InvoiceGenerationForm({ view }: { view: UtilityMetricsView }) {
             </p>
           )}
 
-          <InvoicePdfExportButton roomId={view.room.id} billingPeriod={view.billingPeriod} hasInvoice={Boolean(view.invoice)} />
-
           {message && (
             <p className={message.status === "success"
               ? "rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
@@ -153,9 +151,20 @@ export function InvoiceGenerationForm({ view }: { view: UtilityMetricsView }) {
             </p>
           )}
 
-          <Button type="submit" className="w-full" disabled={!canGenerate || generateMutation.isPending}>
-            {generateMutation.isPending ? "Đang lưu hóa đơn..." : view.invoice ? "Cập nhật hóa đơn" : "Tạo hóa đơn"}
-          </Button>
+          <div className="flex flex-col items-end gap-3 sm:flex-row sm:items-start sm:justify-end">
+            <InvoicePdfExportButton
+              roomId={view.room.id}
+              billingPeriod={view.billingPeriod}
+              hasInvoice={Boolean(view.invoice)}
+            />
+            <Button type="submit" disabled={!canGenerate || generateMutation.isPending}>
+              {generateMutation.isPending
+                ? "Đang lưu hóa đơn..."
+                : view.invoice
+                  ? "Cập nhật hóa đơn"
+                  : "Tạo hóa đơn"}
+            </Button>
+          </div>
         </form>
       </CardContent>
     </Card>
