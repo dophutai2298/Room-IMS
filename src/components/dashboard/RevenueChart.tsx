@@ -73,7 +73,7 @@ export function RevenueChart({
   title: string;
   description: string;
 }) {
-  const showBrush = data.length > 6;
+  const showBrush = data.length > 0;
 
   return (
     <div
@@ -146,7 +146,7 @@ export function RevenueChart({
               aria-label="Chọn khoảng thời gian hiển thị trên biểu đồ doanh thu"
               dataKey="period"
               fill="var(--background)"
-              height={28}
+              height={20}
               stroke="var(--chart-primary)"
               travellerWidth={10}
             />

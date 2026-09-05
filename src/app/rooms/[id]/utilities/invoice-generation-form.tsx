@@ -102,6 +102,7 @@ export function InvoiceGenerationForm({ view }: { view: UtilityMetricsView }) {
                 amountId="invoice-other-fee"
                 amountLabel="Phí khác"
                 amount={otherFee}
+                amountStep={1000}
                 amountError={fieldErrors.otherFee}
                 amountHint="Mặc định 0 nếu kỳ này không có phụ thu."
                 noteId="invoice-other-fee-note"
@@ -118,6 +119,7 @@ export function InvoiceGenerationForm({ view }: { view: UtilityMetricsView }) {
                 amountId="invoice-discount-amount"
                 amountLabel="Giảm giá"
                 amount={discountAmount}
+                amountStep={500}
                 amountError={fieldErrors.discountAmount}
                 amountHint="Mặc định 0 nếu kỳ này không có giảm giá."
                 noteId="invoice-discount-note"
@@ -180,7 +182,7 @@ function InvoiceSummary({ view }: { view: UtilityMetricsView }) {
 }
 
 type AdjustmentFieldsProps = {
-  amountId: string; amountLabel: string; amount: string; amountError?: string; amountHint: string;
+  amountId: string; amountLabel: string; amount: string; amountStep: number; amountError?: string; amountHint: string;
   noteId: string; noteLabel: string; note: string; noteError?: string; noteHint: string;
   notePlaceholder: string; disabled: boolean; onAmountChange: (value: string) => void;
   onNoteChange: (value: string) => void;
@@ -191,7 +193,7 @@ function AdjustmentFields(props: AdjustmentFieldsProps) {
     <div className="min-w-0 space-y-4 rounded-2xl border border-border/60 bg-card/55 p-4">
       <div className="grid gap-2">
         <Label htmlFor={props.amountId}>{props.amountLabel}</Label>
-        <Input id={props.amountId} type="number" inputMode="decimal" min={0} step="1000"
+        <Input id={props.amountId} type="number" inputMode="decimal" min={0} step={props.amountStep}
           value={props.amount} aria-invalid={Boolean(props.amountError)} disabled={props.disabled}
           onChange={(event) => props.onAmountChange(event.target.value)} />
         <p className={props.amountError ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
