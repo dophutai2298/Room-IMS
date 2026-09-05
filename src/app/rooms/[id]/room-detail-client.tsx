@@ -118,9 +118,9 @@ function RoomHeader({ detail }: { detail: RoomDetailView }) {
             <Badge variant="outline">Tầng {detail.room.floor}</Badge>
           )}
         </div>
-        <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+        {/* <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
           Chốt chỉ số điện nước kỳ này trước tiên sau đó tạo hơn đơn
-         </p>
+         </p> */}
       </div>
       <div className="flex flex-col gap-2 sm:flex-row lg:shrink-0">
         <Button asChild variant="default" className="w-full sm:w-auto">

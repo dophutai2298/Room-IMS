@@ -59,7 +59,7 @@ function buildWorkbookColumns(): Column<InvoiceExcelRow>[] {
         value: String(value),
         type: String,
         format: "@",
-        wrap: column.key === "otherFeeNote",
+        wrap: column.key === "otherFeeNote" || column.key === "discountNote",
       };
     },
   }));

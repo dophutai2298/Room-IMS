@@ -131,6 +131,8 @@ function createSuccessfulRepository(): InvoiceExportRepository {
           water_fee: 170_000,
           other_fee: 0,
           other_fee_note: null,
+          discount_amount: 0,
+          discount_note: null,
           total_amount: 3_020_000,
           amount_paid: 0,
           status: "Unpaid",

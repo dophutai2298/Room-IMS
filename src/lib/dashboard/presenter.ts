@@ -12,7 +12,7 @@ import {
   type RoomUiStatus,
 } from "@/lib/rooms/presenter";
 import {
-  getDashboardRevenueRangeDetails,
+  getDashboardRevenuePeriodBounds,
   normalizeDashboardRevenueRange,
   type DashboardRevenueRange,
 } from "./revenue-range";
@@ -376,11 +376,13 @@ function buildRevenueTrend({
   chartRange: DashboardRevenueRange;
 }) {
   const invoicesByPeriod = new Map<number, InvoiceRecord[]>();
+  const rangeBounds = getDashboardRevenuePeriodBounds(billingPeriod, chartRange);
+  const chartEndPeriod = rangeBounds?.end ?? billingPeriod;
 
   for (const invoice of invoices) {
     const period = toInvoiceBillingPeriod(invoice);
 
-    if (!period || compareBillingPeriods(period, billingPeriod) > 0) {
+    if (!period || compareBillingPeriods(period, chartEndPeriod) > 0) {
       continue;
     }
 
@@ -390,14 +392,12 @@ function buildRevenueTrend({
     invoicesByPeriod.set(periodIndex, periodInvoices);
   }
 
-  const rangeDetails = getDashboardRevenueRangeDetails(chartRange);
-  const periods =
-    rangeDetails.monthCount === null
-      ? getAllInvoiceBillingPeriods({ invoicesByPeriod, billingPeriod })
-      : getRecentBillingPeriods({
-          billingPeriod,
-          count: rangeDetails.monthCount,
-        });
+  const periods = rangeBounds
+    ? getBillingPeriodsBetween({
+        startPeriodIndex: toBillingPeriodIndex(rangeBounds.start),
+        endPeriodIndex: toBillingPeriodIndex(rangeBounds.end),
+      })
+    : getAllInvoiceBillingPeriods({ invoicesByPeriod, billingPeriod });
   let invoiceCount = 0;
   const points = periods.map((period) => {
     const periodInvoices =
@@ -413,25 +413,6 @@ function buildRevenueTrend({
   });
 
   return { invoiceCount, points };
-}
-
-function getRecentBillingPeriods({
-  billingPeriod,
-  count,
-}: {
-  billingPeriod: BillingPeriod;
-  count: number;
-}) {
-  return Array.from({ length: count }, (_, index) => {
-    const date = new Date(
-      Date.UTC(billingPeriod.year, billingPeriod.month - 1 - (count - index - 1), 1),
-    );
-
-    return {
-      month: date.getUTCMonth() + 1,
-      year: date.getUTCFullYear(),
-    };
-  });
 }
 
 function getAllInvoiceBillingPeriods({

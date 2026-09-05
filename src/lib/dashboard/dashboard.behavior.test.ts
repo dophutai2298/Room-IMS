@@ -209,6 +209,8 @@ function createInvoice(overrides: Partial<InvoiceRecord>): InvoiceRecord {
     water_fee: 0,
     other_fee: 0,
     other_fee_note: null,
+    discount_amount: 0,
+    discount_note: null,
     total_amount: 0,
     amount_paid: 0,
     status: "Unpaid",

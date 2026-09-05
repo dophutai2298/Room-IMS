@@ -145,56 +145,66 @@ export function UtilityMetricsForm({ view }: { view: UtilityMetricsView }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid gap-4 lg:grid-cols-2">
-        <MetricFormCard
-          title="Chỉ số điện"
-          description="Điện được tính theo kWh."
-          inputId="electricity-current"
-          placeholder="Nhập chỉ số điện mới"
-          reading={view.electricity}
-          value={electricityNew}
-          onChange={handleElectricityChange}
-          consumption={electricityConsumption}
-          clientError={electricityValidation.error}
-          serverError={electricityServerError}
-          disabled={saveMutation.isPending}
-        />
-        <MetricFormCard
-          title="Chỉ số nước"
-          description="Nước được tính theo m³."
-          inputId="water-current"
-          placeholder="Nhập chỉ số nước mới"
-          reading={view.water}
-          value={waterNew}
-          onChange={handleWaterChange}
-          consumption={waterConsumption}
-          clientError={waterValidation.error}
-          serverError={waterServerError}
-          disabled={saveMutation.isPending}
-        />
-      </div>
+    <Card className="min-w-0 overflow-hidden">
+      <CardHeader>
+        <CardTitle>Ghi chỉ số điện nước</CardTitle>
+        <CardDescription>
+          Kiểm tra chỉ số cũ, nhập chỉ số mới rồi lưu dữ liệu cho kỳ {view.periodLabel}.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="min-w-0 space-y-5">
+          <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+            <MetricFormCard
+              title="Chỉ số điện"
+              description="Điện được tính theo kWh."
+              inputId="electricity-current"
+              placeholder="Nhập chỉ số điện mới"
+              reading={view.electricity}
+              value={electricityNew}
+              onChange={handleElectricityChange}
+              consumption={electricityConsumption}
+              clientError={electricityValidation.error}
+              serverError={electricityServerError}
+              disabled={saveMutation.isPending}
+            />
+            <MetricFormCard
+              title="Chỉ số nước"
+              description="Nước được tính theo m³."
+              inputId="water-current"
+              placeholder="Nhập chỉ số nước mới"
+              reading={view.water}
+              value={waterNew}
+              onChange={handleWaterChange}
+              consumption={waterConsumption}
+              clientError={waterValidation.error}
+              serverError={waterServerError}
+              disabled={saveMutation.isPending}
+            />
+          </div>
 
-      {message && (
-        <p
-          className={
-            message.status === "success"
-              ? "rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
-              : "rounded-2xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-          }
-        >
-          {message.text}
-        </p>
-      )}
-      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted-foreground">
-          {view.persistedMetricId
-            ? "Kỳ này đã có chỉ số; Lưu lại sẽ cập nhật dữ liệu hiện có."
-            : "Kỳ này chưa có chỉ số; Lưu sẽ tạo record dữ liệu cho phòng."}
-        </p>
-        <SaveButton disabled={hasClientErrors} pending={saveMutation.isPending} />
-      </div>
-    </form>
+          {message && (
+            <p
+              className={
+                message.status === "success"
+                  ? "rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
+                  : "rounded-2xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+              }
+            >
+              {message.text}
+            </p>
+          )}
+          <div className="flex flex-col-reverse gap-3 border-t border-border/70 pt-5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              {view.persistedMetricId
+                ? "Kỳ này đã có chỉ số; lưu lại sẽ cập nhật dữ liệu hiện có."
+                : "Kỳ này chưa có chỉ số; lưu sẽ tạo dữ liệu cho phòng."}
+            </p>
+            <SaveButton disabled={hasClientErrors} pending={saveMutation.isPending} />
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -226,10 +236,10 @@ function MetricFormCard({
   const error = clientError ?? serverError ?? null;
 
   return (
-    <Card>
+    <Card className="min-w-0 overflow-hidden">
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <CardTitle>{title}</CardTitle>
             <CardDescription>{description}</CardDescription>
           </div>
@@ -289,7 +299,7 @@ function SaveButton({
   pending: boolean;
 }) {
   return (
-    <Button type="submit" disabled={disabled || pending}>
+    <Button type="submit" className="w-full sm:w-auto" disabled={disabled || pending}>
       {pending ? "Đang lưu..." : "Lưu chỉ số"}
     </Button>
   );

@@ -13,6 +13,8 @@ export type InvoiceExcelRow = {
   waterFee: number;
   otherFee: number;
   otherFeeNote: string;
+  discountAmount: number;
+  discountNote: string;
   totalAmount: number;
   amountPaid: number;
   balanceDue: number;
@@ -40,6 +42,13 @@ export const INVOICE_EXCEL_COLUMNS: InvoiceExcelColumn[] = [
     width: 32,
     kind: "text",
   },
+  { key: "discountAmount", header: "Giảm giá", width: 16, kind: "money" },
+  {
+    key: "discountNote",
+    header: "Ghi chú giảm giá",
+    width: 32,
+    kind: "text",
+  },
   { key: "totalAmount", header: "Tổng tiền", width: 17, kind: "money" },
   { key: "amountPaid", header: "Đã thu", width: 17, kind: "money" },
   { key: "balanceDue", header: "Còn lại", width: 17, kind: "money" },
@@ -63,6 +72,8 @@ export function buildInvoiceExcelRows(
     waterFee: invoice.waterFee,
     otherFee: invoice.otherFee,
     otherFeeNote: invoice.otherFeeNote ?? "",
+    discountAmount: invoice.discountAmount,
+    discountNote: invoice.discountNote ?? "",
     totalAmount: invoice.totalAmount,
     amountPaid: invoice.amountPaid,
     balanceDue: invoice.balanceDue,

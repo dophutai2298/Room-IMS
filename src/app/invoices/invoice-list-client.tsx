@@ -184,6 +184,28 @@ function InvoiceTable({
           },
           enableGlobalFilter: false,
         }),
+        invoiceColumnHelper.accessor("discountAmount", {
+          header: "Giảm giá",
+          cell: (info) => {
+            const invoice = info.row.original;
+
+            return (
+              <div>
+                <div className="font-mono tabular-nums text-emerald-700 dark:text-emerald-300">
+                  {invoice.discountAmount > 0
+                    ? `− ${formatCurrency(invoice.discountAmount)}`
+                    : formatCurrency(0)}
+                </div>
+                {invoice.discountAmount > 0 && (
+                  <p className="mt-1 max-w-[14rem] text-xs leading-5 text-muted-foreground">
+                    {invoice.discountNote ?? "Chưa có ghi chú"}
+                  </p>
+                )}
+              </div>
+            );
+          },
+          enableGlobalFilter: false,
+        }),
         invoiceColumnHelper.accessor("totalAmount", {
           header: "Tổng tiền",
           cell: (info) => (

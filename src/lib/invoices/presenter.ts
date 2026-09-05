@@ -15,6 +15,8 @@ export type InvoiceListItem = {
   waterFee: number;
   otherFee: number;
   otherFeeNote: string | null;
+  discountAmount: number;
+  discountNote: string | null;
   utilityFee: number;
   totalAmount: number;
   amountPaid: number;
@@ -92,6 +94,8 @@ function buildInvoiceListItem(
     waterFee,
     otherFee: toMoney(invoice.other_fee),
     otherFeeNote: normalizeOptionalText(invoice.other_fee_note),
+    discountAmount: toMoney(invoice.discount_amount),
+    discountNote: normalizeOptionalText(invoice.discount_note),
     utilityFee: electricityFee + waterFee,
     totalAmount,
     amountPaid,

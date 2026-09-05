@@ -195,6 +195,8 @@ async function generateInvoiceInInsForge({
       waterUnitPrice: Number(waterUnitPrice),
       otherFee: input.otherFee,
       otherFeeNote: input.otherFeeNote,
+      discountAmount: input.discountAmount,
+      discountNote: input.discountNote,
       existingInvoice: null,
     });
     const scopedValues = {
@@ -423,6 +425,8 @@ const invoiceSelect = [
   "water_fee",
   "other_fee",
   "other_fee_note",
+  "discount_amount",
+  "discount_note",
   "total_amount",
   "amount_paid",
   "status",

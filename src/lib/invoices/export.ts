@@ -15,7 +15,8 @@ export type InvoiceExportLineItemCode =
   | "room-rent"
   | "electricity"
   | "water"
-  | "other";
+  | "other"
+  | "discount";
 
 export type InvoiceExportLineItem = {
   code: InvoiceExportLineItemCode;
@@ -88,6 +89,12 @@ export function buildInvoiceExportView({
         "Chi phí khác",
         invoice.other_fee,
         normalizeOptionalText(invoice.other_fee_note),
+      ),
+      createLineItem(
+        "discount",
+        "Giảm giá",
+        -toMoney(invoice.discount_amount),
+        normalizeOptionalText(invoice.discount_note),
       ),
     ],
     utilityReadings: utilityMetric

@@ -13,6 +13,8 @@ export type GenerateInvoiceInput = {
   billingPeriod: BillingPeriod;
   otherFee: number;
   otherFeeNote: string | null;
+  discountAmount: number;
+  discountNote: string | null;
 };
 
 export type InvoiceGenerationValues = {
@@ -24,6 +26,8 @@ export type InvoiceGenerationValues = {
   water_fee: number;
   other_fee: number;
   other_fee_note: string | null;
+  discount_amount: number;
+  discount_note: string | null;
   total_amount: number;
   amount_paid: number;
   status: InvoiceDbStatus;
@@ -46,6 +50,8 @@ export function validateInvoiceGenerationRequest({
   const year = parseInteger(input.year);
   const otherFee = parseMoney(input.otherFee, 0);
   const otherFeeNote = normalizeOptionalText(input.otherFeeNote);
+  const discountAmount = parseMoney(input.discountAmount, 0);
+  const discountNote = normalizeOptionalText(input.discountNote);
   const fieldErrors: Record<string, string> = {};
 
   if (!roomId.trim()) {
@@ -68,6 +74,14 @@ export function validateInvoiceGenerationRequest({
     fieldErrors.otherFeeNote = "Nhập ghi chú để biết phí khác là phí gì.";
   }
 
+  if (discountAmount === null) {
+    fieldErrors.discountAmount = "Nhập giảm giá không hợp lệ, hoặc để 0.";
+  }
+
+  if (discountAmount !== null && discountAmount > 0 && !discountNote) {
+    fieldErrors.discountNote = "Nhập ghi chú để biết lý do giảm giá.";
+  }
+
   if (Object.keys(fieldErrors).length > 0) {
     return {
       data: null,
@@ -87,6 +101,8 @@ export function validateInvoiceGenerationRequest({
       },
       otherFee: otherFee as number,
       otherFeeNote,
+      discountAmount: discountAmount as number,
+      discountNote,
     },
     error: null,
   };
@@ -101,6 +117,8 @@ export function buildInvoiceGenerationValues({
   waterUnitPrice,
   otherFee,
   otherFeeNote,
+  discountAmount,
+  discountNote,
   existingInvoice,
   now = new Date().toISOString(),
 }: {
@@ -112,6 +130,8 @@ export function buildInvoiceGenerationValues({
   waterUnitPrice: number;
   otherFee: number;
   otherFeeNote?: string | null;
+  discountAmount?: number;
+  discountNote?: string | null;
   existingInvoice: InvoiceRecord | null;
   now?: string;
 }): InvoiceGenerationValues {
@@ -125,8 +145,9 @@ export function buildInvoiceGenerationValues({
   );
   const waterFee = roundMoney(waterConsumption * waterUnitPrice);
   const safeOtherFee = roundMoney(Math.max(otherFee, 0));
+  const safeDiscountAmount = roundMoney(Math.max(discountAmount ?? 0, 0));
   const totalAmount = roundMoney(
-    roomFee + electricityFee + waterFee + safeOtherFee,
+    Math.max(roomFee + electricityFee + waterFee + safeOtherFee - safeDiscountAmount, 0),
   );
 
   return preserveInvoicePaymentState(
@@ -140,6 +161,9 @@ export function buildInvoiceGenerationValues({
       other_fee: safeOtherFee,
       other_fee_note:
         safeOtherFee > 0 ? normalizeOptionalText(otherFeeNote) : null,
+      discount_amount: safeDiscountAmount,
+      discount_note:
+        safeDiscountAmount > 0 ? normalizeOptionalText(discountNote) : null,
       total_amount: totalAmount,
       amount_paid: 0,
       status: "Unpaid",

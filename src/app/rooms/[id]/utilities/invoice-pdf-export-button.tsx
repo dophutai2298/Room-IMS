@@ -60,11 +60,10 @@ export function InvoicePdfExportButton({
   const errorMessage = downloadMutation.error?.message ?? null;
 
   return (
-    <div className="space-y-2 rounded-2xl border border-white/40 bg-background/35 p-4 clay-inset dark:border-white/8">
+    <div className="flex min-w-0 flex-col items-end gap-2">
       <Button
         type="button"
         variant="outline"
-        className="w-full"
         disabled={!hasInvoice || downloadMutation.isPending}
         onClick={() => downloadMutation.mutate()}
       >
@@ -73,7 +72,7 @@ export function InvoicePdfExportButton({
       </Button>
 
       {!hasInvoice && (
-        <p className="text-xs text-muted-foreground">
+        <p className="max-w-md text-xs text-muted-foreground sm:text-right">
           Cần tạo hóa đơn cho kỳ này trước khi có thể tải PDF.
         </p>
       )}
@@ -81,7 +80,7 @@ export function InvoicePdfExportButton({
       {errorMessage && (
         <p
           role="alert"
-          className="rounded-xl border border-destructive/25 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+          className="max-w-md rounded-xl border border-destructive/25 bg-destructive/10 px-3 py-2 text-xs text-destructive sm:text-right"
         >
           {errorMessage} Bạn có thể bấm tải lại để thử lại.
         </p>

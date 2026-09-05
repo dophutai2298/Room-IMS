@@ -99,6 +99,8 @@ CREATE TABLE IF NOT EXISTS public.invoices (
     -- Historical billing imports may use negative other_fee as a discount.
     other_fee NUMERIC(12, 2) NOT NULL DEFAULT 0,
     other_fee_note TEXT,
+    discount_amount NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (discount_amount >= 0),
+    discount_note TEXT,
     total_amount NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (total_amount >= 0),
     amount_paid NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (amount_paid >= 0),
     status TEXT NOT NULL DEFAULT 'Unpaid'
@@ -181,7 +183,21 @@ ALTER TABLE public.invoices
     ADD COLUMN IF NOT EXISTS other_fee_note TEXT;
 
 ALTER TABLE public.invoices
+    ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(12, 2) NOT NULL DEFAULT 0
+        CHECK (discount_amount >= 0);
+
+ALTER TABLE public.invoices
+    ADD COLUMN IF NOT EXISTS discount_note TEXT;
+
+ALTER TABLE public.invoices
     DROP CONSTRAINT IF EXISTS invoices_other_fee_check;
+
+UPDATE public.invoices
+SET discount_amount = ABS(other_fee),
+    discount_note = COALESCE(NULLIF(TRIM(discount_note), ''), other_fee_note),
+    other_fee = 0
+WHERE other_fee < 0
+  AND discount_amount = 0;
 
 ALTER TABLE public.tenants
     ADD COLUMN IF NOT EXISTS date_of_birth TEXT,
@@ -630,6 +646,8 @@ INSERT INTO public.invoices (
     room_fee,
     other_fee,
     other_fee_note,
+    discount_amount,
+    discount_note,
     total_amount,
     amount_paid,
     status
@@ -644,6 +662,8 @@ VALUES (
     3200000,
     56000,
     'Phụ thu vệ sinh khu vực chung',
+    0,
+    NULL,
     3803500,
     1500000,
     'Partially Paid'
@@ -654,6 +674,8 @@ SET electricity_fee = EXCLUDED.electricity_fee,
     room_fee = EXCLUDED.room_fee,
     other_fee = EXCLUDED.other_fee,
     other_fee_note = EXCLUDED.other_fee_note,
+    discount_amount = EXCLUDED.discount_amount,
+    discount_note = EXCLUDED.discount_note,
     total_amount = EXCLUDED.total_amount,
     amount_paid = EXCLUDED.amount_paid,
     status = EXCLUDED.status,
