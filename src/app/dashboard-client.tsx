@@ -66,6 +66,10 @@ export function DashboardClient({
   const [chartRange, setChartRange] = useState<DashboardRevenueRange>(
     DEFAULT_DASHBOARD_REVENUE_RANGE,
   );
+  const [missingMetricsPeriod, setMissingMetricsPeriod] =
+    useState<BillingPeriod>(billingPeriod);
+  const [unpaidInvoicesPeriod, setUnpaidInvoicesPeriod] =
+    useState<BillingPeriod>(billingPeriod);
   const operationsSummaryQuery = useQuery({
     queryKey: dashboardQueryKeys.operationsSummary(billingPeriod),
     queryFn: () =>
@@ -73,6 +77,34 @@ export function DashboardClient({
         `/api/dashboard/operations-summary?${periodSearchParams(billingPeriod)}`,
         { cache: "no-store" },
       ),
+    ...dashboardQueryOptions,
+  });
+  const missingMetricsUsesSummary = isSameBillingPeriod(
+    missingMetricsPeriod,
+    billingPeriod,
+  );
+  const missingMetricsQuery = useQuery({
+    queryKey: dashboardQueryKeys.missingUtilityMetrics(missingMetricsPeriod),
+    queryFn: () =>
+      fetchAppApi<DashboardMissingUtilityMetricsView>(
+        `/api/dashboard/missing-utility-metrics?${periodSearchParams(missingMetricsPeriod)}`,
+        { cache: "no-store" },
+      ),
+    enabled: !missingMetricsUsesSummary,
+    ...dashboardQueryOptions,
+  });
+  const unpaidInvoicesUsesSummary = isSameBillingPeriod(
+    unpaidInvoicesPeriod,
+    billingPeriod,
+  );
+  const unpaidInvoicesQuery = useQuery({
+    queryKey: dashboardQueryKeys.unpaidInvoices(unpaidInvoicesPeriod),
+    queryFn: () =>
+      fetchAppApi<DashboardUnpaidInvoicesView>(
+        `/api/dashboard/unpaid-invoices?${periodSearchParams(unpaidInvoicesPeriod)}`,
+        { cache: "no-store" },
+      ),
+    enabled: !unpaidInvoicesUsesSummary,
     ...dashboardQueryOptions,
   });
   const usesOperationsSummaryRevenue =
@@ -105,6 +137,30 @@ export function DashboardClient({
   const retryChart = usesOperationsSummaryRevenue
     ? () => void operationsSummaryQuery.refetch()
     : () => void revenueChartQuery.refetch();
+  const missingMetricsData = missingMetricsUsesSummary
+    ? operationsSummaryQuery.data?.missingUtilityMetrics
+    : missingMetricsQuery.data;
+  const missingMetricsIsLoading = missingMetricsUsesSummary
+    ? operationsSummaryQuery.isPending
+    : missingMetricsQuery.isPending;
+  const missingMetricsError = missingMetricsUsesSummary
+    ? operationsSummaryQuery.error?.message
+    : missingMetricsQuery.error?.message;
+  const retryMissingMetrics = missingMetricsUsesSummary
+    ? () => void operationsSummaryQuery.refetch()
+    : () => void missingMetricsQuery.refetch();
+  const unpaidInvoicesData = unpaidInvoicesUsesSummary
+    ? operationsSummaryQuery.data?.unpaidInvoices
+    : unpaidInvoicesQuery.data;
+  const unpaidInvoicesIsLoading = unpaidInvoicesUsesSummary
+    ? operationsSummaryQuery.isPending
+    : unpaidInvoicesQuery.isPending;
+  const unpaidInvoicesError = unpaidInvoicesUsesSummary
+    ? operationsSummaryQuery.error?.message
+    : unpaidInvoicesQuery.error?.message;
+  const retryUnpaidInvoices = unpaidInvoicesUsesSummary
+    ? () => void operationsSummaryQuery.refetch()
+    : () => void unpaidInvoicesQuery.refetch();
   const periodLabel = formatBillingPeriod(billingPeriod);
 
   return (
@@ -210,19 +266,23 @@ export function DashboardClient({
           onRangeChange={setChartRange}
         />
         <MissingMetricsSection
-          data={operationsSummaryQuery.data?.missingUtilityMetrics}
-          isLoading={operationsSummaryQuery.isPending}
-          error={operationsSummaryQuery.error?.message}
-          onRetry={() => void operationsSummaryQuery.refetch()}
+          data={missingMetricsData}
+          isLoading={missingMetricsIsLoading}
+          error={missingMetricsError}
+          onRetry={retryMissingMetrics}
+          period={missingMetricsPeriod}
+          onPeriodChange={setMissingMetricsPeriod}
         />
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
         <UnpaidInvoicesSection
-          data={operationsSummaryQuery.data?.unpaidInvoices}
-          isLoading={operationsSummaryQuery.isPending}
-          error={operationsSummaryQuery.error?.message}
-          onRetry={() => void operationsSummaryQuery.refetch()}
+          data={unpaidInvoicesData}
+          isLoading={unpaidInvoicesIsLoading}
+          error={unpaidInvoicesError}
+          onRetry={retryUnpaidInvoices}
+          period={unpaidInvoicesPeriod}
+          onPeriodChange={setUnpaidInvoicesPeriod}
         />
         <RoomAvailabilitySection
           data={availabilityQuery.data}
@@ -399,20 +459,36 @@ function MissingMetricsSection({
   isLoading,
   error,
   onRetry,
+  period,
+  onPeriodChange,
 }: {
   data?: DashboardMissingUtilityMetricsView;
   isLoading: boolean;
   error?: string;
   onRetry: () => void;
+  period: BillingPeriod;
+  onPeriodChange: (period: BillingPeriod) => void;
 }) {
   return (
     <Card className="bg-primary text-primary-foreground dark:bg-primary/90">
       <CardHeader>
-        <p className="text-sm font-medium text-primary-foreground/70">Ưu tiên hôm nay</p>
-        <CardTitle className="text-2xl">Chốt chỉ số kỳ {data?.periodLabel ?? "hiện tại"}</CardTitle>
-        <CardDescription className="text-primary-foreground/70">
-          {data ? `${data.rooms.length} phòng còn thiếu chỉ số Điện-Nước.` : "Đang kiểm tra phòng còn thiếu chỉ số."}
-        </CardDescription>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-sm font-medium text-primary-foreground/70">Ưu tiên hôm nay</p>
+            <CardTitle className="mt-1 text-2xl">
+              Chốt chỉ số kỳ {data?.periodLabel ?? formatBillingPeriod(period)}
+            </CardTitle>
+            <CardDescription className="mt-1.5 text-primary-foreground/70">
+              {data ? `${data.rooms.length} phòng còn thiếu chỉ số Điện-Nước.` : "Đang kiểm tra phòng còn thiếu chỉ số."}
+            </CardDescription>
+          </div>
+          <DashboardMonthSelect
+            ariaLabel="Chọn tháng chốt chỉ số"
+            period={period}
+            onPeriodChange={onPeriodChange}
+            dark
+          />
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
         {isLoading ? (
@@ -445,7 +521,7 @@ function MissingMetricsSection({
                 <span aria-hidden="true" className="text-xl">↗</span>
               </div>
               <Button asChild variant="default" className="mt-4 w-full">
-                <Link href={`/rooms/${room.id}/utilities`}>Nhập chỉ số</Link>
+                <Link href={buildRoomUtilitiesHref(room.id, period)}>Nhập chỉ số</Link>
               </Button>
             </div>
           ))
@@ -460,24 +536,35 @@ function UnpaidInvoicesSection({
   isLoading,
   error,
   onRetry,
+  period,
+  onPeriodChange,
 }: {
   data?: DashboardUnpaidInvoicesView;
   isLoading: boolean;
   error?: string;
   onRetry: () => void;
+  period: BillingPeriod;
+  onPeriodChange: (period: BillingPeriod) => void;
 }) {
   return (
     <Card>
-      <CardHeader className="flex-row items-start justify-between gap-4">
+      <CardHeader className="flex-row flex-wrap items-start justify-between gap-4">
         <div>
           <CardTitle>Hóa đơn cần thu</CardTitle>
           <CardDescription className="mt-1.5">
-            Ưu tiên theo số tiền còn lại trong kỳ.
+            Ưu tiên theo số tiền còn lại kỳ {data?.periodLabel ?? formatBillingPeriod(period)}.
           </CardDescription>
         </div>
-        <Button asChild variant="default" size="sm">
-          <Link className="!text-white" href="/invoices" >Xem tất cả</Link>
-        </Button>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <DashboardMonthSelect
+            ariaLabel="Chọn tháng hóa đơn cần thu"
+            period={period}
+            onPeriodChange={onPeriodChange}
+          />
+          <Button asChild variant="default" size="sm">
+            <Link className="!text-white" href="/invoices">Xem tất cả</Link>
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4 pt-2">
         {isLoading ? (
@@ -498,7 +585,7 @@ function UnpaidInvoicesSection({
               </p>
             </div>
             {data.invoices.map((invoice) => (
-              <UnpaidInvoiceItem key={invoice.id} invoice={invoice} />
+              <UnpaidInvoiceItem key={invoice.id} invoice={invoice} period={period} />
             ))}
           </>
         )}
@@ -507,7 +594,13 @@ function UnpaidInvoicesSection({
   );
 }
 
-function UnpaidInvoiceItem({ invoice }: { invoice: DashboardUnpaidInvoice }) {
+function UnpaidInvoiceItem({
+  invoice,
+  period,
+}: {
+  invoice: DashboardUnpaidInvoice;
+  period: BillingPeriod;
+}) {
   return (
     <div className="space-y-3">
       <div className="flex items-start justify-between gap-3">
@@ -523,7 +616,7 @@ function UnpaidInvoiceItem({ invoice }: { invoice: DashboardUnpaidInvoice }) {
         <Fact label="Còn lại" value={formatCurrency(invoice.balanceDue)} />
       </div>
       <Button asChild variant="secondary" size="sm">
-        <Link href={`/rooms/${invoice.roomId}/utilities`}>Xem kỳ thu</Link>
+        <Link href={buildRoomUtilitiesHref(invoice.roomId, period)}>Xem kỳ thu</Link>
       </Button>
       <Separator />
     </div>
@@ -699,6 +792,45 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
+function DashboardMonthSelect({
+  ariaLabel,
+  period,
+  onPeriodChange,
+  dark = false,
+}: {
+  ariaLabel: string;
+  period: BillingPeriod;
+  onPeriodChange: (period: BillingPeriod) => void;
+  dark?: boolean;
+}) {
+  return (
+    <Select
+      value={String(period.month)}
+      onValueChange={(value) =>
+        onPeriodChange({ month: Number(value), year: period.year })
+      }
+    >
+      <SelectTrigger
+        aria-label={ariaLabel}
+        className={
+          dark
+            ? "w-40 border-white/20 bg-white/10 text-primary-foreground"
+            : "w-40"
+        }
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => (
+          <SelectItem key={month} value={String(month)}>
+            Tháng {month}/{period.year}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 function RoomBadge({ status }: { status: RoomUiStatus }) {
   const variant =
     status === "available"
@@ -730,6 +862,14 @@ function periodSearchParams(period: BillingPeriod) {
     month: String(period.month),
     year: String(period.year),
   }).toString();
+}
+
+function isSameBillingPeriod(left: BillingPeriod, right: BillingPeriod) {
+  return left.month === right.month && left.year === right.year;
+}
+
+function buildRoomUtilitiesHref(roomId: string, period: BillingPeriod) {
+  return `/rooms/${roomId}/utilities?${periodSearchParams(period)}`;
 }
 
 function revenueSearchParams(

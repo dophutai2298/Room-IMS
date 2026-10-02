@@ -46,9 +46,17 @@ export type UtilityInvoiceSummary = {
 };
 
 export function getDefaultBillingPeriod(now = new Date()): BillingPeriod {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    month: "numeric",
+    year: "numeric",
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).formatToParts(now);
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  const year = Number(parts.find((part) => part.type === "year")?.value);
+
   return {
-    month: now.getMonth() + 1,
-    year: now.getFullYear(),
+    month,
+    year,
   };
 }
 

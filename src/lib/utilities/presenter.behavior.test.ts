@@ -2,8 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { UtilityMetricRecord } from "@/lib/insforge/types";
-import { getUtilityMetricBaseline } from "./presenter";
+import { getDefaultBillingPeriod, getUtilityMetricBaseline } from "./presenter";
 import { getUtilityMetricReadPlan } from "./query-plan";
+
+test("default billing period follows Vietnam time at a UTC month boundary", () => {
+  assert.deepEqual(
+    getDefaultBillingPeriod(new Date("2026-09-30T18:00:00.000Z")),
+    { month: 10, year: 2026 },
+  );
+});
 
 test("Utility Metrics query plan requests only current and latest earlier candidates", () => {
   assert.deepEqual(getUtilityMetricReadPlan({ month: 1, year: 2026 }), {
