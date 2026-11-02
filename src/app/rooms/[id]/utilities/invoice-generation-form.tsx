@@ -23,8 +23,12 @@ import { utilityMetricsQueryKeys } from "@/lib/utilities/query-keys";
 
 export function InvoiceGenerationForm({ view }: { view: UtilityMetricsView }) {
   const queryClient = useQueryClient();
-  const [otherFee, setOtherFee] = useState(String(view.invoice?.otherFee ?? 0));
-  const [otherFeeNote, setOtherFeeNote] = useState(view.invoice?.otherFeeNote ?? "");
+  const [otherFeeDraft, setOtherFeeDraft] = useState<{
+    amount: string;
+    note: string;
+  } | null>(null);
+  const otherFee = otherFeeDraft?.amount ?? String(view.invoiceOtherFeeDefaults.amount);
+  const otherFeeNote = otherFeeDraft?.note ?? view.invoiceOtherFeeDefaults.note ?? "";
   const [discountAmount, setDiscountAmount] = useState(String(view.invoice?.discountAmount ?? 0));
   const [discountNote, setDiscountNote] = useState(view.invoice?.discountNote ?? "");
   const [message, setMessage] = useState<{ status: "success" | "error"; text: string } | null>(null);
@@ -43,8 +47,20 @@ export function InvoiceGenerationForm({ view }: { view: UtilityMetricsView }) {
       }),
     }),
     onSuccess: async (invoice) => {
-      setOtherFee(String(invoice.other_fee));
-      setOtherFeeNote(invoice.other_fee_note ?? "");
+      const savedOtherFeeDefaults = {
+        amount: Number(invoice.other_fee),
+        note: invoice.other_fee_note ?? null,
+      };
+      setOtherFeeDraft({
+        amount: String(savedOtherFeeDefaults.amount),
+        note: savedOtherFeeDefaults.note ?? "",
+      });
+      queryClient.setQueryData<UtilityMetricsView>(
+        utilityMetricsQueryKeys.screen(view.room.id, view.billingPeriod),
+        (current) => current
+          ? { ...current, invoiceOtherFeeDefaults: savedOtherFeeDefaults }
+          : current,
+      );
       setDiscountAmount(String(invoice.discount_amount));
       setDiscountNote(invoice.discount_note ?? "");
       const text = `Đã tạo/cập nhật hóa đơn kỳ ${view.periodLabel}.`;
@@ -56,6 +72,7 @@ export function InvoiceGenerationForm({ view }: { view: UtilityMetricsView }) {
         queryClient.invalidateQueries({ queryKey: roomQueryKeys.operationsSummary(view.room.id) }),
         queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.all }),
       ]);
+      setOtherFeeDraft(null);
     },
     onError: (error) => {
       const text = error instanceof Error ? error.message : "Không tạo/cập nhật được hóa đơn.";
@@ -102,9 +119,11 @@ export function InvoiceGenerationForm({ view }: { view: UtilityMetricsView }) {
                 amountId="invoice-other-fee"
                 amountLabel="Phí khác"
                 amount={otherFee}
-                amountStep={1000}
+                amountStep={0.01}
                 amountError={fieldErrors.otherFee}
-                amountHint="Mặc định 0 nếu kỳ này không có phụ thu."
+                amountHint={!view.invoice && view.invoiceOtherFeeDefaults.amount > 0
+                  ? "Gợi ý từ dư nợ tháng trước. Bạn có thể sửa trước khi tạo hóa đơn."
+                  : "Mặc định 0 nếu kỳ này không có phụ thu."}
                 noteId="invoice-other-fee-note"
                 noteLabel="Ghi chú phí khác"
                 note={otherFeeNote}
@@ -112,8 +131,14 @@ export function InvoiceGenerationForm({ view }: { view: UtilityMetricsView }) {
                 noteHint="Bắt buộc khi phí khác lớn hơn 0."
                 notePlaceholder="Ví dụ: phụ thu vệ sinh, sửa khóa, gửi xe..."
                 disabled={!canGenerate || generateMutation.isPending}
-                onAmountChange={(value) => { clearFeedback(); setOtherFee(value); }}
-                onNoteChange={(value) => { clearFeedback(); setOtherFeeNote(value); }}
+                onAmountChange={(value) => {
+                  clearFeedback();
+                  setOtherFeeDraft({ amount: value, note: otherFeeNote });
+                }}
+                onNoteChange={(value) => {
+                  clearFeedback();
+                  setOtherFeeDraft({ amount: otherFee, note: value });
+                }}
               />
               <AdjustmentFields
                 amountId="invoice-discount-amount"

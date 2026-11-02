@@ -30,6 +30,10 @@ export type UtilityMetricsView = {
   activeContractId: string | null;
   previousPeriodLabel: string | null;
   invoice: UtilityInvoiceSummary | null;
+  invoiceOtherFeeDefaults: {
+    amount: number;
+    note: string | null;
+  };
   electricity: UtilityReadingView;
   water: UtilityReadingView;
 };
@@ -104,7 +108,21 @@ export function buildUtilityMetricsView({
     billingPeriod,
   });
   const currentInvoice =
-    invoices.find((invoice) => isSamePeriod(invoice, billingPeriod)) ?? null;
+    invoices.find((invoice) =>
+      invoice.room_id === room.id && isSamePeriod(invoice, billingPeriod),
+    ) ?? null;
+  const previousBillingPeriod = getPreviousBillingPeriod(billingPeriod);
+  const previousInvoice = invoices.find((invoice) =>
+    invoice.room_id === room.id && isSamePeriod(invoice, previousBillingPeriod),
+  );
+  const previousBalance = previousInvoice
+    ? Math.max(
+        Math.round((
+          toNumber(previousInvoice.total_amount) - toNumber(previousInvoice.amount_paid)
+        ) * 100) / 100,
+        0,
+      )
+    : 0;
   const keyTenant = activeContract
     ? tenants.find((tenant) => tenant.id === activeContract.key_tenant_id)
     : null;
@@ -119,6 +137,18 @@ export function buildUtilityMetricsView({
     currentMetric?.water_old ?? previousMetric?.water_new ?? 0,
   );
   const waterNew = currentMetric ? toNumber(currentMetric.water_new) : null;
+  const invoice: UtilityInvoiceSummary | null = currentInvoice
+    ? {
+        id: currentInvoice.id,
+        status: currentInvoice.status,
+        totalAmount: toNumber(currentInvoice.total_amount),
+        amountPaid: toNumber(currentInvoice.amount_paid),
+        otherFee: toNumber(currentInvoice.other_fee),
+        otherFeeNote: normalizeOptionalText(currentInvoice.other_fee_note),
+        discountAmount: toNumber(currentInvoice.discount_amount),
+        discountNote: normalizeOptionalText(currentInvoice.discount_note),
+      }
+    : null;
 
   return {
     room: {
@@ -136,18 +166,16 @@ export function buildUtilityMetricsView({
           year: toNumber(previousMetric.year),
         })
       : null,
-    invoice: currentInvoice
+    invoice,
+    invoiceOtherFeeDefaults: invoice
       ? {
-          id: currentInvoice.id,
-          status: currentInvoice.status,
-          totalAmount: toNumber(currentInvoice.total_amount),
-          amountPaid: toNumber(currentInvoice.amount_paid),
-          otherFee: toNumber(currentInvoice.other_fee),
-          otherFeeNote: normalizeOptionalText(currentInvoice.other_fee_note),
-          discountAmount: toNumber(currentInvoice.discount_amount),
-          discountNote: normalizeOptionalText(currentInvoice.discount_note),
+          amount: invoice.otherFee,
+          note: invoice.otherFeeNote,
         }
-      : null,
+      : {
+          amount: previousBalance,
+          note: previousBalance > 0 ? "Tiền nợ tháng trước" : null,
+        },
     electricity: {
       oldReading: electricityOld,
       newReading: electricityNew,
@@ -187,6 +215,12 @@ export function getUtilityMetricBaseline({
 
 export function formatBillingPeriod({ month, year }: BillingPeriod) {
   return `${String(month).padStart(2, "0")}/${year}`;
+}
+
+export function getPreviousBillingPeriod({ month, year }: BillingPeriod): BillingPeriod {
+  return month === 1
+    ? { month: 12, year: year - 1 }
+    : { month: month - 1, year };
 }
 
 function resolveUtilityMetricPeriod({
