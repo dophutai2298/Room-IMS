@@ -19,6 +19,7 @@ const authenticatedUtilityMetricsScreenApiSmoke = {
     activeContractId: "00000000-0000-0000-0000-000000000301",
     previousPeriodLabel: null,
     invoice: null,
+    invoiceOtherFeeDefaults: { amount: 0, note: null },
     electricity: {
       oldReading: 100,
       newReading: 120,

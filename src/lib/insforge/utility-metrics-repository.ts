@@ -5,6 +5,7 @@ import { getActiveOwnerAppUserId } from "@/lib/server/operational-owner-scope";
 import type { UtilityMetricsRepository } from "@/lib/utilities/repository";
 import {
   buildUtilityMetricsView,
+  getPreviousBillingPeriod,
   getUtilityMetricBaseline,
 } from "@/lib/utilities/presenter";
 import { getUtilityMetricReadPlan } from "@/lib/utilities/query-plan";
@@ -67,6 +68,7 @@ async function readUtilityMetricsScreenFromInsForge({
   try {
     const client = await getClient();
     const ownerAppUserId = getActiveOwnerAppUserId();
+    const previousPeriod = getPreviousBillingPeriod(billingPeriod);
     const [rooms, tenants, activeContracts, metrics, invoices] = await Promise.all([
       client.database
         .from("rooms")
@@ -106,9 +108,11 @@ async function readUtilityMetricsScreenFromInsForge({
         .select(invoiceSelect)
         .eq("room_id", roomId)
         .eq("owner_app_user_id", ownerAppUserId)
-        .eq("month", billingPeriod.month)
-        .eq("year", billingPeriod.year)
-        .limit(1),
+        .or(
+          `and(month.eq.${billingPeriod.month},year.eq.${billingPeriod.year}),` +
+          `and(month.eq.${previousPeriod.month},year.eq.${previousPeriod.year})`,
+        )
+        .limit(2),
     ]);
 
     for (const response of [rooms, tenants, activeContracts, metrics, invoices]) {

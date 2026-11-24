@@ -43,6 +43,7 @@ import {
   buildInvoiceUtilityDetailHref,
 } from "@/lib/invoices/table-actions";
 import { roomQueryKeys } from "@/lib/rooms/query-keys";
+import { utilityMetricsQueryKeys } from "@/lib/utilities/query-keys";
 
 const invoiceColumnHelper = createDataTableColumnHelper<InvoiceListItem>();
 
@@ -436,6 +437,9 @@ function RecordPaymentDialog({ invoice }: { invoice: InvoiceListItem }) {
         }),
         queryClient.invalidateQueries({
           queryKey: roomQueryKeys.operationsSummary(invoice.roomId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: utilityMetricsQueryKeys.room(invoice.roomId),
         }),
         queryClient.invalidateQueries({
           queryKey: dashboardQueryKeys.all,
