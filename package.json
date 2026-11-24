@@ -11,6 +11,8 @@
     "data:migrate-account-scope-schema": "node --env-file=.env --import tsx scripts/import-rental-billing-history.ts --migrate-account-scope-schema-only",
     "data:migrate-account-scope": "node --env-file=.env --import tsx scripts/import-rental-billing-history.ts --migrate-account-scope-only",
     "data:migrate-invoice-discounts": "node --env-file=.env --import tsx scripts/migrate-invoice-discounts.ts",
+    "data:rescue-insforge": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env --experimental-strip-types scripts/rescue-insforge.ts --rescue",
+    "data:verify-insforge-rescue": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env --experimental-strip-types scripts/rescue-insforge.ts --verify",
     "perf:api-baseline": "node --env-file=.env --import tsx scripts/api-performance-baseline.ts",
     "pwa:check": "node scripts/pwa-browser-installability-check.mjs",
     "test": "npm run test:server && npm run test:forms",

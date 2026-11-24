@@ -13,6 +13,8 @@
 # testing
 /coverage
 /.scratch/performance/*.json
+/.scratch/insforge-rescue/
+/.scratch/insforge-restore*/
 
 # next.js
 /.next/
