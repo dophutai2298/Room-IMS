@@ -14,7 +14,7 @@ const bucket = "tenant-cccd-private";
 const digest = (bytes: Buffer | string) => createHash("sha256").update(bytes).digest("hex");
 function assert(ok: unknown, message: string): asserts ok { if (!ok) throw new Error(message); }
 const sortedIds = (rows: Array<{ id: string }>) => rows.map(({ id }) => id).sort();
-const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 const uuidFrom = (value: string) => {
   const hex = digest(value).slice(0, 32);
   return `${hex.slice(0,8)}-${hex.slice(8,12)}-5${hex.slice(13,16)}-a${hex.slice(17,20)}-${hex.slice(20)}`;
@@ -41,7 +41,7 @@ async function main() {
     json<{ tables: Record<string, { ids: string[]; count: number; sha256: string }>; objects: ObjectEntry[]; legacyAssets: LegacyEntry[] }>(root, "manifest.json"),
   ]);
   for (const [name, rows] of Object.entries({ tenants, contracts, tenant_cccd_images: images, rooms, app_users: users })) {
-    assert(same(sortedIds(rows), [...manifest.tables[name].ids].sort()) && rows.length === manifest.tables[name].count,
+    assert(sameJson(sortedIds(rows), [...manifest.tables[name].ids].sort()) && rows.length === manifest.tables[name].count,
       `${name} does not match backup manifest`);
     assert(digest(JSON.stringify(rows)) === manifest.tables[name].sha256, `${name} checksum differs from backup manifest`);
   }
@@ -90,7 +90,7 @@ async function main() {
         localPath: path.join(root, "objects", entry.bucket, ...entry.key.split("/")),
         storageKey: `${image.owner_app_user_id}/${image.tenant_id}/${image.id}`,
         sha256: entry.sha256, size: entry.size, mimeType: image.mime_type || entry.mimeType || "image/jpeg",
-        fileName: image.file_name, createdAt: image.created_at, sourceKind: "storage" };
+        fileName: image.file_name, createdAt: image.created_at, updatedAt: image.updated_at, sourceKind: "storage" };
     }),
     ...manifest.legacyAssets.map((asset) => ({
       id: uuidFrom(`${asset.tenantId}/${asset.field}`), tenantId: asset.tenantId,
@@ -98,7 +98,7 @@ async function main() {
       storageKey: `${asset.ownerAppUserId}/${asset.tenantId}/${uuidFrom(`${asset.tenantId}/${asset.field}`)}`,
       sha256: asset.sha256, size: asset.size, mimeType: asset.mimeType || "image/jpeg",
       fileName: asset.field === "cccd_front_url" ? "CCCD front" : "CCCD back",
-      createdAt: null, sourceKind: asset.field === "cccd_front_url" ? "legacy-front" : "legacy-back",
+      createdAt: null, updatedAt: null, sourceKind: asset.field === "cccd_front_url" ? "legacy-front" : "legacy-back",
     })),
   ];
   // Read all bytes before touching the target. A missing or corrupt file aborts the whole run.
@@ -128,7 +128,10 @@ async function main() {
       const existing = await admin.from(table).select("*").eq("id", row.id).maybeSingle();
       assert(!existing.error, `${table} lookup failed`);
       if (existing.data) {
-        for (const field of fields) assert(String(existing.data[field] ?? "") === String(row[field] ?? ""),
+        for (const field of fields) assert(
+          field === "created_at" || field === "updated_at"
+            ? Date.parse(String(existing.data[field])) === Date.parse(String(row[field]))
+            : String(existing.data[field] ?? "") === String(row[field] ?? ""),
           `${table} existing row conflicts on ${field}`);
       } else {
         const inserted = await admin.from(table).insert(row);
@@ -137,9 +140,9 @@ async function main() {
     }
   }
   await insertRows("tenants", tenants.map((t) => ({ ...t, cccd_front_url: null, cccd_back_url: null })),
-    ["room_id", "full_name", "phone", "date_of_birth", "permanent_address", "cccd_number", "status", "is_key_tenant", "owner_app_user_id"]);
+    ["room_id", "full_name", "phone", "date_of_birth", "permanent_address", "cccd_number", "status", "is_key_tenant", "owner_app_user_id", "created_at", "updated_at"]);
   await insertRows("contracts", contracts,
-    ["room_id", "key_tenant_id", "deposit_amount", "rent_amount", "electricity_price_override", "water_price_override", "start_date", "end_date", "status", "owner_app_user_id"]);
+    ["room_id", "key_tenant_id", "deposit_amount", "rent_amount", "electricity_price_override", "water_price_override", "start_date", "end_date", "status", "owner_app_user_id", "created_at", "updated_at"]);
   for (let i = 0; i < filePlan.length; i++) {
     const item = filePlan[i];
     const storage = admin.storage.from(bucket);
@@ -155,15 +158,17 @@ async function main() {
       storage_key: item.storageKey, file_name: item.fileName, mime_type: item.mimeType,
       file_size: item.size, sha256: item.sha256, source_kind: item.sourceKind,
       ...(item.createdAt ? { created_at: item.createdAt } : {}),
+      ...(item.updatedAt ? { updated_at: item.updatedAt } : {}),
     };
     await insertRows("tenant_cccd_images", [metadata],
-      ["tenant_id", "owner_app_user_id", "storage_key", "sha256", "source_kind"]);
+      ["tenant_id", "owner_app_user_id", "storage_key", "file_name", "mime_type", "file_size", "sha256", "source_kind",
+        ...(item.createdAt ? ["created_at"] : []), ...(item.updatedAt ? ["updated_at"] : [])]);
   }
   for (const [table, sourceRows] of [["tenants", tenants], ["contracts", contracts], ["tenant_cccd_images", filePlan]] as const) {
     const target = await admin.from(table).select("id,owner_app_user_id");
     assert(!target.error && target.data, `${table} reconciliation read failed`);
     const expectedIds = table === "tenant_cccd_images" ? filePlan.map((x) => x.id).sort() : sortedIds(sourceRows as Row[]);
-    assert(same(target.data.map((x) => x.id).sort(), expectedIds), `${table} ID-set reconciliation failed`);
+    assert(sameJson(target.data.map((x) => x.id).sort(), expectedIds), `${table} ID-set reconciliation failed`);
     const expectedOwner = new Map((table === "tenant_cccd_images" ? filePlan.map((x) => ({ id: x.id, owner_app_user_id: x.ownerId })) : sourceRows as Row[])
       .map((x) => [x.id, x.owner_app_user_id]));
     assert(target.data.every((x) => expectedOwner.get(x.id) === x.owner_app_user_id), `${table} owner reconciliation failed`);

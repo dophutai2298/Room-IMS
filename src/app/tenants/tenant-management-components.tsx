@@ -537,6 +537,10 @@ export function TenantDeleteButton({
   });
 
   function handleDelete() {
+    if (tenant.cccdImages.length > 0) {
+      toast.error("Hãy mở Sửa, xóa ảnh CCCD và lưu thay đổi trước khi xóa người thuê.");
+      return;
+    }
     if (tenant.isKeyTenant) {
       toast.error(
         `${tenant.name} đang là người thuê chính của phòng ${tenant.roomName} nên chưa thể xoá.`,
