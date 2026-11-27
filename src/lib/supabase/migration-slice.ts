@@ -5,12 +5,17 @@ export function isSupabaseFoundationApiPath(pathname: string): boolean {
     || pathname === "/api/rooms"
     || /^\/api\/rooms\/[^/]+(?:\/detail)?$/.test(pathname)
     || pathname === "/api/staff"
-    || /^\/api\/staff\/[^/]+$/.test(pathname);
+    || /^\/api\/staff\/[^/]+$/.test(pathname)
+    || pathname === "/api/tenants"
+    || /^\/api\/tenants\/[^/]+(?:\/cccd-images(?:\/[^/]+(?:\/content)?)?)?$/.test(pathname)
+    || /^\/api\/rooms\/[^/]+\/(?:tenants|contracts)$/.test(pathname)
+    || /^\/api\/contracts\/[^/]+$/.test(pathname);
 }
 
 export function isSupabaseFoundationPagePath(pathname: string): boolean {
   return pathname === "/sign-in"
     || pathname === "/rooms"
     || /^\/rooms\/[^/]+$/.test(pathname)
-    || pathname === "/staff";
+    || pathname === "/staff"
+    || pathname === "/tenants";
 }

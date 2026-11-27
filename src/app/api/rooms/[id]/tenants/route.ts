@@ -1,5 +1,5 @@
 import { validationApiError } from "@/lib/api/errors";
-import { createInsForgeTenantRepository } from "@/lib/insforge/tenant-repository";
+import { createTenantRepository } from "@/lib/backend/tenant-repository";
 import { withOperationalAuth } from "@/lib/server/operational-route";
 import { validateTenantWriteRequest } from "@/lib/tenants/api";
 import {
@@ -21,7 +21,7 @@ export const GET = withOperationalAuth(
       });
     }
 
-    const repository = createInsForgeTenantRepository({ timer });
+    const repository = createTenantRepository({ timer });
     return timer.measure("service", () =>
       listRoomTenantsForOperations({ repository, roomId: id }),
     );
@@ -40,7 +40,7 @@ export const POST = withOperationalAuth(
       return validation.error;
     }
 
-    const repository = createInsForgeTenantRepository({ timer });
+    const repository = createTenantRepository({ timer });
     return timer.measure("service", () =>
       createTenantForOperations({
         repository,

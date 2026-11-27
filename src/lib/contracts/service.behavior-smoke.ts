@@ -9,6 +9,7 @@ import type {
 } from "./repository";
 import {
   createContractForOperations,
+  deleteContractForOperations,
   listRoomContractsForOperations,
   updateContractForOperations,
 } from "./service";
@@ -48,6 +49,7 @@ export async function runContractServiceBehaviorSmoke() {
       ...contractValues,
       rentAmount: -1,
     }),
+    deleteContract: await deleteContractForOperations({ repository, contractId: activeContract.id }),
   };
 }
 
@@ -61,6 +63,9 @@ function createSmokeRepository(): ContractRepository {
     },
     async updateContract(input) {
       return ok(contractFromUpdate(input));
+    },
+    async deleteContract(contractId) {
+      return ok({ contractId, roomId });
     },
   };
 }

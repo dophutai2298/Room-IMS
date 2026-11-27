@@ -1,5 +1,5 @@
 import { validationApiError } from "@/lib/api/errors";
-import { createInsForgeTenantRepository } from "@/lib/insforge/tenant-repository";
+import { createTenantRepository } from "@/lib/backend/tenant-repository";
 import { withOperationalAuth } from "@/lib/server/operational-route";
 import { validateTenantCccdUploadRequest } from "@/lib/tenants/api";
 import { uploadTenantCccdImagesForOperations } from "@/lib/tenants/service";
@@ -26,7 +26,7 @@ export const POST = withOperationalAuth(
       return validation.error;
     }
 
-    const repository = createInsForgeTenantRepository({ timer });
+    const repository = createTenantRepository({ timer });
     return timer.measure("service", () =>
       uploadTenantCccdImagesForOperations({
         repository,

@@ -69,7 +69,7 @@ export function RoomDetailClient({ roomId, isSupabaseFoundation = false }: { roo
 
       {isSupabaseFoundation && (
         <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
-          Dữ liệu Tenant, Contract, chỉ số và hóa đơn chưa chuyển sang Supabase. Thông tin Phòng bên trên có thể kiểm tra; các phần liên quan sẽ mở sau ticket 03–04.
+          Tenant và Contract đã được nhập để kiểm thử trên Supabase. Chỉ số và hóa đơn chưa chuyển; các mục này sẽ mở sau ticket 04.
         </div>
       )}
 
@@ -86,14 +86,14 @@ export function RoomDetailClient({ roomId, isSupabaseFoundation = false }: { roo
         </Card>
       )}
 
-      {!isSupabaseFoundation && <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+      <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
         <TenantManagementCard roomId={detail.room.id} roomName={detail.room.name} />
         <ContractManagementCard
           roomId={detail.room.id}
           roomName={detail.room.name}
           roomBasePrice={detail.room.basePrice}
         />
-      </section>}
+      </section>
 
       {!isSupabaseFoundation && <OperationsSummarySection
         summaryQuery={{

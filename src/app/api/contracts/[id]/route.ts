@@ -1,7 +1,7 @@
 import { validationApiError } from "@/lib/api/errors";
 import { validateContractUpdateRequest } from "@/lib/contracts/api";
-import { updateContractForOperations } from "@/lib/contracts/service";
-import { createInsForgeContractRepository } from "@/lib/insforge/contract-repository";
+import { deleteContractForOperations, updateContractForOperations } from "@/lib/contracts/service";
+import { createContractRepository } from "@/lib/backend/contract-repository";
 import {
   existingDataMutationForbiddenMessage,
   landlordOnlyRoles,
@@ -9,6 +9,16 @@ import {
 import { withOperationalAuth } from "@/lib/server/operational-route";
 
 export const dynamic = "force-dynamic";
+
+export const DELETE = withOperationalAuth(
+  { operation: "contracts.delete", allowedRoles: landlordOnlyRoles,
+    forbiddenMessage: existingDataMutationForbiddenMessage },
+  async ({ timer }, _request: Request, { params }: { params: Promise<{ id: string }> }) => {
+    const { id } = await params;
+    const repository = createContractRepository({ timer });
+    return timer.measure("service", () => deleteContractForOperations({ repository, contractId: id }));
+  },
+);
 
 export const PATCH = withOperationalAuth(
   {
@@ -36,7 +46,7 @@ export const PATCH = withOperationalAuth(
       return validation.error;
     }
 
-    const repository = createInsForgeContractRepository({ timer });
+    const repository = createContractRepository({ timer });
     return timer.measure("service", () =>
       updateContractForOperations({
         repository,

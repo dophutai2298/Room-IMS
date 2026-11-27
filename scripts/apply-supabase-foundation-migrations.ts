@@ -1,4 +1,4 @@
-/** Ticket 02 migrations. Usage: --check | --apply <exact-project-ref>. */
+/** Versioned application migrations. Usage: --check | --apply <exact-project-ref>. */
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
@@ -11,6 +11,7 @@ const migrationFiles = [
   "202611240001_foundation.sql",
   "202611240002_password_reset.sql",
   "202611240003_identity_migration_audit.sql",
+  "202611270001_tenants_contracts_storage.sql",
 ] as const;
 
 const publicUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

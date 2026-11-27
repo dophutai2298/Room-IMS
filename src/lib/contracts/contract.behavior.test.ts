@@ -46,4 +46,6 @@ test("contract service reads, writes, preserves overrides, and validates inputs"
     "CONTRACT_DATE_RANGE_INVALID",
   );
   assert.equal(results.rejectNegativeRent.error?.code, "CONTRACT_MONEY_INVALID");
+  assert.equal(results.deleteContract.error, null);
+  assert.equal(results.deleteContract.data?.contractId, "00000000-0000-0000-0000-000000000301");
 });

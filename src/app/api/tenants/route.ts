@@ -1,4 +1,4 @@
-import { createInsForgeTenantRepository } from "@/lib/insforge/tenant-repository";
+import { createTenantRepository } from "@/lib/backend/tenant-repository";
 import { withOperationalAuth } from "@/lib/server/operational-route";
 import { validateTenantWriteRequest } from "@/lib/tenants/api";
 import {
@@ -12,7 +12,7 @@ export const GET = withOperationalAuth(
   { operation: "tenants.directory.list" },
   async ({ timer }, request: Request) => {
     const search = new URL(request.url).searchParams.get("search");
-    const repository = createInsForgeTenantRepository({ timer });
+    const repository = createTenantRepository({ timer });
     return timer.measure("service", () =>
       listTenantsForOperations({ repository, search }),
     );
@@ -30,7 +30,7 @@ export const POST = withOperationalAuth(
       return validation.error;
     }
 
-    const repository = createInsForgeTenantRepository({ timer });
+    const repository = createTenantRepository({ timer });
     return timer.measure("service", () =>
       createTenantForOperations({
         repository,

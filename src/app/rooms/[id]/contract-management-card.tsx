@@ -5,6 +5,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { DataTable } from "@/components/data-table";
+import { DeleteConfirmationDialog } from "@/components/delete-confirmation-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +36,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppApiClientError, fetchAppApi } from "@/lib/api/client";
+import { fetchCurrentAppUser } from "@/lib/auth/client";
+import { authQueryKeys } from "@/lib/auth/query-keys";
 import {
   compareContracts,
   contractStatusLabel,
@@ -42,6 +45,7 @@ import {
 } from "@/lib/contracts/presenter";
 import { contractQueryKeys } from "@/lib/contracts/query-keys";
 import type { ContractWriteValues } from "@/lib/contracts/repository";
+import type { DeleteContractResult } from "@/lib/contracts/repository";
 import { createDataTableColumnHelper } from "@/lib/data-table/tanstack";
 import { dashboardQueryKeys } from "@/lib/dashboard/query-keys";
 import { formatCurrency } from "@/lib/formatters";
@@ -62,6 +66,8 @@ export function ContractManagementCard({
   roomName: string;
   roomBasePrice: number;
 }) {
+  const currentUserQuery = useQuery({ queryKey: authQueryKeys.currentUser(), queryFn: fetchCurrentAppUser });
+  const canManageExisting = currentUserQuery.data?.role === "landlord";
   const contractsQuery = useQuery({
     queryKey: contractQueryKeys.room(roomId),
     queryFn: () =>
@@ -135,7 +141,7 @@ export function ContractManagementCard({
             contract={activeContract}
             label="Active Contract"
             action={
-              <ContractEditorDialog
+              canManageExisting ? <div className="flex flex-wrap gap-2"><ContractEditorDialog
                 mode="edit"
                 roomId={roomId}
                 roomName={roomName}
@@ -145,7 +151,7 @@ export function ContractManagementCard({
                 tenantsPending={tenantsQuery.isPending}
                 tenantsError={tenantsQuery.error?.message}
                 onRetryTenants={() => void tenantsQuery.refetch()}
-              />
+              /><ContractDeleteButton contract={activeContract} /></div> : null
             }
           />
         ) : (
@@ -176,6 +182,7 @@ export function ContractManagementCard({
                 </p>
               </div>
               <ContractHistoryTable
+                canManageExisting={canManageExisting}
                 contracts={historicalContracts}
                 onRetryTenants={() => void tenantsQuery.refetch()}
                 roomBasePrice={roomBasePrice}
@@ -230,7 +237,37 @@ function ContractSummary({
   );
 }
 
+function ContractDeleteButton({ contract }: { contract: ContractListItem }) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const mutation = useMutation<DeleteContractResult, AppApiClientError>({
+    mutationFn: () => fetchAppApi<DeleteContractResult>(`/api/contracts/${contract.id}`, { method: "DELETE" }),
+    onSuccess: async ({ roomId }) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: contractQueryKeys.room(roomId) }),
+        queryClient.invalidateQueries({ queryKey: roomQueryKeys.detail(roomId) }),
+        queryClient.invalidateQueries({ queryKey: roomQueryKeys.list() }),
+        queryClient.invalidateQueries({ queryKey: tenantQueryKeys.room(roomId) }),
+        queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.all }),
+      ]);
+      setOpen(false);
+      toast.success("Đã xóa Hợp đồng.");
+    },
+  });
+  return <DeleteConfirmationDialog
+    trigger={<Button type="button" size="sm" variant="destructive">Xóa</Button>}
+    title="Xóa Hợp đồng?"
+    description="Hợp đồng sẽ bị xóa khỏi lịch sử phòng. Hành động này không thể hoàn tác."
+    open={open}
+    onOpenChange={setOpen}
+    onConfirm={() => mutation.mutate()}
+    isPending={mutation.isPending}
+    errorMessage={mutation.error?.message}
+  />;
+}
+
 function ContractHistoryTable({
+  canManageExisting,
   contracts,
   onRetryTenants,
   roomBasePrice,
@@ -240,6 +277,7 @@ function ContractHistoryTable({
   tenantsError,
   tenantsPending,
 }: {
+  canManageExisting: boolean;
   contracts: ContractListItem[];
   onRetryTenants: () => void;
   roomBasePrice: number;
@@ -303,7 +341,7 @@ function ContractHistoryTable({
           header: "Thao tác",
           cell: ({ row }) => (
             <div className="flex justify-end">
-              <ContractEditorDialog
+              {canManageExisting && <><ContractEditorDialog
                 mode="edit"
                 roomId={roomId}
                 roomName={roomName}
@@ -313,7 +351,7 @@ function ContractHistoryTable({
                 tenantsPending={tenantsPending}
                 tenantsError={tenantsError}
                 onRetryTenants={onRetryTenants}
-              />
+              /><ContractDeleteButton contract={row.original} /></>}
             </div>
           ),
           enableHiding: false,
@@ -321,6 +359,7 @@ function ContractHistoryTable({
         }),
       ]),
     [
+      canManageExisting,
       onRetryTenants,
       roomBasePrice,
       roomId,

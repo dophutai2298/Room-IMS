@@ -21,6 +21,8 @@ export type UpdateContractInput = ContractWriteValues & {
   status: ContractDbStatus;
 };
 
+export type DeleteContractResult = { contractId: string; roomId: string };
+
 export type ContractRepository = {
   listRoomContracts(roomId: string): Promise<AppResult<ContractListItem[]>>;
   createContract(
@@ -29,4 +31,5 @@ export type ContractRepository = {
   updateContract(
     input: UpdateContractInput,
   ): Promise<AppResult<ContractListItem>>;
+  deleteContract(contractId: string): Promise<AppResult<DeleteContractResult>>;
 };

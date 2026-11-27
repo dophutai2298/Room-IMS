@@ -14,6 +14,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchAppApi } from "@/lib/api/client";
+import { fetchCurrentAppUser } from "@/lib/auth/client";
+import { authQueryKeys } from "@/lib/auth/query-keys";
 import type { TenantListItem } from "@/lib/tenants/presenter";
 import { tenantQueryKeys } from "@/lib/tenants/query-keys";
 import {
@@ -30,6 +32,8 @@ export function TenantManagementCard({
   roomId: string;
   roomName: string;
 }) {
+  const currentUserQuery = useQuery({ queryKey: authQueryKeys.currentUser(), queryFn: fetchCurrentAppUser });
+  const canManageExisting = currentUserQuery.data?.role === "landlord";
   const tenantsQuery = useQuery({
     queryKey: tenantQueryKeys.room(roomId),
     queryFn: () =>
@@ -61,7 +65,7 @@ export function TenantManagementCard({
           />
         ) : tenantsQuery.data.length > 0 ? (
           tenantsQuery.data.map((tenant) => (
-            <TenantCard key={tenant.id} roomId={roomId} tenant={tenant} />
+            <TenantCard key={tenant.id} roomId={roomId} tenant={tenant} canManageExisting={canManageExisting} />
           ))
         ) : (
           <TenantEmptyState onRetry={() => void tenantsQuery.refetch()} />
@@ -74,9 +78,11 @@ export function TenantManagementCard({
 function TenantCard({
   roomId,
   tenant,
+  canManageExisting,
 }: {
   roomId: string;
   tenant: TenantListItem;
+  canManageExisting: boolean;
 }) {
   return (
     <div className="min-w-0 rounded-2xl border border-white/45 bg-background/35 p-4 clay-inset dark:border-white/8">
@@ -94,7 +100,7 @@ function TenantCard({
             <p>Thường trú: {tenant.permanentAddress ?? "Chưa có"}</p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 md:shrink-0 md:justify-end">
+        {canManageExisting && <div className="flex flex-wrap gap-2 md:shrink-0 md:justify-end">
           <TenantEditorDialog
             mode="edit"
             tenant={tenant}
@@ -102,7 +108,7 @@ function TenantCard({
             triggerSize="sm"
           />
           <TenantDeleteButton tenant={tenant} />
-        </div>
+        </div>}
       </div>
       <Separator className="my-4" />
       <TenantImageGallery images={tenant.cccdImages} compact />

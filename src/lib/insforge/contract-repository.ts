@@ -34,6 +34,20 @@ export function createInsForgeContractRepository({
   };
 
   return {
+    async deleteContract(contractId) {
+      const query = async () => {
+        try {
+          const client = await getClient();
+          const result = await client.database.from("contracts").delete()
+            .eq("id", contractId).eq("owner_app_user_id", getActiveOwnerAppUserId())
+            .select("id,room_id") as QueryResponse<Array<{ id: string; room_id: string }>>;
+          if (result.error) return fail(result.error, "Could not delete Contract");
+          const deleted = result.data?.[0];
+          return deleted ? ok({ contractId: deleted.id, roomId: deleted.room_id }) : contractNotFound();
+        } catch (error) { return { data: null, error: toAppBackendError(error) }; }
+      };
+      return timer ? timer.measure("repository.insforge.contract-delete", query) : query();
+    },
     async listRoomContracts(roomId) {
       const query = () => listRoomContractsFromInsForge({ roomId, getClient });
 

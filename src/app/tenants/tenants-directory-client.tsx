@@ -15,6 +15,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { fetchAppApi } from "@/lib/api/client";
+import { fetchCurrentAppUser } from "@/lib/auth/client";
+import { authQueryKeys } from "@/lib/auth/query-keys";
 import { createDataTableColumnHelper } from "@/lib/data-table/tanstack";
 import type { RoomListItem } from "@/lib/rooms/presenter";
 import { roomQueryKeys } from "@/lib/rooms/query-keys";
@@ -35,6 +37,8 @@ import dayjs from 'dayjs';
 const tenantColumnHelper = createDataTableColumnHelper<TenantListItem>();
 
 export function TenantsDirectoryClient() {
+  const currentUserQuery = useQuery({ queryKey: authQueryKeys.currentUser(), queryFn: fetchCurrentAppUser });
+  const canManageExisting = currentUserQuery.data?.role === "landlord";
   const tenantsQuery = useQuery({
     queryKey: tenantQueryKeys.list(),
     queryFn: () =>
@@ -120,20 +124,20 @@ export function TenantsDirectoryClient() {
           cell: ({ row }) => (
             <div className="flex flex-wrap justify-end gap-2">
               <TenantDetailDialog tenant={row.original} roomOptions={roomOptions} />
-              <TenantEditorDialog
+              {canManageExisting && <><TenantEditorDialog
                 mode="edit"
                 tenant={row.original}
                 rooms={roomOptions}
                 triggerSize="sm"
               />
-              <TenantDeleteButton tenant={row.original} />
+              <TenantDeleteButton tenant={row.original} /></>}
             </div>
           ),
           enableHiding: false,
           enableSorting: false,
         }),
       ]),
-    [roomOptions],
+    [roomOptions, canManageExisting],
   );
 
   return (

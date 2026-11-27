@@ -5,10 +5,18 @@ import type { ContractDbStatus } from "@/lib/insforge/types";
 import type { ContractListItem } from "./presenter";
 import type {
   ContractRepository,
+  DeleteContractResult,
   ContractWriteValues,
   CreateContractInput,
   UpdateContractInput,
 } from "./repository";
+
+export async function deleteContractForOperations({ repository, contractId }: {
+  repository: ContractRepository; contractId: string;
+}): Promise<AppResult<DeleteContractResult>> {
+  if (!contractId.trim()) return requiredIdError("Contract", "CONTRACT_ID_REQUIRED");
+  return repository.deleteContract(contractId);
+}
 
 export async function listRoomContractsForOperations({
   repository,

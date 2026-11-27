@@ -1,5 +1,5 @@
 import { validationApiError } from "@/lib/api/errors";
-import { createInsForgeTenantRepository } from "@/lib/insforge/tenant-repository";
+import { createTenantRepository } from "@/lib/backend/tenant-repository";
 import {
   existingDataMutationForbiddenMessage,
   landlordOnlyRoles,
@@ -34,7 +34,7 @@ export const DELETE = withOperationalAuth(
       });
     }
 
-    const repository = createInsForgeTenantRepository({ timer });
+    const repository = createTenantRepository({ timer });
     return timer.measure("service", () =>
       deleteTenantCccdImageForOperations({
         repository,

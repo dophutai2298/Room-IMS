@@ -4,7 +4,7 @@ import {
   createContractForOperations,
   listRoomContractsForOperations,
 } from "@/lib/contracts/service";
-import { createInsForgeContractRepository } from "@/lib/insforge/contract-repository";
+import { createContractRepository } from "@/lib/backend/contract-repository";
 import { withOperationalAuth } from "@/lib/server/operational-route";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ export const GET = withOperationalAuth(
       return missingRoomIdError();
     }
 
-    const repository = createInsForgeContractRepository({ timer });
+    const repository = createContractRepository({ timer });
     return timer.measure("service", () =>
       listRoomContractsForOperations({ repository, roomId: id }),
     );
@@ -42,7 +42,7 @@ export const POST = withOperationalAuth(
       return validation.error;
     }
 
-    const repository = createInsForgeContractRepository({ timer });
+    const repository = createContractRepository({ timer });
     return timer.measure("service", () =>
       createContractForOperations({
         repository,

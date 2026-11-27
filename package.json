@@ -14,6 +14,8 @@
     "data:rescue-insforge": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env --experimental-strip-types scripts/rescue-insforge.ts --rescue",
     "data:verify-insforge-rescue": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env --experimental-strip-types scripts/rescue-insforge.ts --verify",
     "data:import-supabase-foundation": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env --experimental-strip-types scripts/import-supabase-foundation.ts",
+    "data:import-supabase-ticket03": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env --experimental-strip-types scripts/import-supabase-tenants-contracts.ts",
+    "data:verify-supabase-ticket03": "node --env-file=.env --import tsx scripts/verify-supabase-ticket03.ts",
     "data:migrate-supabase-foundation": "node --env-file=.env --import tsx scripts/apply-supabase-foundation-migrations.ts",
     "data:verify-supabase-foundation": "node --env-file=.env --import tsx scripts/verify-supabase-foundation.ts",
     "perf:api-baseline": "node --env-file=.env --import tsx scripts/api-performance-baseline.ts",

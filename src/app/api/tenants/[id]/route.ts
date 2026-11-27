@@ -1,5 +1,5 @@
 import { validationApiError } from "@/lib/api/errors";
-import { createInsForgeTenantRepository } from "@/lib/insforge/tenant-repository";
+import { createTenantRepository } from "@/lib/backend/tenant-repository";
 import {
   existingDataMutationForbiddenMessage,
   landlordOnlyRoles,
@@ -23,7 +23,7 @@ export const GET = withOperationalAuth(
       return tenantIdRequiredError();
     }
 
-    const repository = createInsForgeTenantRepository({ timer });
+    const repository = createTenantRepository({ timer });
     return timer.measure("service", () =>
       getTenantForOperations({ repository, tenantId: id }),
     );
@@ -51,7 +51,7 @@ export const PATCH = withOperationalAuth(
       return validation.error;
     }
 
-    const repository = createInsForgeTenantRepository({ timer });
+    const repository = createTenantRepository({ timer });
     return timer.measure("service", () =>
       updateTenantForOperations({
         repository,
@@ -75,7 +75,7 @@ export const DELETE = withOperationalAuth(
       return tenantIdRequiredError();
     }
 
-    const repository = createInsForgeTenantRepository({ timer });
+    const repository = createTenantRepository({ timer });
     return timer.measure("service", () =>
       deleteTenantForOperations({ repository, tenantId: id }),
     );
