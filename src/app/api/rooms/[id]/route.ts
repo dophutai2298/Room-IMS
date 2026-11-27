@@ -1,5 +1,5 @@
 import { validationApiError } from "@/lib/api/errors";
-import { createInsForgeRoomRepository } from "@/lib/insforge/room-repository";
+import { createRoomRepository } from "@/lib/backend/room-repository";
 import { validateRoomWriteRequest } from "@/lib/rooms/api";
 import { updateRoomForOperations } from "@/lib/rooms/service";
 import {
@@ -34,7 +34,7 @@ export const PATCH = withOperationalAuth(
       return validation.error;
     }
 
-    const repository = createInsForgeRoomRepository({ timer });
+    const repository = createRoomRepository({ timer });
     return timer.measure("service", () =>
       updateRoomForOperations({
         repository,

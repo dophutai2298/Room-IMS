@@ -27,7 +27,7 @@ import {
 } from "@/lib/rooms/presenter";
 import { roomQueryKeys } from "@/lib/rooms/query-keys";
 
-export function RoomDetailClient({ roomId }: { roomId: string }) {
+export function RoomDetailClient({ roomId, isSupabaseFoundation = false }: { roomId: string; isSupabaseFoundation?: boolean }) {
   const detailQuery = useQuery({
     queryKey: roomQueryKeys.detail(roomId),
     queryFn: () =>
@@ -44,6 +44,7 @@ export function RoomDetailClient({ roomId }: { roomId: string }) {
           cache: "no-store",
         },
       ),
+    enabled: !isSupabaseFoundation,
   });
 
   if (detailQuery.isPending) {
@@ -64,7 +65,13 @@ export function RoomDetailClient({ roomId }: { roomId: string }) {
 
   return (
     <div className="min-w-0 space-y-6">
-      <RoomHeader detail={detail} />
+      <RoomHeader detail={detail} isSupabaseFoundation={isSupabaseFoundation} />
+
+      {isSupabaseFoundation && (
+        <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+          Dữ liệu Tenant, Contract, chỉ số và hóa đơn chưa chuyển sang Supabase. Thông tin Phòng bên trên có thể kiểm tra; các phần liên quan sẽ mở sau ticket 03–04.
+        </div>
+      )}
 
       {detail.integrityWarning && (
         <Card className="min-w-0 border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/40">
@@ -79,16 +86,16 @@ export function RoomDetailClient({ roomId }: { roomId: string }) {
         </Card>
       )}
 
-      <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+      {!isSupabaseFoundation && <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
         <TenantManagementCard roomId={detail.room.id} roomName={detail.room.name} />
         <ContractManagementCard
           roomId={detail.room.id}
           roomName={detail.room.name}
           roomBasePrice={detail.room.basePrice}
         />
-      </section>
+      </section>}
 
-      <OperationsSummarySection
+      {!isSupabaseFoundation && <OperationsSummarySection
         summaryQuery={{
           data: summaryQuery.data,
           isPending: summaryQuery.isPending,
@@ -96,12 +103,12 @@ export function RoomDetailClient({ roomId }: { roomId: string }) {
           errorMessage: summaryQuery.error?.message,
           refetch: () => void summaryQuery.refetch(),
         }}
-      />
+      />}
     </div>
   );
 }
 
-function RoomHeader({ detail }: { detail: RoomDetailView }) {
+function RoomHeader({ detail, isSupabaseFoundation }: { detail: RoomDetailView; isSupabaseFoundation: boolean }) {
   return (
     <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
       <div className="min-w-0">
@@ -122,13 +129,13 @@ function RoomHeader({ detail }: { detail: RoomDetailView }) {
           Chốt chỉ số điện nước kỳ này trước tiên sau đó tạo hơn đơn
          </p> */}
       </div>
-      <div className="flex flex-col gap-2 sm:flex-row lg:shrink-0">
+      {!isSupabaseFoundation && <div className="flex flex-col gap-2 sm:flex-row lg:shrink-0">
         <Button asChild variant="default" className="w-full sm:w-auto">
           <Link className="!text-white" href={`/rooms/${detail.room.id}/utilities`}>
             Chốt điện nước và hóa đơn
           </Link>
         </Button>
-      </div>
+      </div>}
     </header>
   );
 }

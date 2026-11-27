@@ -1,4 +1,5 @@
 import { RoomDetailClient } from "./room-detail-client";
+import { getAppBackend } from "@/lib/backend/selection";
 
 export default async function RoomDetail({
   params,
@@ -7,5 +8,5 @@ export default async function RoomDetail({
 }) {
   const { id } = await params;
 
-  return <RoomDetailClient roomId={id} />;
+  return <RoomDetailClient roomId={id} isSupabaseFoundation={getAppBackend() === "supabase"} />;
 }

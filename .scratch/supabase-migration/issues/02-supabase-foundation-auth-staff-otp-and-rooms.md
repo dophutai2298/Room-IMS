@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 — Rescue InsForge Data and Inventory.
 
-**Status:** ready-for-agent
+**Status:** in-progress — code foundation built; hosted schema/import and live acceptance pending
 
 - [ ] Prepare an isolated hosted Supabase target with versioned application schema, reviewed functions/grants/RLS for application users and Rooms, and distinct browser, server and administrative credentials. Do not overwrite Supabase-managed Auth or Storage internals; document target region/plan and approved credential handling.
 - [ ] Preserve `app_users.id`, Room IDs, `owner_app_user_id`, floors, rent and maintenance state. Import existing Landlord/Staff identities using an audited one-to-one Auth mapping; change only `app_users.auth_user_id` if provider Auth IDs differ. A new Landlord starts with no inherited data.
@@ -15,3 +15,11 @@
 - [ ] Configure production-capable email delivery and recovery OTP templates. Landlord and Staff can request, verify and complete password reset within ten minutes; wrong/expired/replayed codes fail, requests are neutral and throttled, and recovery state works across server instances. Incomplete recovery cannot grant operational access.
 - [ ] Prove two unrelated Landlords, owned Staff, a disabled account and a new empty Landlord through browser and internal API tests. Test direct backend access using user credentials: anonymous and cross-owner requests are denied, Staff cannot update/delete, and ordinary operational requests do not bypass RLS with an admin key.
 - [ ] Preserve API response/error/timing contracts and source behavior tests. Demonstrate a real isolated Supabase login, Room create/read, Staff create/read, OTP receipt/reset and logout; no production traffic is switched by this ticket.
+
+## Progress — 27 November 2026
+
+- Implemented the opt-in Supabase backend for Auth, Staff, password recovery and Room API routes, plus versioned foundation/RLS/recovery/audit SQL and a restartable encrypted-archive importer. InsForge remains the default backend. The isolated Supabase deployment fails closed for APIs/pages outside this ticket's migrated slice.
+- Imported accounts and newly created Staff are `credential_ready=false`; both API mapping and RLS deny operational access until verified OTP recovery finishes setting the password. This prevents the intermediate Supabase recovery session from reading Room data.
+- Added `docs/supabase-foundation-migration.md` with schema, SMTP, import, identity and RLS acceptance steps. Local TypeScript, lint, production build and automated tests pass. These are **not** evidence of a live hosted migration.
+- The user rotated the previously exposed database password and changed `.env` to the **Session pooler** connection. The hosted target started with no public tables and no Auth users. All three guarded SQL migrations were applied over certificate-verified TLS, then 2 Auth identities, 2 `app_users` and 4 Rooms were imported from the encrypted rescue archive. A repeat import created zero rows. `scripts/verify-supabase-foundation.ts` reconciled source/target IDs and Room fields, and proved Landlord owner isolation, Staff Room read/create-only, and unready/anonymous/disabled denial inside a rolled-back transaction. The isolated production build returned 401 for anonymous Room/Staff API requests, 503 for an unmigrated Tenant API request, and redirected `/rooms` to sign-in. Full tests, type-check, lint and build pass.
+- Remaining acceptance: configure and prove custom SMTP and ten-minute OTP expiry; establish imported users' passwords through the actual email recovery flow; test isolated browser and internal `/api` login/Room/Staff/logout, anonymous/disabled/new-Landlord cases and direct backend requests with real user tokens. Record target region/plan and credentials owner privately. Do not enable `APP_BACKEND=supabase` for production or mark this ticket done until those checks pass.

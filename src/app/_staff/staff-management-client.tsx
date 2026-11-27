@@ -34,7 +34,9 @@ import { staffQueryKeys } from "@/lib/staff/query-keys";
 
 const staffColumnHelper = createDataTableColumnHelper<StaffListItem>();
 
-export function StaffManagementClient() {
+export function StaffManagementClient({
+  requiresEmailVerification = false,
+}: { requiresEmailVerification?: boolean }) {
   const currentUserQuery = useQuery({
     queryKey: authQueryKeys.currentUser(),
     queryFn: fetchCurrentAppUser,
@@ -139,7 +141,7 @@ export function StaffManagementClient() {
             không mở đăng ký công khai.
           </p>
         </div>
-        <CreateStaffDialog />
+        <CreateStaffDialog requiresEmailVerification={requiresEmailVerification} />
       </header>
 
       <DataTable
@@ -169,7 +171,9 @@ export function StaffManagementClient() {
   );
 }
 
-function CreateStaffDialog() {
+function CreateStaffDialog({
+  requiresEmailVerification,
+}: { requiresEmailVerification: boolean }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [displayName, setDisplayName] = useState("");
@@ -200,6 +204,9 @@ function CreateStaffDialog() {
         queryClient.invalidateQueries({ queryKey: authQueryKeys.currentUser() }),
       ]);
       toast.success("Đã cấp tài khoản Staff.");
+      if (requiresEmailVerification) {
+        toast.info("Staff cần xác minh email bằng mã OTP ở mục Quên mật khẩu trước khi đăng nhập.");
+      }
       setDisplayName("");
       setEmail("");
       setPassword("");
@@ -255,9 +262,14 @@ function CreateStaffDialog() {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Cấp tài khoản Nhân viên</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className={requiresEmailVerification ? "hidden" : undefined}>
             Tài khoản được xác nhận bởi Admin/Landlord và có thể đăng nhập ngay.
           </DialogDescription>
+          {requiresEmailVerification && (
+            <DialogDescription>
+              Staff phải xác minh email bằng mã OTP trong mục Quên mật khẩu trước khi đăng nhập.
+            </DialogDescription>
+          )}
         </DialogHeader>
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-2">

@@ -54,7 +54,7 @@ const defaultRoomDraft: RoomDraft = {
 
 const roomColumnHelper = createDataTableColumnHelper<RoomListItem>();
 
-export function RoomsClient() {
+export function RoomsClient({ isSupabaseFoundation = false }: { isSupabaseFoundation?: boolean }) {
   const roomsQuery = useQuery({
     queryKey: roomQueryKeys.list(),
     queryFn: () =>
@@ -161,6 +161,11 @@ export function RoomsClient() {
 
   return (
     <>
+      {isSupabaseFoundation && (
+        <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+          Đang kiểm thử chuyển đổi Supabase: chỉ dữ liệu Phòng đã chuyển. Số Tenant, Contract và hóa đơn chưa có ở giai đoạn này; đừng xem các số 0 là dữ liệu đã đối soát.
+        </div>
+      )}
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-primary">Quản lý phòng</p>

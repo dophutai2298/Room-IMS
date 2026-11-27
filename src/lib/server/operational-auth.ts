@@ -2,7 +2,9 @@ import "server-only";
 
 import type { ApiTimer } from "@/lib/api/timing";
 import { getCurrentAppUserForOperations } from "@/lib/auth/service";
+import { getAppBackend } from "@/lib/backend/selection";
 import { createInsForgeAuthRepository } from "@/lib/insforge/auth-repository";
+import { createSupabaseAuthRepository } from "@/lib/supabase/auth-repository";
 import type { AppResult } from "@/lib/insforge/errors";
 import type { AppUser } from "@/lib/insforge/types";
 import {
@@ -23,7 +25,9 @@ export async function resolveOperationalAppUser({
     getCurrentUser ??
     (() =>
       getCurrentAppUserForOperations({
-        repository: createInsForgeAuthRepository({ timer }),
+        repository: getAppBackend() === "supabase"
+          ? createSupabaseAuthRepository({ timer })
+          : createInsForgeAuthRepository({ timer }),
         timer,
       }));
 

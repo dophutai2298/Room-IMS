@@ -3,14 +3,24 @@ import { cookies } from "next/headers";
 
 import { apiException, apiResult } from "@/lib/api/response";
 import { createApiTimer, logApiTiming } from "@/lib/api/timing";
+import { getAppBackend } from "@/lib/backend/selection";
 import { getInsForgeConfig } from "@/lib/insforge/config";
 import { fail, ok } from "@/lib/insforge/errors";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function POST() {
   const timer = createApiTimer("auth.sign-out");
 
   try {
     const result = await timer.measure("auth", async () => {
+      if (getAppBackend() === "supabase") {
+        const client = await createSupabaseServerClient();
+        const signedOut = await client.auth.signOut();
+        return signedOut.error
+          ? fail(signedOut.error, "Could not sign out")
+          : ok({ signedOut: true as const });
+      }
+
       const auth = createAuthActions({
         ...getInsForgeConfig(),
         cookies: await cookies(),

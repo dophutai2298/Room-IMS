@@ -1,4 +1,4 @@
-import { createInsForgeRoomRepository } from "@/lib/insforge/room-repository";
+import { createRoomRepository } from "@/lib/backend/room-repository";
 import { validateRoomWriteRequest } from "@/lib/rooms/api";
 import { withOperationalAuth } from "@/lib/server/operational-route";
 import {
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export const GET = withOperationalAuth(
   { operation: "rooms.list" },
   async ({ timer }) => {
-    const repository = createInsForgeRoomRepository({ timer });
+    const repository = createRoomRepository({ timer });
     return timer.measure("service", () =>
       listRoomsForOperations({ repository }),
     );
@@ -29,7 +29,7 @@ export const POST = withOperationalAuth(
       return validation.error;
     }
 
-    const repository = createInsForgeRoomRepository({ timer });
+    const repository = createRoomRepository({ timer });
     return timer.measure("service", () =>
       createRoomForOperations({
         repository,
