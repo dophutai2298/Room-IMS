@@ -30,12 +30,14 @@ type ContractTenantTarget = Pick<
 
 export function createInsForgeInvoiceExportRepository({
   timer,
+  clientFactory,
 }: {
   timer?: ApiTimer;
+  clientFactory?: () => Promise<InsForgeServerClient>;
 } = {}): InvoiceExportRepository {
   let clientPromise: Promise<InsForgeServerClient> | null = null;
   const getClient = () => {
-    clientPromise ??= createInsForgeServerClient({ timer });
+    clientPromise ??= clientFactory ? clientFactory() : createInsForgeServerClient({ timer });
     return clientPromise;
   };
 
@@ -45,7 +47,7 @@ export function createInsForgeInvoiceExportRepository({
         readInvoiceExportSourceFromInsForge({ ...target, getClient });
 
       return timer
-        ? timer.measure("repository.insforge.invoice-pdf-read", query)
+        ? timer.measure(`repository.${clientFactory ? "supabase" : "insforge"}.invoice-pdf-read`, query)
         : query();
     },
   };

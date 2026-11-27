@@ -2,9 +2,8 @@ import "server-only";
 
 import type { ApiTimer } from "@/lib/api/timing";
 import { appError, fail, ok, type AppResult, toAppBackendError } from "@/lib/insforge/errors";
-import type { RoomOperationsSummaryView } from "@/lib/rooms/presenter";
-import { buildRoomDetailView, buildRoomListItem } from "@/lib/rooms/presenter";
-import type { ContractRecord, TenantRecord } from "@/lib/insforge/types";
+import { buildRoomDetailView, buildRoomListItem, buildRoomOperationsSummary } from "@/lib/rooms/presenter";
+import type { ContractRecord, TenantRecord, UtilityMetricRecord, InvoiceRecord } from "@/lib/insforge/types";
 import type { RoomRepository } from "@/lib/rooms/repository";
 import { getActiveOwnerAppUserId } from "@/lib/server/operational-owner-scope";
 import { toSupabaseRoomListItem, type SupabaseRoomRow } from "./room-mapping";
@@ -99,11 +98,19 @@ export function createSupabaseRoomRepository({
       return measure("repository.supabase.room-operations-summary", async () => {
         try {
           const db = await client();
-          const result = await db.from("rooms").select("id")
-            .eq("id", roomId)
-            .eq("owner_app_user_id", getActiveOwnerAppUserId()).maybeSingle();
-          if (result.error) return fail(result.error, "Could not read Room");
-          return result.data ? ok(emptyOperationsSummary()) : roomNotFound();
+          const owner = getActiveOwnerAppUserId();
+          const [room, metrics, invoices] = await Promise.all([
+            db.from("rooms").select("id").eq("id", roomId).eq("owner_app_user_id", owner).maybeSingle(),
+            db.from("utility_metrics").select("id,room_id,month,year,electricity_old,electricity_new,water_old,water_new")
+              .eq("room_id", roomId).eq("owner_app_user_id", owner),
+            db.from("invoices").select("id,room_id,month,year,total_amount,amount_paid,status")
+              .eq("room_id", roomId).eq("owner_app_user_id", owner),
+          ]);
+          if (room.error || metrics.error || invoices.error) return fail(room.error || metrics.error || invoices.error, "Could not read Room operations");
+          return room.data ? ok(buildRoomOperationsSummary({
+            metrics: (metrics.data ?? []) as UtilityMetricRecord[],
+            invoices: (invoices.data ?? []) as InvoiceRecord[],
+          })) : roomNotFound();
         } catch (error) { return { data: null, error: toAppBackendError(error) }; }
       });
     },
@@ -112,18 +119,4 @@ export function createSupabaseRoomRepository({
 
 function roomNotFound() {
   return appError({ message: "Room was not found.", code: "ROOM_NOT_FOUND", statusCode: 404 });
-}
-
-function emptyOperationsSummary(): RoomOperationsSummaryView {
-  // Ticket 03/04 will introduce related entities and replace this interim view.
-  return {
-    utilityMetrics: {
-      metricCount: 0, latestPeriodLabel: null, latestElectricityReading: null,
-      latestWaterReading: null, latestElectricityConsumption: null,
-      latestWaterConsumption: null,
-    },
-    invoices: {
-      invoiceCount: 0, unpaidCount: 0, totalBalanceDue: 0, latestInvoice: null,
-    },
-  };
 }

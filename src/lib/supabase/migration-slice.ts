@@ -9,7 +9,13 @@ export function isSupabaseFoundationApiPath(pathname: string): boolean {
     || pathname === "/api/tenants"
     || /^\/api\/tenants\/[^/]+(?:\/cccd-images(?:\/[^/]+(?:\/content)?)?)?$/.test(pathname)
     || /^\/api\/rooms\/[^/]+\/(?:tenants|contracts)$/.test(pathname)
-    || /^\/api\/contracts\/[^/]+$/.test(pathname);
+    || /^\/api\/contracts\/[^/]+$/.test(pathname)
+    || /^\/api\/rooms\/[^/]+\/(?:utility-metrics|invoices(?:\/pdf)?)$/.test(pathname)
+    || /^\/api\/rooms\/[^/]+\/operations-summary$/.test(pathname)
+    || pathname === "/api/utility-pricing"
+    || /^\/api\/utility-pricing\/[^/]+$/.test(pathname)
+    || pathname === "/api/invoices"
+    || /^\/api\/invoices\/[^/]+\/payment$/.test(pathname);
 }
 
 export function isSupabaseFoundationPagePath(pathname: string): boolean {
@@ -17,5 +23,8 @@ export function isSupabaseFoundationPagePath(pathname: string): boolean {
     || pathname === "/rooms"
     || /^\/rooms\/[^/]+$/.test(pathname)
     || pathname === "/staff"
-    || pathname === "/tenants";
+    || pathname === "/tenants"
+    || pathname === "/invoices"
+    || pathname === "/utility-pricing"
+    || /^\/rooms\/[^/]+\/utilities$/.test(pathname);
 }

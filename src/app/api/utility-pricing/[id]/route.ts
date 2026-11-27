@@ -1,5 +1,5 @@
 import { validationApiError } from "@/lib/api/errors";
-import { createInsForgeUtilityPricingRepository } from "@/lib/insforge/utility-pricing-repository";
+import { createUtilityPricingRepository } from "@/lib/backend/billing-repositories";
 import { withOperationalAuth } from "@/lib/server/operational-route";
 import { deactivateUtilityPricingForOperations } from "@/lib/utility-pricing/service";
 
@@ -21,7 +21,7 @@ export const PATCH = withOperationalAuth(
       });
     }
 
-    const repository = createInsForgeUtilityPricingRepository({ timer });
+    const repository = createUtilityPricingRepository({ timer });
     return timer.measure("service", () =>
       deactivateUtilityPricingForOperations({
         repository,

@@ -1,5 +1,5 @@
 import { validationApiError, type ApiError } from "@/lib/api/errors";
-import { createInsForgeInvoiceRepository } from "@/lib/insforge/invoice-repository";
+import { createInvoiceRepository } from "@/lib/backend/billing-repositories";
 import type { InvoiceRecord } from "@/lib/insforge/types";
 import { recordInvoicePaymentForOperations } from "@/lib/invoices/service";
 import {
@@ -26,7 +26,7 @@ export const PATCH = withOperationalAuth(
       return validation.error;
     }
 
-    const repository = createInsForgeInvoiceRepository({ timer });
+    const repository = createInvoiceRepository({ timer });
     return timer.measure("service", () =>
       recordInvoicePaymentForOperations({
         repository,

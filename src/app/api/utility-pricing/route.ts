@@ -1,4 +1,4 @@
-import { createInsForgeUtilityPricingRepository } from "@/lib/insforge/utility-pricing-repository";
+import { createUtilityPricingRepository } from "@/lib/backend/billing-repositories";
 import { validateCreateUtilityPricingRequest } from "@/lib/utility-pricing/api";
 import {
   createUtilityPricingForOperations,
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export const GET = withOperationalAuth(
   { operation: "utility-pricing.list" },
   async ({ timer }) => {
-    const repository = createInsForgeUtilityPricingRepository({ timer });
+    const repository = createUtilityPricingRepository({ timer });
     return timer.measure("service", () =>
       listUtilityPricingForOperations({ repository }),
     );
@@ -33,7 +33,7 @@ export const POST = withOperationalAuth(
       return validation.error;
     }
 
-    const repository = createInsForgeUtilityPricingRepository({ timer });
+    const repository = createUtilityPricingRepository({ timer });
     return timer.measure("service", () =>
       createUtilityPricingForOperations({
         repository,

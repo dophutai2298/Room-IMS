@@ -24,12 +24,14 @@ type InsForgeServerClient = Awaited<ReturnType<typeof createInsForgeServerClient
 
 export function createInsForgeUtilityPricingRepository({
   timer,
+  clientFactory,
 }: {
   timer?: ApiTimer;
+  clientFactory?: () => Promise<InsForgeServerClient>;
 } = {}): UtilityPricingRepository {
   let clientPromise: Promise<InsForgeServerClient> | null = null;
   const getClient = () => {
-    clientPromise ??= createInsForgeServerClient({ timer });
+    clientPromise ??= clientFactory ? clientFactory() : createInsForgeServerClient({ timer });
     return clientPromise;
   };
 
@@ -38,14 +40,14 @@ export function createInsForgeUtilityPricingRepository({
       const query = () => readUtilityPricingFromInsForge({ getClient });
 
       return timer
-        ? timer.measure("repository.insforge.utility-pricing-list", query)
+        ? timer.measure(`repository.${clientFactory ? "supabase" : "insforge"}.utility-pricing-list`, query)
         : query();
     },
     async createPricing(input) {
       const query = () => createUtilityPricingInInsForge({ ...input, getClient });
 
       return timer
-        ? timer.measure("repository.insforge.utility-pricing-create", query)
+        ? timer.measure(`repository.${clientFactory ? "supabase" : "insforge"}.utility-pricing-create`, query)
         : query();
     },
     async deactivatePricing(input) {
@@ -53,7 +55,7 @@ export function createInsForgeUtilityPricingRepository({
         deactivateUtilityPricingInInsForge({ ...input, getClient });
 
       return timer
-        ? timer.measure("repository.insforge.utility-pricing-deactivate", query)
+        ? timer.measure(`repository.${clientFactory ? "supabase" : "insforge"}.utility-pricing-deactivate`, query)
         : query();
     },
   };

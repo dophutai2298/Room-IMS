@@ -1,5 +1,5 @@
 import { validationApiError, type ApiError } from "@/lib/api/errors";
-import { createInsForgeUtilityMetricsRepository } from "@/lib/insforge/utility-metrics-repository";
+import { createUtilityMetricsRepository } from "@/lib/backend/billing-repositories";
 import { withOperationalAuth } from "@/lib/server/operational-route";
 import {
   getUtilityMetricsForOperations,
@@ -20,7 +20,7 @@ export const GET = withOperationalAuth(
       return validation.error;
     }
 
-    const repository = createInsForgeUtilityMetricsRepository({ timer });
+    const repository = createUtilityMetricsRepository({ timer });
     return timer.measure("service", () =>
       getUtilityMetricsForOperations({
         repository,
@@ -47,7 +47,7 @@ export const PATCH = withOperationalAuth(
       return validation.error;
     }
 
-    const repository = createInsForgeUtilityMetricsRepository({ timer });
+    const repository = createUtilityMetricsRepository({ timer });
     return timer.measure("service", () =>
       saveUtilityMetricsForOperations({
         repository,

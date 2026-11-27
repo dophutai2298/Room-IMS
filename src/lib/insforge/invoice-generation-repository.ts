@@ -2,6 +2,7 @@ import "server-only";
 
 import type { ApiTimer } from "@/lib/api/timing";
 import { getActiveOwnerAppUserId } from "@/lib/server/operational-owner-scope";
+import { getActiveOperationalAppUser } from "@/lib/server/operational-auth-context";
 import { resolveApplicableContract } from "@/lib/contracts/billing-period";
 import {
   buildInvoiceGenerationConditionalUpdate,
@@ -31,12 +32,14 @@ type InsForgeServerClient = Awaited<
 
 export function createInsForgeInvoiceGenerationRepository({
   timer,
+  clientFactory,
 }: {
   timer?: ApiTimer;
+  clientFactory?: () => Promise<InsForgeServerClient>;
 } = {}): InvoiceGenerationRepository {
   let clientPromise: Promise<InsForgeServerClient> | null = null;
   const getClient = () => {
-    clientPromise ??= createInsForgeServerClient({ timer });
+    clientPromise ??= clientFactory ? clientFactory() : createInsForgeServerClient({ timer });
     return clientPromise;
   };
 
@@ -45,7 +48,7 @@ export function createInsForgeInvoiceGenerationRepository({
       const query = () => generateInvoiceInInsForge({ getClient, input });
 
       return timer
-        ? timer.measure("repository.insforge.invoice-generation", query)
+        ? timer.measure(`repository.${clientFactory ? "supabase" : "insforge"}.invoice-generation`, query)
         : query();
     },
   };
@@ -205,6 +208,13 @@ async function generateInvoiceInInsForge({
     };
 
     if (existingInvoice) {
+      if (getActiveOperationalAppUser()?.role !== "landlord") {
+        return appError({
+          message: "Only Landlords can update an existing Invoice.",
+          code: "STAFF_UPDATE_FORBIDDEN",
+          statusCode: 403,
+        });
+      }
       return updateInvoicePreservingConcurrentPayment({
         client,
         existingInvoice,
@@ -316,9 +326,22 @@ async function updateInvoicePreservingConcurrentPayment({
       values,
       observedInvoice,
     );
+    const mutableValues = {
+      room_fee: conditionalUpdate.values.room_fee,
+      electricity_fee: conditionalUpdate.values.electricity_fee,
+      water_fee: conditionalUpdate.values.water_fee,
+      other_fee: conditionalUpdate.values.other_fee,
+      other_fee_note: conditionalUpdate.values.other_fee_note,
+      discount_amount: conditionalUpdate.values.discount_amount,
+      discount_note: conditionalUpdate.values.discount_note,
+      total_amount: conditionalUpdate.values.total_amount,
+      amount_paid: conditionalUpdate.values.amount_paid,
+      status: conditionalUpdate.values.status,
+      updated_at: conditionalUpdate.values.updated_at,
+    };
     const updateResponse = (await client.database
       .from("invoices")
-      .update(conditionalUpdate.values)
+      .update(mutableValues)
       .eq("id", observedInvoice.id)
       .eq("owner_app_user_id", ownerAppUserId)
       .eq("amount_paid", conditionalUpdate.expectedPayment.amountPaid)

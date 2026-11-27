@@ -26,12 +26,14 @@ type InsForgeServerClient = Awaited<ReturnType<typeof createInsForgeServerClient
 
 export function createInsForgeInvoiceRepository({
   timer,
+  clientFactory,
 }: {
   timer?: ApiTimer;
+  clientFactory?: () => Promise<InsForgeServerClient>;
 } = {}): InvoiceRepository {
   let clientPromise: Promise<InsForgeServerClient> | null = null;
   const getClient = () => {
-    clientPromise ??= createInsForgeServerClient({ timer });
+    clientPromise ??= clientFactory ? clientFactory() : createInsForgeServerClient({ timer });
     return clientPromise;
   };
 
@@ -40,21 +42,21 @@ export function createInsForgeInvoiceRepository({
       const query = () => readInvoiceItemsFromInsForge({ getClient });
 
       return timer
-        ? timer.measure("repository.insforge.invoices-list", query)
+        ? timer.measure(`repository.${clientFactory ? "supabase" : "insforge"}.invoices-list`, query)
         : query();
     },
     async findInvoicePaymentTarget(invoiceId) {
       const query = () => readInvoicePaymentTargetFromInsForge({ invoiceId, getClient });
 
       return timer
-        ? timer.measure("repository.insforge.invoice-payment-read", query)
+        ? timer.measure(`repository.${clientFactory ? "supabase" : "insforge"}.invoice-payment-read`, query)
         : query();
     },
     async updateInvoicePayment(input) {
       const query = () => updateInvoicePaymentInInsForge({ ...input, getClient });
 
       return timer
-        ? timer.measure("repository.insforge.invoice-payment-write", query)
+        ? timer.measure(`repository.${clientFactory ? "supabase" : "insforge"}.invoice-payment-write`, query)
         : query();
     },
   };

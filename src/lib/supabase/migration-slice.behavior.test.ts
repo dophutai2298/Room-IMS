@@ -14,10 +14,14 @@ test("isolated Supabase deployment permits only migrated API routes", () => {
     "/api/contracts/contract-1", "/api/tenants/tenant-1/cccd-images",
     "/api/tenants/tenant-1/cccd-images/image-1",
     "/api/tenants/tenant-1/cccd-images/image-1/content",
+    "/api/rooms/room-101/utility-metrics",
+    "/api/utility-pricing", "/api/utility-pricing/price-1",
+    "/api/invoices", "/api/invoices/invoice-1/payment",
+    "/api/rooms/room-101/invoices", "/api/rooms/room-101/invoices/pdf",
+    "/api/rooms/room-101/operations-summary",
   ]) assert.equal(isSupabaseFoundationApiPath(path), true, path);
 
   for (const path of [
-    "/api/rooms/room-101/operations-summary",
     "/api/dashboard/revenue", "/api/foundation/seeded-data",
   ]) assert.equal(isSupabaseFoundationApiPath(path), false, path);
 });

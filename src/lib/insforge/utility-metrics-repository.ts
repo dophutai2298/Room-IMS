@@ -30,12 +30,14 @@ type InsForgeServerClient = Awaited<
 
 export function createInsForgeUtilityMetricsRepository({
   timer,
+  clientFactory,
 }: {
   timer?: ApiTimer;
+  clientFactory?: () => Promise<InsForgeServerClient>;
 } = {}): UtilityMetricsRepository {
   let clientPromise: Promise<InsForgeServerClient> | null = null;
   const getClient = () => {
-    clientPromise ??= createInsForgeServerClient({ timer });
+    clientPromise ??= clientFactory ? clientFactory() : createInsForgeServerClient({ timer });
     return clientPromise;
   };
 
@@ -45,14 +47,14 @@ export function createInsForgeUtilityMetricsRepository({
         readUtilityMetricsScreenFromInsForge({ ...input, getClient });
 
       return timer
-        ? timer.measure("repository.insforge.utility-metrics-read", query)
+        ? timer.measure(`repository.${clientFactory ? "supabase" : "insforge"}.utility-metrics-read`, query)
         : query();
     },
     saveUtilityMetrics(input) {
       const query = () => saveUtilityMetricsToInsForge({ ...input, getClient });
 
       return timer
-        ? timer.measure("repository.insforge.utility-metrics-write", query)
+        ? timer.measure(`repository.${clientFactory ? "supabase" : "insforge"}.utility-metrics-write`, query)
         : query();
     },
   };
@@ -225,10 +227,17 @@ async function saveUtilityMetricsToInsForge({
       updated_at: new Date().toISOString(),
     };
 
+    const mutableValues = {
+      electricity_old: values.electricity_old,
+      electricity_new: values.electricity_new,
+      water_old: values.water_old,
+      water_new: values.water_new,
+      updated_at: values.updated_at,
+    };
     const response = baseline.currentMetric
       ? ((await client.database
           .from("utility_metrics")
-          .update(values)
+          .update(mutableValues)
           .eq("id", baseline.currentMetric.id)
           .eq("owner_app_user_id", ownerAppUserId)
           .select(utilityMetricSelect)) as QueryResponse<UtilityMetricRecord[]>)
@@ -354,7 +363,13 @@ async function updateUtilityMetricAfterInsertRace({
 
   const updateResponse = (await client.database
     .from("utility_metrics")
-    .update(values)
+    .update({
+      electricity_old: values.electricity_old,
+      electricity_new: values.electricity_new,
+      water_old: values.water_old,
+      water_new: values.water_new,
+      updated_at: values.updated_at,
+    })
     .eq("id", existingMetric.id)
     .eq("owner_app_user_id", ownerAppUserId)
     .select(utilityMetricSelect)

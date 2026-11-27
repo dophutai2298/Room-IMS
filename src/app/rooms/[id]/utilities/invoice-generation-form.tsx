@@ -61,7 +61,7 @@ export function InvoiceGenerationForm({ view }: { view: UtilityMetricsView }) {
           ? { ...current, invoiceOtherFeeDefaults: savedOtherFeeDefaults }
           : current,
       );
-      setDiscountAmount(String(invoice.discount_amount));
+      setDiscountAmount(String(invoice.discount_amount ?? 0));
       setDiscountNote(invoice.discount_note ?? "");
       const text = `Đã tạo/cập nhật hóa đơn kỳ ${view.periodLabel}.`;
       setMessage({ status: "success", text });

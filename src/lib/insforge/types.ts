@@ -98,7 +98,7 @@ export type InvoiceRecord = {
   water_fee: number;
   other_fee: number;
   other_fee_note: string | null;
-  discount_amount: number;
+  discount_amount: number | null;
   discount_note: string | null;
   total_amount: number;
   amount_paid: number;

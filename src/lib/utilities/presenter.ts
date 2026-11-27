@@ -145,7 +145,7 @@ export function buildUtilityMetricsView({
         amountPaid: toNumber(currentInvoice.amount_paid),
         otherFee: toNumber(currentInvoice.other_fee),
         otherFeeNote: normalizeOptionalText(currentInvoice.other_fee_note),
-        discountAmount: toNumber(currentInvoice.discount_amount),
+        discountAmount: toNumber(currentInvoice.discount_amount ?? 0),
         discountNote: normalizeOptionalText(currentInvoice.discount_note),
       }
     : null;
