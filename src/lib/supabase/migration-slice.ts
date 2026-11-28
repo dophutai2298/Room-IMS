@@ -15,11 +15,12 @@ export function isSupabaseFoundationApiPath(pathname: string): boolean {
     || pathname === "/api/utility-pricing"
     || /^\/api\/utility-pricing\/[^/]+$/.test(pathname)
     || pathname === "/api/invoices"
-    || /^\/api\/invoices\/[^/]+\/payment$/.test(pathname);
+    || /^\/api\/invoices\/[^/]+\/payment$/.test(pathname)
+    || /^\/api\/dashboard\/(operations-summary|revenue|missing-utility-metrics|unpaid-invoices)$/.test(pathname);
 }
 
 export function isSupabaseFoundationPagePath(pathname: string): boolean {
-  return pathname === "/sign-in"
+  return pathname === "/" || pathname === "/sign-in"
     || pathname === "/rooms"
     || /^\/rooms\/[^/]+$/.test(pathname)
     || pathname === "/staff"

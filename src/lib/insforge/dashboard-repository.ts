@@ -34,14 +34,17 @@ type QueryResponse<T> = {
 
 export function createInsForgeDashboardRepository({
   timer,
+  clientFactory,
 }: {
   timer?: ApiTimer;
+  clientFactory?: () => Promise<InsForgeServerClient>;
 } = {}): DashboardRepository {
   let clientPromise: Promise<InsForgeServerClient> | null = null;
   const getClient = () => {
-    clientPromise ??= createInsForgeServerClient({ timer });
+    clientPromise ??= clientFactory ? clientFactory() : createInsForgeServerClient({ timer });
     return clientPromise;
   };
+  const provider = clientFactory ? "supabase" : "insforge";
   return {
     async readOperationsSummary(billingPeriod) {
       const query = () =>
@@ -51,7 +54,7 @@ export function createInsForgeDashboardRepository({
         });
 
       return timer
-        ? timer.measure("repository.insforge.dashboard-operations-summary", query)
+        ? timer.measure(`repository.${provider}.dashboard-operations-summary`, query)
         : query();
     },
     async readRevenueSummary(billingPeriod, chartRange) {
@@ -63,7 +66,7 @@ export function createInsForgeDashboardRepository({
         });
 
       return timer
-        ? timer.measure("repository.insforge.dashboard-revenue", query)
+        ? timer.measure(`repository.${provider}.dashboard-revenue`, query)
         : query();
     },
     async readMissingUtilityMetrics(billingPeriod) {
@@ -74,14 +77,14 @@ export function createInsForgeDashboardRepository({
         });
 
       return timer
-        ? timer.measure("repository.insforge.dashboard-missing-utility-metrics", query)
+        ? timer.measure(`repository.${provider}.dashboard-missing-utility-metrics`, query)
         : query();
     },
     async readUnpaidInvoices(billingPeriod) {
       const query = () => readUnpaidInvoicesFromInsForge({ getClient, billingPeriod });
 
       return timer
-        ? timer.measure("repository.insforge.dashboard-unpaid-invoices", query)
+        ? timer.measure(`repository.${provider}.dashboard-unpaid-invoices`, query)
         : query();
     },
   };
