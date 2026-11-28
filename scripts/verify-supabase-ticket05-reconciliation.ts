@@ -18,6 +18,25 @@ const digest = (bytes: string | Uint8Array) => createHash("sha256").update(bytes
 const sorted = (values: string[]) => [...values].sort();
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 function assert(value: unknown, message: string): asserts value { if (!value) throw new Error(message); }
+function assertSameIds(actual: string[], expected: string[], message: string) {
+  assert(same(sorted(actual), sorted(expected)), message);
+}
+const decimalFields = new Set(["floor", "base_price", "deposit_amount", "rent_amount", "electricity_price_override",
+  "water_price_override", "electricity_old", "electricity_new", "water_old", "water_new",
+  "electricity_unit_price", "water_unit_price", "room_fee", "electricity_fee", "water_fee",
+  "other_fee", "discount_amount", "total_amount", "amount_paid"]);
+const dateFields = new Set(["start_date", "end_date", "effective_from"]);
+const fieldsToReconcile: Partial<Record<(typeof tables)[number], string[]>> = {
+  app_users: ["email", "display_name", "role", "status", "owner_app_user_id"],
+  rooms: ["name", "floor", "status", "base_price", "owner_app_user_id"],
+  tenants: ["room_id", "full_name", "phone", "status", "owner_app_user_id"],
+  contracts: ["room_id", "key_tenant_id", "deposit_amount", "rent_amount", "electricity_price_override",
+    "water_price_override", "start_date", "end_date", "status", "owner_app_user_id"],
+  utility_metrics: ["room_id", "month", "year", "electricity_old", "electricity_new", "water_old", "water_new", "owner_app_user_id"],
+  utility_pricing: ["effective_from", "electricity_unit_price", "water_unit_price", "is_active", "owner_app_user_id"],
+  invoices: ["room_id", "month", "year", "room_fee", "electricity_fee", "water_fee", "other_fee", "other_fee_note",
+    "discount_amount", "discount_note", "total_amount", "amount_paid", "status", "owner_app_user_id"],
+};
 function cents(value: unknown): bigint {
   const match = String(value).match(/^(-?)(\d+)(?:\.(\d{1,2}))?$/);
   assert(match, "Invalid decimal amount in financial reconciliation");
@@ -26,6 +45,17 @@ function cents(value: unknown): bigint {
 function generatedLegacyId(value: string) {
   const hex = digest(value).slice(0, 32);
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20)}`;
+}
+function dateOnly(value: unknown) {
+  if (value instanceof Date) return [value.getFullYear(), String(value.getMonth() + 1).padStart(2, "0"),
+    String(value.getDate()).padStart(2, "0")].join("-");
+  return String(value).slice(0, 10);
+}
+function sameField(field: string, source: unknown, target: unknown) {
+  if (source === null || target === null) return source === target;
+  if (decimalFields.has(field)) return cents(source) === cents(target);
+  if (dateFields.has(field)) return dateOnly(source) === dateOnly(target);
+  return source === target;
 }
 function ownerCounts(rows: Row[]) {
   const counts = new Map<string, number>();
@@ -57,12 +87,32 @@ async function main() {
   for (const table of tables) {
     const rows = await json<Row[]>(`rows/${table}.json`);
     const entry = manifest.tables[table];
-    assert(entry && entry.count === rows.length && same(sorted(rows.map((row) => row.id)), sorted(entry.ids))
-      && digest(JSON.stringify(rows)) === entry.sha256, `${table} source manifest mismatch`);
+    assert(entry && entry.count === rows.length && digest(JSON.stringify(rows)) === entry.sha256,
+      `${table} source manifest checksum/count mismatch`);
+    assertSameIds(rows.map((row) => row.id), entry.ids, `${table} source manifest ID set differs`);
     source[table] = rows;
   }
   const sourceAuth = await json<Array<{ id: string }>>("auth-users.json");
-  assert(same(sorted(sourceAuth.map((item) => item.id)), sorted(manifest.auth.ids)), "Source Auth manifest mismatch");
+  assertSameIds(sourceAuth.map((item) => item.id), manifest.auth.ids, "Source Auth manifest mismatch");
+  const expectedImages = [
+    ...source.tenant_cccd_images.map((image) => {
+      const object = manifest.objects.find((item) => item.key === image.storage_key);
+      assert(object && object.tenantId === image.tenant_id && object.ownerAppUserId === image.owner_app_user_id,
+        "Source CCCD object mapping missing");
+      return { id: image.id, owner_app_user_id: image.owner_app_user_id,
+        key: `${image.owner_app_user_id}/${image.tenant_id}/${image.id}`,
+        sha256: object.sha256, size: object.size };
+    }),
+    ...manifest.legacyAssets.map((asset) => {
+      const tenant = source.tenants.find((item) => item.id === asset.tenantId);
+      assert(tenant && tenant.owner_app_user_id === asset.ownerAppUserId && tenant[asset.field],
+        "Source legacy CCCD mapping missing");
+      const id = generatedLegacyId(`${asset.tenantId}/${asset.field}`);
+      return { id, owner_app_user_id: asset.ownerAppUserId!,
+        key: `${asset.ownerAppUserId}/${asset.tenantId}/${id}`,
+        sha256: asset.sha256, size: asset.size };
+    }),
+  ];
 
   const db = new pg.Client({ connectionString: databaseUrl,
     ssl: { ca: await readFile(path.join(process.cwd(), "supabase/certs/prod-ca-2021.crt"), "utf8"), rejectUnauthorized: true },
@@ -75,9 +125,20 @@ async function main() {
     for (const table of tables) {
       const response = await db.query<Row>(`select * from public.${table}`);
       target[table] = response.rows;
-      assert(same(sorted(response.rows.map((row) => row.id)), sorted(source[table].map((row) => row.id))),
+      const expectedRows = table === "tenant_cccd_images"
+        ? expectedImages.map((image) => ({ id: image.id, owner_app_user_id: image.owner_app_user_id }))
+        : source[table];
+      assertSameIds(response.rows.map((row) => row.id), expectedRows.map((row) => row.id),
         `${table} target ID set differs (missing or extra rows)`);
-      assert(same(ownerCounts(response.rows), ownerCounts(source[table])), `${table} owner counts differ`);
+      assert(same(ownerCounts(response.rows), ownerCounts(expectedRows)), `${table} owner counts differ`);
+      if (table !== "tenant_cccd_images") {
+        const targetById = new Map(response.rows.map((row) => [row.id, row]));
+        for (const row of source[table]) {
+          const actual = targetById.get(row.id)!;
+          for (const field of fieldsToReconcile[table] ?? [])
+            assert(sameField(field, row[field], actual[field]), `${table} reconciliation differs on ${field}`);
+        }
+      }
     }
     const mappingResult = await db.query<{ source_auth_user_id: string; target_auth_user_id: string; app_user_id: string }>(
       "select source_auth_user_id,target_auth_user_id,app_user_id from public.migration_identity_map");
@@ -110,31 +171,14 @@ async function main() {
   assert(same(financialGroups(target.invoices), financialGroups(source.invoices)),
     "Invoice owner/Room/period billed, paid or outstanding amounts differ");
 
-  assert(same(sorted(mappings.map((item) => item.source_auth_user_id)), sorted(sourceAuth.map((item) => item.id))),
+  assertSameIds(mappings.map((item) => item.source_auth_user_id), sourceAuth.map((item) => item.id),
     "Auth identity-map source ID set differs");
-  assert(same(sorted(mappings.map((item) => item.app_user_id)), sorted(source.app_users.map((item) => item.id))),
+  assertSameIds(mappings.map((item) => item.app_user_id), source.app_users.map((item) => item.id),
     "Auth identity-map application ID set differs");
   for (const mapping of mappings) assert(users.get(mapping.app_user_id)?.auth_user_id === mapping.target_auth_user_id,
     "Auth identity-map target ID differs");
 
-  const expectedImages = [
-    ...source.tenant_cccd_images.map((image) => {
-      const object = manifest.objects.find((item) => item.key === image.storage_key);
-      assert(object && object.tenantId === image.tenant_id && object.ownerAppUserId === image.owner_app_user_id,
-        "Source CCCD object mapping missing");
-      return { id: image.id, key: `${image.owner_app_user_id}/${image.tenant_id}/${image.id}`,
-        sha256: object.sha256, size: object.size };
-    }),
-    ...manifest.legacyAssets.map((asset) => {
-      const tenant = source.tenants.find((item) => item.id === asset.tenantId);
-      assert(tenant && tenant.owner_app_user_id === asset.ownerAppUserId && tenant[asset.field],
-        "Source legacy CCCD mapping missing");
-      const id = generatedLegacyId(`${asset.tenantId}/${asset.field}`);
-      return { id, key: `${asset.ownerAppUserId}/${asset.tenantId}/${id}`,
-        sha256: asset.sha256, size: asset.size };
-    }),
-  ];
-  assert(same(sorted(target.tenant_cccd_images.map((image) => image.id)), sorted(expectedImages.map((image) => image.id))),
+  assertSameIds(target.tenant_cccd_images.map((image) => image.id), expectedImages.map((image) => image.id),
     "Target CCCD metadata IDs differ from linked source files");
   const storage = createClient(url, secret, { auth: { persistSession: false, autoRefreshToken: false } }).storage.from("tenant-cccd-private");
   const targetImages = byId("tenant_cccd_images");
@@ -151,7 +195,9 @@ async function main() {
   console.log(JSON.stringify({ projectRef, result: "reconciled", counts: Object.fromEntries(tables.map((table) => [table, target[table].length])),
     ownerCount: target.app_users.filter((user) => user.role === "landlord").length,
     identityMappings: mappings.length, financialGroups: financialGroups(target.invoices).length,
-    linkedImageBytes: expectedImages.length, excludedUnlinkedSourceObjects: manifest.objects.length - source.tenant_cccd_images.length }));
+    linkedImageBytes: expectedImages.length,
+    excludedUnlinkedSourceObjects: manifest.objects.filter((object) =>
+      !source.tenant_cccd_images.some((image) => image.storage_key === object.key)).length }));
 }
 
 void main().catch((error) => {
