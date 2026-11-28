@@ -14,6 +14,7 @@ const migrationFiles = [
   "202611270001_tenants_contracts_storage.sql",
   "202611270002_billing.sql",
   "202611270003_legacy_invoice_discount_null.sql",
+  "202611270004_immutable_historical_pricing.sql",
 ] as const;
 
 const publicUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

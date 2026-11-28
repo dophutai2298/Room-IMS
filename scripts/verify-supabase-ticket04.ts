@@ -28,7 +28,8 @@ async function main() {
     const [owner, other] = users.rows;
     const room = await db.query<{ id: string }>("select id from public.rooms where owner_app_user_id=$1 limit 1", [owner.id]);
     const invoice = await db.query<{ id: string }>("select id from public.invoices where owner_app_user_id=$1 limit 1", [owner.id]);
-    assert(room.rows[0] && invoice.rows[0], "Expected imported Room and Invoice");
+    const pricing = await db.query<{ id: string }>("select id from public.utility_pricing where owner_app_user_id=$1 limit 1", [owner.id]);
+    assert(room.rows[0] && invoice.rows[0] && pricing.rows[0], "Expected imported Room, Pricing and Invoice");
     await db.query("update public.app_users set credential_ready=true where id=any($1::uuid[])", [[owner.id, other.id]]);
     await db.query("set local role authenticated");
     for (const [self, foreign] of [[owner, other], [other, owner]]) {
@@ -40,6 +41,16 @@ async function main() {
         assert(foreignRead.rows.length === 0, `${table} cross-owner read permitted`);
       }
     }
+    await db.query("select set_config('request.jwt.claim.sub',$1,true)", [owner.auth_user_id]);
+    await db.query("savepoint historical_price_denied");
+    let historicalPriceDenied = false;
+    try {
+      await db.query("update public.utility_pricing set electricity_unit_price=electricity_unit_price+1 where id=$1", [pricing.rows[0].id]);
+    } catch (error) {
+      historicalPriceDenied = typeof error === "object" && error !== null && "code" in error && error.code === "42501";
+    }
+    await db.query("rollback to savepoint historical_price_denied");
+    assert(historicalPriceDenied, "Landlord can rewrite historical unit prices directly");
     await db.query("select set_config('request.jwt.claim.sub','',true)");
     for (const table of ["utility_metrics", "utility_pricing", "invoices"]) {
       const anonymous = await db.query(`select id from public.${table}`);
@@ -72,7 +83,7 @@ async function main() {
     }
     await db.query("rollback to savepoint pricing_denied");
     assert(pricingDenied, "Staff created Utility Pricing");
-    console.log(JSON.stringify({ projectRef, ownerIsolation: "pass", staffCreateOnly: "pass", mode: "transaction-rolled-back" }));
+    console.log(JSON.stringify({ projectRef, ownerIsolation: "pass", staffCreateOnly: "pass", historicalPricingImmutable: "pass", mode: "transaction-rolled-back" }));
   } finally { await db.query("rollback"); }
 }
 

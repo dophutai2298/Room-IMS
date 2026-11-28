@@ -12,7 +12,7 @@ const fields: Record<(typeof tables)[number], readonly string[]> = {
   utility_pricing: ["id", "effective_from", "electricity_unit_price", "water_unit_price", "is_active", "owner_app_user_id", "created_at", "updated_at"],
   invoices: ["id", "room_id", "month", "year", "room_fee", "electricity_fee", "water_fee", "other_fee", "other_fee_note", "discount_amount", "discount_note", "total_amount", "amount_paid", "status", "owner_app_user_id", "created_at", "updated_at"],
 };
-const moneyFields = new Set(["electricity_old", "electricity_new", "water_old", "water_new", "electricity_unit_price", "water_unit_price", "room_fee", "electricity_fee", "water_fee", "other_fee", "discount_amount", "total_amount", "amount_paid"]);
+const decimalFields = new Set(["electricity_old", "electricity_new", "water_old", "water_new", "electricity_unit_price", "water_unit_price", "room_fee", "electricity_fee", "water_fee", "other_fee", "discount_amount", "total_amount", "amount_paid"]);
 const timestampFields = new Set(["created_at", "updated_at"]);
 const digest = (text: string) => createHash("sha256").update(text).digest("hex");
 function assert(value: unknown, message: string): asserts value { if (!value) throw new Error(message); }
@@ -29,7 +29,7 @@ function cents(value: unknown): bigint {
 
 function equivalent(field: string, source: unknown, target: unknown): boolean {
   if (source === null || target === null) return source === target;
-  if (moneyFields.has(field)) return cents(source) === cents(target);
+  if (decimalFields.has(field)) return cents(source) === cents(target);
   if (timestampFields.has(field)) return Date.parse(String(source)) === Date.parse(String(target));
   return source === target;
 }
@@ -83,10 +83,21 @@ async function main() {
   const key = process.env.SUPABASE_SECRET_KEY;
   assert(key, "SUPABASE_SECRET_KEY is required");
   const admin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
-  const prerequisites = await Promise.all([admin.from("rooms").select("id,owner_app_user_id"), admin.from("contracts").select("id,room_id,owner_app_user_id")]);
-  assert(prerequisites.every((r) => !r.error && r.data), "Target Room/Contract prerequisites unavailable");
-  assert(rooms.every((room) => prerequisites[0].data!.some((r) => r.id === room.id && r.owner_app_user_id === room.owner_app_user_id)), "Target Room ID/owner mismatch");
-  assert(contracts.every((contract) => prerequisites[1].data!.some((r) => r.id === contract.id && r.room_id === contract.room_id && r.owner_app_user_id === contract.owner_app_user_id)), "Target Contract ID/owner mismatch");
+  async function readAll(table: string, columns = "*"): Promise<Row[]> {
+    const pageSize = 500;
+    const rows: Row[] = [];
+    for (let offset = 0; ; offset += pageSize) {
+      const page = await admin.from(table).select(columns).order("id").range(offset, offset + pageSize - 1);
+      assert(!page.error && page.data, `${table} paged read failed`);
+      rows.push(...page.data as unknown as Row[]);
+      if (page.data.length < pageSize) return rows;
+    }
+  }
+  const [targetRooms, targetContracts] = await Promise.all([
+    readAll("rooms", "id,owner_app_user_id"), readAll("contracts", "id,room_id,owner_app_user_id"),
+  ]);
+  assert(rooms.every((room) => targetRooms.some((r) => r.id === room.id && r.owner_app_user_id === room.owner_app_user_id)), "Target Room ID/owner mismatch");
+  assert(contracts.every((contract) => targetContracts.some((r) => r.id === contract.id && r.room_id === contract.room_id && r.owner_app_user_id === contract.owner_app_user_id)), "Target Contract ID/owner mismatch");
   if (mode === "--dry-run") { console.log(JSON.stringify({ ...report, targetReady: true })); return; }
 
   for (const table of tables) {
@@ -100,10 +111,9 @@ async function main() {
         assert(!inserted.error, `${table} historical insert failed (${inserted.error?.code ?? "unknown"}, ${inserted.error?.message?.match(/column "[a-z_]+"|constraint "[a-z_]+"/)?.[0] ?? "no safe detail"})`);
       }
     }
-    const target = await admin.from(table).select("*").range(0, 999);
-    assert(!target.error && target.data, `${table} reconciliation query failed`);
-    assert(same(ids(target.data as Row[]), ids(source[table])), `${table} target ID set differs from snapshot`);
-    const byId = new Map((target.data as Row[]).map((row) => [row.id, row]));
+    const target = await readAll(table);
+    assert(same(ids(target), ids(source[table])), `${table} target ID set differs from snapshot`);
+    const byId = new Map(target.map((row) => [row.id, row]));
     for (const row of source[table]) {
       const actual = byId.get(row.id)!;
       for (const field of fields[table]) assert(equivalent(field, row[field], actual[field]), `${table} reconciliation differs on ${field}`);
@@ -114,10 +124,10 @@ async function main() {
     acc[key] = [cents(row.total_amount), cents(row.amount_paid), cents(row.total_amount) - cents(row.amount_paid)].map(String);
     return acc;
   }, {} as Record<string, string[]>);
-  const targetInvoices = await admin.from("invoices").select("*").range(0, 999);
+  const targetInvoices = await readAll("invoices");
   const sourceFinancial = financial(source.invoices);
-  const targetFinancial = financial((targetInvoices.data ?? []) as Row[]);
-  assert(!targetInvoices.error && same(Object.keys(sourceFinancial).sort(), Object.keys(targetFinancial).sort())
+  const targetFinancial = financial(targetInvoices);
+  assert(same(Object.keys(sourceFinancial).sort(), Object.keys(targetFinancial).sort())
     && Object.keys(sourceFinancial).every((key) => same(sourceFinancial[key], targetFinancial[key])), "Invoice owner/Room/period financial totals differ");
   console.log(JSON.stringify({ ...report, reconciled: true, financialGroups: Object.keys(financial(source.invoices)).length }));
 }

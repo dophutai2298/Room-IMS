@@ -227,13 +227,7 @@ async function saveUtilityMetricsToInsForge({
       updated_at: new Date().toISOString(),
     };
 
-    const mutableValues = {
-      electricity_old: values.electricity_old,
-      electricity_new: values.electricity_new,
-      water_old: values.water_old,
-      water_new: values.water_new,
-      updated_at: values.updated_at,
-    };
+    const mutableValues = mutableUtilityMetricValues(values);
     const response = baseline.currentMetric
       ? ((await client.database
           .from("utility_metrics")
@@ -363,13 +357,7 @@ async function updateUtilityMetricAfterInsertRace({
 
   const updateResponse = (await client.database
     .from("utility_metrics")
-    .update({
-      electricity_old: values.electricity_old,
-      electricity_new: values.electricity_new,
-      water_old: values.water_old,
-      water_new: values.water_new,
-      updated_at: values.updated_at,
-    })
+    .update(mutableUtilityMetricValues(values))
     .eq("id", existingMetric.id)
     .eq("owner_app_user_id", ownerAppUserId)
     .select(utilityMetricSelect)
@@ -464,6 +452,17 @@ async function readRelevantUtilityMetrics({
       (metric): metric is UtilityMetricRecord => Boolean(metric),
     ),
     error: null,
+  };
+}
+
+function mutableUtilityMetricValues(values: Pick<UtilityMetricRecord,
+  "electricity_old" | "electricity_new" | "water_old" | "water_new"> & { updated_at: string }) {
+  return {
+    electricity_old: values.electricity_old,
+    electricity_new: values.electricity_new,
+    water_old: values.water_old,
+    water_new: values.water_new,
+    updated_at: values.updated_at,
   };
 }
 

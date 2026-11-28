@@ -67,6 +67,8 @@ async function main() {
       assert(price.status === 200 && price.body.ok, `Pricing API failed (${price.body.error?.code ?? price.status})`);
       pricingIds.push(String(price.body.data?.id));
     }
+    const duplicatePrice = await api("/api/utility-pricing", landlord, "POST", { effectiveFrom: "2026-10-01", electricityUnitPrice: 9999, waterUnitPrice: 9999 });
+    assert(duplicatePrice.status === 409, `Duplicate pricing date was not reported as conflict (${duplicatePrice.body.error?.code ?? duplicatePrice.status})`);
     const priceList = await api("/api/utility-pricing", staff);
     assert(priceList.status === 200 && priceList.body.ok, "Staff pricing read failed");
     const staffPrice = await api("/api/utility-pricing", staff, "POST", { effectiveFrom: "2026-11-01", electricityUnitPrice: 1, waterUnitPrice: 1 });
@@ -110,7 +112,7 @@ async function main() {
     assert(foreignPdf.status === 404, "Cross-owner PDF export was allowed");
     const staffPayment = await api(`/api/invoices/${invoiceId}/payment`, staff, "PATCH", { status: "Paid", amountPaid: 2_823_500 });
     assert(staffPayment.status === 403, "Staff payment update was allowed");
-    successReport = { projectRef, api: "pass", pricingHistory: "pass", contractOverride: "pass", discount62500: "pass", payment: "pass", carryForward: "pass", pdf: "pass", crossOwner: "pass", staff: "pass" };
+    successReport = { projectRef, api: "pass", pricingHistory: "pass", duplicatePricingConflict: "pass", contractOverride: "pass", discount62500: "pass", payment: "pass", carryForward: "pass", pdf: "pass", crossOwner: "pass", staff: "pass" };
   } catch (error) { primaryError = error; }
   finally {
     for (const [table, ids] of [["invoices", invoiceIds], ["utility_metrics", metricIds], ["utility_pricing", pricingIds]] as const)

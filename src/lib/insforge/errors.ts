@@ -92,7 +92,7 @@ function isPostgrestLikeError(
   );
 }
 
-function readStatusCode(error: { status?: unknown; statusCode?: unknown }) {
+function readStatusCode(error: { status?: unknown; statusCode?: unknown; code?: unknown }) {
   if (typeof error.statusCode === "number") {
     return error.statusCode;
   }
@@ -100,6 +100,13 @@ function readStatusCode(error: { status?: unknown; statusCode?: unknown }) {
   if (typeof error.status === "number") {
     return error.status;
   }
+
+  // PostgREST returns SQLSTATE but not an HTTP status on the error object.
+  // Keep expected constraint/permission failures out of the generic 500 path.
+  const code = String(error.code ?? "");
+  if (code === "23505" || code === "23503") return 409;
+  if (code === "23514" || code === "23502" || code === "22P02") return 422;
+  if (code === "42501") return 403;
 
   return undefined;
 }
